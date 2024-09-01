@@ -1,3 +1,19 @@
 import { Routes } from '@angular/router';
 
-export const routes: Routes = [];
+export const routes: Routes = [
+    {
+        path: 'login',
+        loadComponent: () => import('./login/login.component').then(m => m.default),
+    },
+    {
+        path: 'home',
+        // As we marked the HomeComponent as default, we can use the default import
+        // or remove the default keyword and use the named import
+        loadComponent: () => import('./home/home.component').then(m => m.default),
+    },
+    {
+        path: '',
+        redirectTo: 'home',
+        pathMatch: 'full',
+    }
+];

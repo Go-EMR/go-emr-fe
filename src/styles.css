@@ -21,3 +21,34 @@
     content: "🌚";
     transform: translateX(2.3rem);
 }
+
+
+/* For larger screens */
+@media (min-width: 768px) {
+    .login-container {
+        width: 400px;
+        padding: 30px;
+    }
+
+    .login-header h1, .heading-logo h1 {
+        font-size: 28px;
+    }
+
+    .login-header h2, .heading-logo h2 {
+        font-size: 24px;
+    }
+
+    .login-header p, .heading-logo p {
+        font-size: 16px;
+    }
+
+    .login-form input {
+        padding: 12px;
+        font-size: 16px;
+    }
+
+    .login-form button {
+        padding: 12px;
+        font-size: 18px;
+    }
+}

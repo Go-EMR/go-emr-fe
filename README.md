@@ -98,9 +98,6 @@
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Choose the option `Use this template` for your new project as a boilerplate for it.
-
-![Use This Template](./assets/use-this-template.png)
 
 _For more information, please refer to the [Documentation](https://sarvsav.github.io/go-emr-fe/)_
 
@@ -164,6 +161,7 @@ By adding yourself to the [ADOPTERS.md](./ADOPTERS.md) file, you help increase t
 ## Acknowledgments
 
 - [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+- [Dark Light Theme](https://medium.com/@mathieu.schnoor/light-dark-theme-switcher-in-angular-with-primeng-dad1c1d4a067)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
