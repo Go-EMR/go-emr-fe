@@ -20,7 +20,7 @@ import { Login } from "../../shared/interfaces/login";
                 <input id="email1" type="text" formControlName="username" placeholder="Username" pInputText class="w-full md:w-30rem mb-5" style="padding:1rem">
 
                 <label for="password1" class="block text-900 font-medium text-xl mb-2">Password</label>
-                <input type="password" formControlName="password" placeholder="Password" styleClass="mb-5" inputStyleClass="w-full p-3 md:w-30rem">
+                <input type="password" formControlName="password" placeholder="Password" pInputText class="w-full md:w-30rem mb-5" style="padding:1rem">
 
                 <div class="flex align-items-center justify-content-between mb-5 gap-5">
                     <div class="flex align-items-center">
