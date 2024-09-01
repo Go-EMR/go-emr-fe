@@ -15,5 +15,13 @@ export const routes: Routes = [
         path: '',
         redirectTo: 'home',
         pathMatch: 'full',
-    }
+    },
+    {
+        path: 'notfound',
+        loadComponent: () => import('./not-found/not-found.component').then(m => m.default),
+    },
+    {
+        path: '**',
+        redirectTo: '/notfound'
+    },
 ];
