@@ -1,6 +1,7 @@
 import { Component, inject, output } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { Login } from "../../shared/interfaces/login";
+import { ButtonModule } from 'primeng/button';
 
 @Component({
     standalone: true,
@@ -9,8 +10,8 @@ import { Login } from "../../shared/interfaces/login";
 <div style="border-radius:56px; padding:0.3rem; background: linear-gradient(180deg, var(--primary-color) 10%, rgba(33, 150, 243, 0) 30%);">
     <div class="w-full surface-card py-8 px-5 sm:px-8" style="border-radius:53px">
         <div class="text-center mb-5">
-            <img src="assets/demo/images/login/avatar.png" alt="Image" height="50" class="mb-3">
-            <div class="text-900 text-3xl font-medium mb-3">Welcome, Isabel!</div>
+            <img src="assets/login/avatar-default.png" alt="Image" height="80" width="80" class="mb-3" style="border-radius: 50%;">
+            <div class="text-900 text-3xl font-medium mb-3">Welcome, Albee!</div>
             <span class="text-600 font-medium">Sign in to continue</span>
         </div>
 
@@ -29,12 +30,12 @@ import { Login } from "../../shared/interfaces/login";
                     </div>
                     <a class="font-medium no-underline ml-2 text-right cursor-pointer" style="color: var(--primary-color)">Forgot password?</a>
                 </div>
-                <button [disabled]="!loginForm.valid" type="submit" pButton pRipple label="Sign In" class="w-full p-3 text-xl">Login</button>
+                <button [disabled]="!loginForm.valid" type="submit" pButton pRipple label="Sign In" class="w-full p-3 text-xl"></button>
             </form>
             <p class="signup-text">Don't have an account? <a href="#">Sign Up</a></p>
         </div>
     `,
-    imports: [ReactiveFormsModule],
+    imports: [ReactiveFormsModule, ButtonModule],
     styles: []
 })
 export class LoginFormComponent {

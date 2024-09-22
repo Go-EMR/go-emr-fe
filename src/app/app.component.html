@@ -1,15 +1,5 @@
-<div class="border-1 border-300 border-round p-3 surface-100 shadow-2">
-  <div class="text-xl mb-3">
-    @if (isDarkMode) {
-      Dark 🌚
-    } @else {
-      Light 🌞
-    }
-  </div>
-  <p-inputSwitch
-    styleClass="pimped"
-    [ngModel]="isDarkMode"
-    (ngModelChange)="toggleLightDark()"
-  />
+<app-header></app-header>
+<div style="padding-top: 5rem;">
+  <router-outlet></router-outlet>
 </div>
-<router-outlet></router-outlet>
+<app-footer></app-footer>
