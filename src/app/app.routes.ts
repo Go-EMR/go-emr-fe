@@ -25,6 +25,14 @@ export const routes: Routes = [
         loadComponent: () => import('./not-found/not-found.component').then(m => m.default),
     },
     {
+        path: 'patientlist',
+        loadComponent: () => import('./patientlist/patientlist.component').then(m => m.default),
+    },
+    {
+        path: 'patientdetails',
+        loadComponent: () => import('./patientdetails/patientdetails.component').then(m => m.default),
+    },
+    {
         path: '**',
         redirectTo: '/notfound'
     },
