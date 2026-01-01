@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ReportsService } from '../data-access/services/reports.service';
 
 interface DashboardWidget {
@@ -126,7 +127,7 @@ interface TableData {
       <div class="quick-stats">
         @for (stat of quickStats(); track stat.label) {
           <div class="quick-stat" [class]="'stat-' + stat.color">
-            <div class="stat-icon" [innerHTML]="stat.icon"></div>
+            <div class="stat-icon" [innerHTML]="sanitizeHtml(stat.icon ?? '')"></div>
             <div class="stat-content">
               <span class="stat-value">{{ formatValue(stat.value, stat.format) }}</span>
               <span class="stat-label">{{ stat.label }}</span>
@@ -439,7 +440,7 @@ interface TableData {
                           <li class="list-item" [class]="item.status">
                             <div class="item-main">
                               @if (item.icon) {
-                                <span class="item-icon" [innerHTML]="item.icon"></span>
+                                <span class="item-icon" [innerHTML]="sanitizeHtml(item.icon)"></span>
                               }
                               <div class="item-content">
                                 <span class="item-title">{{ item.title }}</span>
@@ -487,7 +488,7 @@ interface TableData {
                 <div class="template-grid">
                   @for (template of metricTemplates; track template.id) {
                     <button class="template-card" (click)="addWidget(template)">
-                      <div class="template-icon" [innerHTML]="template.icon"></div>
+                      <div class="template-icon" [innerHTML]="sanitizeHtml(template.icon)"></div>
                       <span class="template-name">{{ template.name }}</span>
                     </button>
                   }
@@ -497,7 +498,7 @@ interface TableData {
                 <div class="template-grid">
                   @for (template of chartTemplates; track template.id) {
                     <button class="template-card" (click)="addWidget(template)">
-                      <div class="template-icon" [innerHTML]="template.icon"></div>
+                      <div class="template-icon" [innerHTML]="sanitizeHtml(template.icon)"></div>
                       <span class="template-name">{{ template.name }}</span>
                     </button>
                   }
@@ -507,7 +508,7 @@ interface TableData {
                 <div class="template-grid">
                   @for (template of tableTemplates; track template.id) {
                     <button class="template-card" (click)="addWidget(template)">
-                      <div class="template-icon" [innerHTML]="template.icon"></div>
+                      <div class="template-icon" [innerHTML]="sanitizeHtml(template.icon)"></div>
                       <span class="template-name">{{ template.name }}</span>
                     </button>
                   }
@@ -1392,6 +1393,7 @@ interface TableData {
 })
 export class AnalyticsDashboardComponent implements OnInit {
   private reportsService = inject(ReportsService);
+  private sanitizer = inject(DomSanitizer);
 
   // State
   dashboards = signal<Dashboard[]>([]);
@@ -1904,6 +1906,10 @@ export class AnalyticsDashboardComponent implements OnInit {
       default:
         return new Intl.NumberFormat('en-US').format(value);
     }
+  }
+
+  sanitizeHtml(html: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   formatTableCell(value: any, format?: string): string {
