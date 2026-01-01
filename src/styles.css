@@ -1,28 +1,159 @@
 /* GoEMR Global Styles */
 
-/* CSS Reset */
-*, *::before, *::after {
-  box-sizing: border-box;
+/* Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base layer overrides */
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-sans leading-normal text-surface-800 bg-surface-50;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
+/* Custom component classes */
+@layer components {
+  /* Card component */
+  .card {
+    @apply bg-white rounded-xl shadow-card border border-surface-100 p-6;
+  }
+  
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg transition-all duration-fast;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+  
+  .btn-secondary {
+    @apply bg-surface-100 text-surface-700 hover:bg-surface-200 focus:ring-2 focus:ring-surface-400 focus:ring-offset-2;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-primary-600 text-primary-600 hover:bg-primary-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+  
+  .btn-danger {
+    @apply bg-danger-600 text-white hover:bg-danger-700 focus:ring-2 focus:ring-danger-500 focus:ring-offset-2;
+  }
+  
+  .btn-success {
+    @apply bg-success-600 text-white hover:bg-success-700 focus:ring-2 focus:ring-success-500 focus:ring-offset-2;
+  }
+  
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2 border border-surface-300 rounded-lg text-surface-800 placeholder-surface-400
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-fast;
+  }
+  
+  .input-error {
+    @apply border-danger-500 focus:ring-danger-500 focus:border-danger-500;
+  }
+  
+  /* Labels */
+  .label {
+    @apply block text-sm font-medium text-surface-700 mb-1;
+  }
+  
+  /* Badge/Tag variants */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+  
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+  
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+  
+  .badge-danger {
+    @apply bg-danger-100 text-danger-800;
+  }
+  
+  .badge-info {
+    @apply bg-info-100 text-info-800;
+  }
+  
+  /* Table styles */
+  .table-container {
+    @apply overflow-x-auto rounded-xl border border-surface-200;
+  }
+  
+  .table {
+    @apply w-full text-sm text-left;
+  }
+  
+  .table thead {
+    @apply bg-surface-50 border-b-2 border-surface-200;
+  }
+  
+  .table th {
+    @apply px-4 py-3 font-semibold text-surface-600 uppercase text-xs tracking-wider;
+  }
+  
+  .table td {
+    @apply px-4 py-3 border-b border-surface-100;
+  }
+  
+  .table tbody tr:hover {
+    @apply bg-surface-50;
+  }
+  
+  /* Page header */
+  .page-title {
+    @apply text-2xl font-bold text-surface-800;
+  }
+  
+  .page-subtitle {
+    @apply text-surface-500 mt-1;
+  }
 }
 
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Custom utilities */
+@layer utilities {
+  /* Text truncation */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Scrollbar hiding */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  line-height: 1.5;
-  color: #1e293b;
-  background-color: #f8fafc;
-}
-
+/* Legacy CSS Reset (for non-Tailwind components) */
 img, picture, video, canvas, svg {
   display: block;
   max-width: 100%;
@@ -385,4 +516,412 @@ a:hover {
   display: flex !important;
   align-items: center !important;
   width: 100% !important;
+}
+
+/* ========================================
+   PrimeNG Theme Customization for GoEMR
+   ======================================== */
+
+/* Primary Color Overrides - Match GoEMR Blue */
+:root {
+  --p-primary-50: #eff6ff;
+  --p-primary-100: #dbeafe;
+  --p-primary-200: #bfdbfe;
+  --p-primary-300: #93c5fd;
+  --p-primary-400: #60a5fa;
+  --p-primary-500: #3b82f6;
+  --p-primary-600: #2563eb;
+  --p-primary-700: #1d4ed8;
+  --p-primary-800: #1e40af;
+  --p-primary-900: #1e3a8a;
+  
+  /* Surface colors */
+  --p-surface-0: #ffffff;
+  --p-surface-50: #f8fafc;
+  --p-surface-100: #f1f5f9;
+  --p-surface-200: #e2e8f0;
+  --p-surface-300: #cbd5e1;
+  --p-surface-400: #94a3b8;
+  --p-surface-500: #64748b;
+  --p-surface-600: #475569;
+  --p-surface-700: #334155;
+  --p-surface-800: #1e293b;
+  --p-surface-900: #0f172a;
+}
+
+/* PrimeNG Button Customizations */
+.p-button {
+  border-radius: var(--radius-lg) !important;
+  font-weight: 500 !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.p-button:focus {
+  box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-primary) !important;
+}
+
+.p-button.p-button-outlined {
+  border-width: 1.5px !important;
+}
+
+.p-button.p-button-text:hover {
+  background: var(--color-gray-100) !important;
+}
+
+/* PrimeNG Input Customizations */
+.p-inputtext {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-gray-300) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.p-inputtext:enabled:hover {
+  border-color: var(--color-gray-400) !important;
+}
+
+.p-inputtext:enabled:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 1px var(--color-primary) !important;
+}
+
+/* PrimeNG Dropdown Customizations */
+.p-dropdown {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-gray-300) !important;
+}
+
+.p-dropdown:not(.p-disabled):hover {
+  border-color: var(--color-gray-400) !important;
+}
+
+.p-dropdown:not(.p-disabled).p-focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 1px var(--color-primary) !important;
+}
+
+.p-dropdown-panel {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-gray-200) !important;
+}
+
+.p-dropdown-item:hover {
+  background: var(--color-gray-100) !important;
+}
+
+.p-dropdown-item.p-highlight {
+  background: var(--color-primary) !important;
+  color: white !important;
+}
+
+/* PrimeNG Table Customizations */
+.p-datatable {
+  border-radius: var(--radius-xl) !important;
+  overflow: hidden;
+}
+
+.p-datatable .p-datatable-header {
+  background: var(--color-gray-50) !important;
+  border-bottom: 1px solid var(--color-gray-200) !important;
+  padding: 1rem !important;
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--color-gray-50) !important;
+  color: var(--color-gray-700) !important;
+  font-weight: 600 !important;
+  padding: 0.875rem 1rem !important;
+  border-bottom: 2px solid var(--color-gray-200) !important;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  transition: background var(--transition-fast) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  padding: 0.875rem 1rem !important;
+  border-bottom: 1px solid var(--color-gray-100) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--color-gray-50) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr.p-highlight {
+  background: var(--p-primary-50) !important;
+  color: var(--color-gray-800) !important;
+}
+
+.p-datatable .p-sortable-column:hover {
+  background: var(--color-gray-100) !important;
+}
+
+.p-datatable .p-sortable-column.p-highlight {
+  background: var(--color-gray-100) !important;
+  color: var(--color-primary) !important;
+}
+
+.p-datatable .p-paginator {
+  border-top: 1px solid var(--color-gray-200) !important;
+  padding: 0.75rem 1rem !important;
+}
+
+/* PrimeNG Card Customizations */
+.p-card {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--color-gray-100) !important;
+}
+
+.p-card .p-card-title {
+  font-weight: 600 !important;
+  color: var(--color-gray-800) !important;
+}
+
+.p-card .p-card-subtitle {
+  color: var(--color-gray-500) !important;
+}
+
+/* PrimeNG Dialog Customizations */
+.p-dialog {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+.p-dialog .p-dialog-header {
+  border-bottom: 1px solid var(--color-gray-200) !important;
+  padding: 1.25rem 1.5rem !important;
+}
+
+.p-dialog .p-dialog-title {
+  font-weight: 600 !important;
+  font-size: 1.125rem !important;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 1.5rem !important;
+}
+
+.p-dialog .p-dialog-footer {
+  border-top: 1px solid var(--color-gray-200) !important;
+  padding: 1rem 1.5rem !important;
+}
+
+/* PrimeNG Toast Customizations */
+.p-toast {
+  opacity: 1 !important;
+}
+
+.p-toast .p-toast-message {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.p-toast .p-toast-message.p-toast-message-success {
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  color: #065f46 !important;
+}
+
+.p-toast .p-toast-message.p-toast-message-info {
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+.p-toast .p-toast-message.p-toast-message-warn {
+  background: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  color: #92400e !important;
+}
+
+.p-toast .p-toast-message.p-toast-message-error {
+  background: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+  color: #991b1b !important;
+}
+
+/* PrimeNG Tag Customizations */
+.p-tag {
+  border-radius: var(--radius-full) !important;
+  font-weight: 500 !important;
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.625rem !important;
+}
+
+.p-tag.p-tag-success {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.p-tag.p-tag-info {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+}
+
+.p-tag.p-tag-warning {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.p-tag.p-tag-danger {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+/* PrimeNG Badge Customizations */
+.p-badge {
+  border-radius: var(--radius-full) !important;
+  font-weight: 600 !important;
+}
+
+/* PrimeNG Avatar Customizations */
+.p-avatar {
+  border-radius: var(--radius-lg) !important;
+}
+
+.p-avatar.p-avatar-circle {
+  border-radius: var(--radius-full) !important;
+}
+
+/* PrimeNG Menu Customizations */
+.p-menu {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-gray-200) !important;
+}
+
+.p-menu .p-menuitem-link:hover {
+  background: var(--color-gray-100) !important;
+}
+
+.p-menu .p-menuitem-link:focus {
+  box-shadow: none !important;
+  background: var(--color-gray-100) !important;
+}
+
+/* PrimeNG Calendar Customizations */
+.p-datepicker {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.p-datepicker table td > span.p-highlight {
+  background: var(--color-primary) !important;
+  color: white !important;
+}
+
+.p-datepicker table td > span:focus {
+  box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-primary) !important;
+}
+
+/* PrimeNG Checkbox & Radio Customizations */
+.p-checkbox .p-checkbox-box.p-highlight {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.p-radiobutton .p-radiobutton-box.p-highlight {
+  border-color: var(--color-primary) !important;
+}
+
+.p-radiobutton .p-radiobutton-box.p-highlight .p-radiobutton-icon {
+  background: var(--color-primary) !important;
+}
+
+/* PrimeNG Progress Bar */
+.p-progressbar {
+  border-radius: var(--radius-full) !important;
+  height: 0.5rem !important;
+}
+
+.p-progressbar .p-progressbar-value {
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-light) 100%) !important;
+}
+
+/* PrimeNG Skeleton */
+.p-skeleton {
+  border-radius: var(--radius-md) !important;
+}
+
+/* PrimeNG Tab View */
+.p-tabview .p-tabview-nav {
+  border-bottom: 2px solid var(--color-gray-200) !important;
+}
+
+.p-tabview .p-tabview-nav li .p-tabview-nav-link {
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -2px !important;
+  color: var(--color-gray-500) !important;
+  font-weight: 500 !important;
+}
+
+.p-tabview .p-tabview-nav li .p-tabview-nav-link:hover {
+  color: var(--color-gray-700) !important;
+  border-bottom-color: var(--color-gray-300) !important;
+}
+
+.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: var(--color-primary) !important;
+  border-bottom-color: var(--color-primary) !important;
+}
+
+/* PrimeNG Chip */
+.p-chip {
+  border-radius: var(--radius-full) !important;
+  background: var(--color-gray-100) !important;
+  color: var(--color-gray-700) !important;
+}
+
+/* PrimeNG Tooltip */
+.p-tooltip .p-tooltip-text {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  font-size: 0.8125rem !important;
+}
+
+/* PrimeNG Sidebar/Drawer */
+.p-sidebar {
+  box-shadow: var(--shadow-xl) !important;
+}
+
+.p-sidebar .p-sidebar-header {
+  padding: 1rem 1.5rem !important;
+  border-bottom: 1px solid var(--color-gray-200) !important;
+}
+
+.p-sidebar .p-sidebar-content {
+  padding: 1.5rem !important;
+}
+
+/* PrimeNG FileUpload */
+.p-fileupload .p-fileupload-buttonbar {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+}
+
+.p-fileupload .p-fileupload-content {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
+}
+
+/* PrimeNG Ripple Effect */
+.p-ripple {
+  overflow: hidden;
+  position: relative;
+}
+
+/* Responsive adjustments for PrimeNG */
+@media (max-width: 768px) {
+  .p-datatable .p-datatable-thead > tr > th,
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.625rem 0.75rem !important;
+  }
+  
+  .p-dialog {
+    width: 95vw !important;
+    max-width: 95vw !important;
+  }
 }
