@@ -18,14 +18,14 @@ jobs:
 
             ## Auto approve the PR
             - name: Approve the PR
-              uses: juliangruber/approve-pull-request-action@v1
+              uses: juliangruber/approve-pull-request-action@v2
               with:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
                 number: ${{ github.event.pull_request.number }}
 
             ## Merge the PR
             - name: Merge the PR
-              uses: pascalgn/automerge-action@v0.11.0
+              uses: pascalgn/automerge-action@v0.16.4
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   delete-branch: true
