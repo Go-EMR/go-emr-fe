@@ -1,191 +1,148 @@
-# GoEmrFe
-
-<a name="readme-top"></a>
-
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/Go-EMR/go-emr-fe">
-    <img src="assets/logo-go-emr-fe.png" alt="Logo" width="80" height="80">
-  </a>
-
-<h3 align="center">Go Electronic Medical Record - FrontEnd Service</h3>
-
-  <p align="center">
-    Frontend Service designed using Angular
-    <br />
-    <a href="https://sarvsav.github.io/go-emr-fe/"><strong>📘 Explore the docs  »</strong></a>
-    <br />
-    <br />
-    <a href="https://calendly.com/sarvsav">📅 Book a meeting</a>
-    ·
-    <a href="https://github.com/Go-EMR/go-emr-fe/issues/new?assignees=sarvsav&labels=bug%2Cneeds-triage&projects=&template=01_bug_report.yml">🐛 Report Bug</a>
-    ·
-    <a href="https://github.com/Go-EMR/go-emr-fe/issues/new?assignees=sarvsav&labels=enhancement%2Cneeds-triage&projects=&template=02_feature_request.yml"> 🔨 Request Feature</a>
-  </p>
-</div>
-
-
-
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#contributors">Contributors</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-    <li><a href="#thankyou">Thank You</a></li>
-  </ol>
-</details>
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-[![Go EMR FE][product-screenshot]](https://sarvsav.github.io/go-emr-fe/)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-### Built With
-
-[![Go][Golang]][Go-url]
-<br>
-[![Bazel][Bazel]][Bazel-url]
-<br>
-[![docusaurus][docusaurus]][docusaurus-url]
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-
-### Prerequisites
-
-
-
-### Installation
-
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-
-_For more information, please refer to the [Documentation](https://sarvsav.github.io/go-emr-fe/)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-
-See the [open issues](https://github.com/Go-EMR/go-emr-fe/issues) for a full list of proposed features (and known issues).
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- LICENSE -->
-## License
-
-Distributed under the MIT License. See [LICENSE](./LICENSE) for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Discord Server - [Go EMR]()
-
-Project Link: [https://github.com/Go-EMR/go-emr-fe](https://github.com/Go-EMR/go-emr-fe)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- CONTRIBUTORS -->
-## Contributors
-
-Big thanks to our contributors.
-
-<a href="https://github.com/Go-EMR/go-emr-fe/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Go-EMR/go-emr-fe" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
-
-Kindly refer to the [contributing guide](./CONTRIBUTING.md) to contribute to the project.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- ADOPTERS -->
-## Adopters
-
-📢 If you're using go-emr-fe in your organization, please add your name or company name to this [list](./ADOPTERS.md).
-
-By adding yourself to the [ADOPTERS.md](./ADOPTERS.md) file, you help increase the project's visibility and credibility, which is essential for its growth.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-- [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
-- [Dark Light Theme](https://medium.com/@mathieu.schnoor/light-dark-theme-switcher-in-angular-with-primeng-dad1c1d4a067)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- Thank You -->
-## Thankyou
-
-If you appreciate this project, please consider showing your support by ⭐ starring it, 🔄 sharing it with your friends, or 💖 making a donation. Thank you!
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/Go-EMR/go-emr-fe.svg?style=for-the-badge
-[contributors-url]: https://github.com/Go-EMR/go-emr-fe/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Go-EMR/go-emr-fe.svg?style=for-the-badge
-[forks-url]: https://github.com/Go-EMR/go-emr-fe/network/members
-[stars-shield]: https://img.shields.io/github/stars/Go-EMR/go-emr-fe.svg?style=for-the-badge
-[stars-url]: https://github.com/Go-EMR/go-emr-fe/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Go-EMR/go-emr-fe.svg?style=for-the-badge
-[issues-url]: https://github.com/Go-EMR/go-emr-fe/issues
-[license-shield]: https://img.shields.io/github/license/Go-EMR/go-emr-fe.svg?style=for-the-badge
-[license-url]: https://github.com/Go-EMR/go-emr-fe/blob/master/LICENSE.txt
-[product-screenshot]: assets/go-emr-fe.png
-[Golang]: https://img.shields.io/github/go-mod/go-version/Go-EMR/go-emr-fe?style=for-the-badge&logo=go
-[Go-url]: https://go.dev/
-[Bazel]: https://img.shields.io/badge/Bazel-v7-brightgreen?style=for-the-badge&logo=bazel
-[Bazel-url]: https://bazel.build/
-[docusaurus]: https://img.shields.io/badge/docs-passing-green?style=for-the-badge&logo=docusaurus&logoColor=%233ECC5F
-[docusaurus-url]: https://docusaurus.io/
+# GoEMR - Modern Healthcare Management
+
+A modern, HIPAA/GDPR/CCPA compliant Electronic Medical Records system built with Angular 19+, following clean architecture principles and designed for scalability.
+
+## 🏗️ Architecture Overview
+
+This project follows the **Feature-Based Architecture** pattern inspired by Nx monorepo best practices with clear separation of concerns:
+
+```
+src/
+├── app/
+│   ├── core/                    # Singleton services, guards, interceptors
+│   ├── shared/                  # Shared components, directives, pipes
+│   ├── domains/                 # Feature domains (bounded contexts)
+│   │   ├── patients/           # Patient management domain
+│   │   ├── appointments/       # Scheduling domain
+│   │   ├── encounters/         # Clinical encounters domain
+│   │   ├── billing/            # Billing & claims domain
+│   │   ├── prescriptions/      # E-prescribing domain
+│   │   ├── labs/               # Lab orders & results domain
+│   │   ├── portal/             # Patient portal domain
+│   │   ├── reports/            # Reporting & analytics domain
+│   │   ├── admin/              # Administration domain
+│   │   └── messaging/          # Secure messaging domain
+│   └── shell/                   # Application shell & layout
+├── assets/
+├── environments/
+└── styles/
+```
+
+## 📁 Domain Structure (Feature-Based)
+
+Each domain follows this structure:
+```
+domain-name/
+├── feature-xxx/               # Smart components (routed)
+│   ├── xxx.component.ts
+│   ├── xxx.component.html
+│   └── xxx.component.scss
+├── ui/                        # Dumb/Presentational components
+│   ├── component-name/
+│   └── ...
+├── data-access/              # Services, state management
+│   ├── services/
+│   ├── store/
+│   └── models/
+├── utils/                    # Domain-specific utilities
+├── guards/                   # Route guards
+└── routes.ts                 # Domain routes
+```
+
+## 🔐 Compliance Features
+
+### HIPAA Compliance
+- End-to-end encryption for PHI
+- Audit logging for all data access
+- Role-based access control (RBAC)
+- Automatic session timeout
+- Secure authentication with MFA
+- Data encryption at rest and in transit
+
+### GDPR Compliance
+- Consent management
+- Data portability (export functionality)
+- Right to be forgotten
+- Privacy by design
+- Data processing agreements tracking
+
+### CCPA Compliance
+- Consumer data access requests
+- Opt-out mechanisms
+- Data sale disclosure
+
+## 🛠️ Technology Stack
+
+- **Framework**: Angular 19+ (Standalone Components)
+- **UI Library**: Angular Material 19+ with Custom Theme
+- **State Management**: NgRx Signal Store
+- **HTTP Client**: Angular HttpClient with interceptors
+- **Forms**: Reactive Forms with custom validators
+- **Animations**: Angular Animations
+- **Charts**: ng2-charts / Chart.js
+- **Testing**: Jest + Cypress
+- **Styling**: SCSS with BEM methodology
+- **Icons**: Material Icons + Custom SVG sprites
+
+## 🎨 Design System
+
+### Theme
+- Modern Material Design 3 principles
+- Healthcare-optimized color palette
+- Accessible (WCAG 2.1 AA compliant)
+- Dark/Light mode support
+- High contrast mode for accessibility
+
+### Components
+- Consistent spacing (8px grid)
+- Responsive breakpoints
+- Touch-friendly targets (48px minimum)
+- Skeleton loading states
+- Micro-animations for feedback
+
+## 🚀 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+
+# Run tests
+npm test
+
+# Build for production
+npm run build:prod
+```
+
+## 📱 Mobile Support
+
+This frontend is designed with mobile-first principles and will share:
+- API contracts with Flutter mobile app
+- Design tokens
+- Business logic models
+- Validation rules
+
+## 🔄 Backend Integration Points
+
+Designed to integrate with:
+- **Go Backend API** (REST + gRPC)
+- **NATS** for real-time messaging
+- **Vault** for secrets management
+- **PostgreSQL** via SQLC
+- **Redis** for caching
+- **Grafana** for monitoring metrics
+
+## 📊 Key Features
+
+1. **Dashboard** - Customizable provider dashboard
+2. **Patient Management** - Full patient lifecycle
+3. **Scheduling** - Advanced appointment booking
+4. **Clinical Encounters** - SOAP notes, assessments
+5. **E-Prescribing** - EPCS compliant
+6. **Lab Integration** - Orders and results
+7. **Billing** - Claims management
+8. **Patient Portal** - Patient self-service
+9. **Telehealth** - Video consultations
+10. **Reports** - Clinical and financial analytics

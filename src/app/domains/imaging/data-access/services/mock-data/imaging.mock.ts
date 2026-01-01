@@ -1,0 +1,761 @@
+import {
+  ImagingOrder,
+  ImagingProcedure,
+  ImagingFacility,
+  ImagingReport,
+  ImagingStudy,
+  ImagingModality,
+  BodyRegion
+} from '../../models/imaging.model';
+
+// ============ Mock Procedures ============
+
+export const MOCK_IMAGING_PROCEDURES: ImagingProcedure[] = [
+  // X-Ray procedures
+  {
+    procedureCode: 'XR-CHEST-2V',
+    procedureName: 'Chest X-Ray, 2 Views',
+    name: 'Chest X-Ray, 2 Views',
+    modality: 'xray',
+    bodyRegion: 'chest',
+    cptCode: '71046',
+    description: 'PA and lateral chest radiograph',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 15,
+    technicalFee: 85,
+    professionalFee: 35,
+    isCommon: true
+  },
+  {
+    procedureCode: 'XR-KNEE-3V',
+    procedureName: 'Knee X-Ray, 3 Views',
+    name: 'Knee X-Ray, 3 Views',
+    modality: 'xray',
+    bodyRegion: 'lower-extremity',
+    cptCode: '73562',
+    description: 'AP, lateral, and oblique knee radiographs',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 15,
+    technicalFee: 75,
+    professionalFee: 30,
+    isCommon: true
+  },
+  {
+    procedureCode: 'XR-SPINE-L-4V',
+    procedureName: 'Lumbar Spine X-Ray, 4 Views',
+    name: 'Lumbar Spine X-Ray, 4 Views',
+    modality: 'xray',
+    bodyRegion: 'spine',
+    cptCode: '72110',
+    description: 'AP, lateral, and oblique lumbar spine radiographs',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 20,
+    technicalFee: 95,
+    professionalFee: 40,
+    isCommon: true
+  },
+
+  // CT procedures
+  {
+    procedureCode: 'CT-HEAD-WO',
+    procedureName: 'CT Head without Contrast',
+    name: 'CT Head without Contrast',
+    modality: 'ct',
+    bodyRegion: 'head',
+    cptCode: '70450',
+    description: 'Non-contrast CT of the brain',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 15,
+    technicalFee: 350,
+    professionalFee: 95,
+    isCommon: true
+  },
+  {
+    procedureCode: 'CT-HEAD-W',
+    procedureName: 'CT Head with Contrast',
+    name: 'CT Head with Contrast',
+    modality: 'ct',
+    bodyRegion: 'head',
+    cptCode: '70460',
+    description: 'CT of the brain with IV contrast',
+    contrastOptions: ['iv'],
+    defaultContrast: 'iv',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 30,
+    technicalFee: 450,
+    professionalFee: 115,
+    isCommon: true
+  },
+  {
+    procedureCode: 'CT-CHEST-W',
+    procedureName: 'CT Chest with Contrast',
+    name: 'CT Chest with Contrast',
+    modality: 'ct',
+    bodyRegion: 'chest',
+    cptCode: '71260',
+    description: 'CT of the chest with IV contrast',
+    contrastOptions: ['none', 'iv'],
+    defaultContrast: 'iv',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 20,
+    technicalFee: 400,
+    professionalFee: 105,
+    isCommon: true
+  },
+  {
+    procedureCode: 'CT-ABD-PEL-W',
+    procedureName: 'CT Abdomen/Pelvis with Contrast',
+    name: 'CT Abdomen/Pelvis with Contrast',
+    modality: 'ct',
+    bodyRegion: 'abdomen',
+    cptCode: '74177',
+    description: 'CT of abdomen and pelvis with IV contrast',
+    contrastOptions: ['oral', 'iv', 'oral-iv'],
+    defaultContrast: 'oral-iv',
+    requiresPrep: true,
+    prepRequired: true,
+    prepInstructions: 'NPO 4 hours. Drink oral contrast 1-2 hours before exam.',
+    estimatedDuration: 30,
+    technicalFee: 550,
+    professionalFee: 135,
+    isCommon: true
+  },
+  {
+    procedureCode: 'CTA-CHEST-PE',
+    procedureName: 'CT Angiography Chest (PE Protocol)',
+    name: 'CT Angiography Chest (PE Protocol)',
+    modality: 'ct',
+    bodyRegion: 'chest',
+    cptCode: '71275',
+    description: 'CT angiography of chest for pulmonary embolism',
+    contrastOptions: ['iv'],
+    defaultContrast: 'iv',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 20,
+    technicalFee: 600,
+    professionalFee: 150,
+    isCommon: true
+  },
+
+  // MRI procedures
+  {
+    procedureCode: 'MRI-BRAIN-WO',
+    procedureName: 'MRI Brain without Contrast',
+    name: 'MRI Brain without Contrast',
+    modality: 'mri',
+    bodyRegion: 'head',
+    cptCode: '70551',
+    description: 'MRI of the brain without contrast',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 45,
+    technicalFee: 800,
+    professionalFee: 180,
+    isCommon: true
+  },
+  {
+    procedureCode: 'MRI-BRAIN-WWO',
+    procedureName: 'MRI Brain with and without Contrast',
+    name: 'MRI Brain with and without Contrast',
+    modality: 'mri',
+    bodyRegion: 'head',
+    cptCode: '70553',
+    description: 'MRI of the brain with and without contrast',
+    contrastOptions: ['iv'],
+    defaultContrast: 'iv',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 60,
+    technicalFee: 1000,
+    professionalFee: 220,
+    isCommon: true
+  },
+  {
+    procedureCode: 'MRI-SPINE-L-WO',
+    procedureName: 'MRI Lumbar Spine without Contrast',
+    name: 'MRI Lumbar Spine without Contrast',
+    modality: 'mri',
+    bodyRegion: 'spine',
+    cptCode: '72148',
+    description: 'MRI of lumbar spine without contrast',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 45,
+    technicalFee: 750,
+    professionalFee: 170,
+    isCommon: true
+  },
+  {
+    procedureCode: 'MRI-KNEE-WO',
+    procedureName: 'MRI Knee without Contrast',
+    name: 'MRI Knee without Contrast',
+    modality: 'mri',
+    bodyRegion: 'lower-extremity',
+    cptCode: '73721',
+    description: 'MRI of the knee without contrast',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 45,
+    technicalFee: 700,
+    professionalFee: 160,
+    isCommon: true
+  },
+
+  // Ultrasound procedures
+  {
+    procedureCode: 'US-ABD-COMP',
+    procedureName: 'Ultrasound Abdomen Complete',
+    name: 'Ultrasound Abdomen Complete',
+    modality: 'ultrasound',
+    bodyRegion: 'abdomen',
+    cptCode: '76700',
+    description: 'Complete abdominal ultrasound',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: true,
+    prepRequired: true,
+    prepInstructions: 'NPO 8 hours before exam',
+    estimatedDuration: 30,
+    technicalFee: 250,
+    professionalFee: 75,
+    isCommon: true
+  },
+  {
+    procedureCode: 'US-THYROID',
+    procedureName: 'Ultrasound Thyroid',
+    name: 'Ultrasound Thyroid',
+    modality: 'ultrasound',
+    bodyRegion: 'neck',
+    cptCode: '76536',
+    description: 'Thyroid ultrasound with soft tissue of neck',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 20,
+    technicalFee: 180,
+    professionalFee: 55,
+    isCommon: true
+  },
+
+  // Mammography procedures
+  {
+    procedureCode: 'MAMMO-SCREEN-BILAT',
+    procedureName: 'Screening Mammography, Bilateral',
+    name: 'Screening Mammography, Bilateral',
+    modality: 'mammography',
+    bodyRegion: 'chest',
+    cptCode: '77067',
+    description: 'Bilateral screening mammography',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 20,
+    technicalFee: 150,
+    professionalFee: 50,
+    isCommon: true
+  },
+  {
+    procedureCode: 'MAMMO-DIAG-BILAT',
+    procedureName: 'Diagnostic Mammography, Bilateral',
+    name: 'Diagnostic Mammography, Bilateral',
+    modality: 'mammography',
+    bodyRegion: 'chest',
+    cptCode: '77066',
+    description: 'Bilateral diagnostic mammography',
+    contrastOptions: ['none'],
+    defaultContrast: 'none',
+    requiresPrep: false,
+    prepRequired: false,
+    estimatedDuration: 30,
+    technicalFee: 200,
+    professionalFee: 65,
+    isCommon: true
+  }
+];
+
+// ============ Mock Facilities ============
+
+export const MOCK_IMAGING_FACILITIES: ImagingFacility[] = [
+  {
+    facilityId: 'FAC-001',
+    id: 'FAC-001',
+    name: 'Springfield Medical Center - Radiology',
+    facilityType: 'hospital',
+    address: '123 Medical Center Dr, Springfield, IL 62701',
+    phone: '(217) 555-0100',
+    fax: '(217) 555-0101',
+    modalities: ['xray', 'ct', 'mri', 'ultrasound', 'mammography', 'fluoroscopy', 'nuclear'],
+    is24Hour: true,
+    acceptsWalkIns: true,
+    pacsIntegrated: true,
+    hasPacsIntegration: true,
+    supportsEOrders: true,
+    isPreferred: true
+  },
+  {
+    facilityId: 'FAC-002',
+    id: 'FAC-002',
+    name: 'Advanced Imaging Center',
+    facilityType: 'imaging-center',
+    address: '456 Diagnostic Blvd, Suite 200, Springfield, IL 62702',
+    phone: '(217) 555-0200',
+    fax: '(217) 555-0201',
+    modalities: ['ct', 'mri', 'ultrasound', 'mammography', 'dexa'],
+    is24Hour: false,
+    acceptsWalkIns: false,
+    pacsIntegrated: true,
+    hasPacsIntegration: true,
+    supportsEOrders: true,
+    isPreferred: false
+  },
+  {
+    facilityId: 'FAC-003',
+    id: 'FAC-003',
+    name: 'Community Urgent Care - X-Ray',
+    facilityType: 'clinic',
+    address: '789 Wellness Way, Springfield, IL 62703',
+    phone: '(217) 555-0300',
+    fax: '(217) 555-0301',
+    modalities: ['xray', 'ultrasound'],
+    is24Hour: false,
+    acceptsWalkIns: true,
+    pacsIntegrated: false,
+    hasPacsIntegration: false,
+    supportsEOrders: false,
+    isPreferred: false
+  },
+  {
+    facilityId: 'FAC-004',
+    id: 'FAC-004',
+    name: 'Regional PET/CT Center',
+    facilityType: 'imaging-center',
+    address: '321 Oncology Center, Springfield, IL 62704',
+    phone: '(217) 555-0400',
+    fax: '(217) 555-0401',
+    modalities: ['pet', 'ct', 'nuclear'],
+    is24Hour: false,
+    acceptsWalkIns: false,
+    pacsIntegrated: true,
+    hasPacsIntegration: true,
+    supportsEOrders: true,
+    isPreferred: false
+  }
+];
+
+// ============ Helper Functions ============
+
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+}
+
+function hoursAgo(hours: number): string {
+  const date = new Date();
+  date.setHours(date.getHours() - hours);
+  return date.toISOString();
+}
+
+// ============ Mock Orders ============
+
+export const MOCK_IMAGING_ORDERS: ImagingOrder[] = [
+  // 1. Completed CT Head - Final Report
+  {
+    orderId: 'IMG-001',
+    accessionNumber: 'ACC-2024-001234',
+    patientId: 'PAT-001',
+    patientName: 'John Smith',
+    encounterId: 'ENC-001',
+    modality: 'ct',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'CT-HEAD-WO')!,
+    procedureCode: 'CT-HEAD-WO',
+    procedureName: 'CT Head without Contrast',
+    bodyRegion: 'head',
+    status: 'final',
+    priority: 'urgent',
+    category: 'diagnostic',
+    contrastRequired: false,
+    contrastType: 'none',
+    orderingProviderId: 'PROV-001',
+    orderingProviderName: 'Dr. Sarah Chen',
+    orderingProviderNPI: '1234567890',
+    performingFacilityId: 'FAC-001',
+    performingFacilityName: 'Springfield Medical Center - Radiology',
+    readingRadiologistId: 'RAD-001',
+    readingRadiologistName: 'Dr. Michael Roberts',
+    diagnosisCodes: [
+      { code: 'R51.9', description: 'Headache, unspecified' },
+      { code: 'G43.909', description: 'Migraine, unspecified, not intractable' }
+    ],
+    clinicalHistory: 'Patient presents with severe headaches for 2 weeks, worse in the morning. No history of trauma.',
+    reasonForExam: 'Rule out intracranial pathology',
+    orderedDate: daysAgo(3),
+    scheduledDate: daysAgo(2),
+    performedDate: daysAgo(2),
+    reportedDate: daysAgo(2),
+    pregnancyStatus: 'not-applicable',
+    report: {
+      reportId: 'RPT-001',
+      orderId: 'IMG-001',
+      status: 'final',
+      indication: 'Severe headaches for 2 weeks',
+      technique: 'Non-contrast CT of the head was performed using helical technique.',
+      comparison: 'None available',
+      findings: 'Brain parenchyma demonstrates normal gray-white matter differentiation. No acute intracranial hemorrhage, mass effect, or midline shift. Ventricles and sulci are normal in size and configuration. No extra-axial fluid collections. Visualized paranasal sinuses are clear. Orbits are unremarkable. Calvarium is intact.',
+      impression: '1. Normal non-contrast CT of the head.\n2. No acute intracranial abnormality.',
+      recommendations: 'Clinical correlation recommended. Consider MRI if symptoms persist.',
+      hasCriticalFindings: false,
+      radiologistId: 'RAD-001',
+      radiologistName: 'Dr. Michael Roberts',
+      radiologistNPI: '9876543210',
+      signedAt: daysAgo(2),
+      createdAt: daysAgo(2),
+      updatedAt: daysAgo(2)
+    },
+    images: [{
+      studyId: 'STD-001',
+      studyInstanceUID: '1.2.840.113619.2.55.3.604688.12345',
+      orderId: 'IMG-001',
+      modality: 'ct',
+      description: 'CT HEAD WO CONTRAST',
+      performedDate: daysAgo(2),
+      numberOfSeries: 3,
+      numberOfImages: 120,
+      pacsUrl: 'https://pacs.example.com/study/STD-001',
+      viewerUrl: 'https://viewer.example.com/study/STD-001'
+    }],
+    createdAt: daysAgo(3),
+    createdBy: 'PROV-001',
+    updatedAt: daysAgo(2),
+    updatedBy: 'RAD-001'
+  },
+
+  // 2. MRI Lumbar Spine - Abnormal findings
+  {
+    orderId: 'IMG-002',
+    accessionNumber: 'ACC-2024-001235',
+    patientId: 'PAT-001',
+    patientName: 'John Smith',
+    modality: 'mri',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'MRI-SPINE-L-WO')!,
+    procedureCode: 'MRI-SPINE-L-WO',
+    procedureName: 'MRI Lumbar Spine without Contrast',
+    bodyRegion: 'spine',
+    status: 'final',
+    priority: 'routine',
+    category: 'diagnostic',
+    contrastRequired: false,
+    contrastType: 'none',
+    orderingProviderId: 'PROV-001',
+    orderingProviderName: 'Dr. Sarah Chen',
+    performingFacilityId: 'FAC-002',
+    performingFacilityName: 'Advanced Imaging Center',
+    readingRadiologistId: 'RAD-002',
+    readingRadiologistName: 'Dr. Jennifer Walsh',
+    diagnosisCodes: [
+      { code: 'M54.5', description: 'Low back pain' },
+      { code: 'M54.16', description: 'Radiculopathy, lumbar region' }
+    ],
+    clinicalHistory: 'Chronic low back pain with left leg radiculopathy. Conservative treatment failed.',
+    reasonForExam: 'Evaluate for disc herniation',
+    orderedDate: daysAgo(7),
+    scheduledDate: daysAgo(5),
+    performedDate: daysAgo(5),
+    reportedDate: daysAgo(4),
+    claustrophobia: false,
+    implants: [],
+    report: {
+      reportId: 'RPT-002',
+      orderId: 'IMG-002',
+      status: 'final',
+      indication: 'Low back pain with left leg radiculopathy',
+      technique: 'Multiplanar, multisequence MRI of the lumbar spine was performed without contrast.',
+      comparison: 'None',
+      findings: 'L3-L4: Mild disc bulge without significant stenosis.\nL4-L5: Moderate left paracentral disc protrusion causing moderate left lateral recess stenosis and impingement of the traversing left L5 nerve root. Mild facet arthropathy.\nL5-S1: Small central disc protrusion. Mild bilateral facet arthropathy. No significant stenosis.\nConus medullaris terminates at L1 level and appears normal. No abnormal marrow signal. Paraspinal soft tissues are unremarkable.',
+      impression: '1. Moderate left paracentral disc protrusion at L4-L5 with moderate left lateral recess stenosis and impingement of the left L5 nerve root. This correlates with patient symptoms.\n2. Mild degenerative changes at L3-L4 and L5-S1 without significant stenosis.',
+      recommendations: 'Clinical correlation recommended. Neurosurgical or pain management consultation may be considered.',
+      structuredFindings: [
+        {
+          findingId: 'FND-001',
+          location: 'L4-L5 disc',
+          description: 'Left paracentral disc protrusion',
+          severity: 'suspicious',
+          measurements: { length: 6, width: 8, height: 4, unit: 'mm' },
+          followUpRecommended: true,
+          followUpInterval: 'As clinically indicated'
+        }
+      ],
+      hasCriticalFindings: false,
+      radiologistId: 'RAD-002',
+      radiologistName: 'Dr. Jennifer Walsh',
+      signedAt: daysAgo(4),
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(4)
+    },
+    createdAt: daysAgo(7),
+    createdBy: 'PROV-001',
+    updatedAt: daysAgo(4),
+    updatedBy: 'RAD-002'
+  },
+
+  // 3. Chest X-Ray - Scheduled
+  {
+    orderId: 'IMG-003',
+    patientId: 'PAT-002',
+    patientName: 'Sarah Johnson',
+    modality: 'xray',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'XR-CHEST-2V')!,
+    procedureCode: 'XR-CHEST-2V',
+    procedureName: 'Chest X-Ray, 2 Views',
+    bodyRegion: 'chest',
+    status: 'scheduled',
+    priority: 'routine',
+    category: 'screening',
+    contrastRequired: false,
+    orderingProviderId: 'PROV-001',
+    orderingProviderName: 'Dr. Sarah Chen',
+    performingFacilityId: 'FAC-001',
+    performingFacilityName: 'Springfield Medical Center - Radiology',
+    diagnosisCodes: [
+      { code: 'Z00.00', description: 'Encounter for general adult medical examination without abnormal findings' }
+    ],
+    clinicalHistory: 'Annual physical examination',
+    reasonForExam: 'Pre-employment screening',
+    orderedDate: daysAgo(1),
+    scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
+    pregnancyStatus: 'not-pregnant',
+    createdAt: daysAgo(1),
+    createdBy: 'PROV-001',
+    updatedAt: daysAgo(1),
+    updatedBy: 'PROV-001'
+  },
+
+  // 4. CT Abdomen/Pelvis - STAT with critical findings
+  {
+    orderId: 'IMG-004',
+    accessionNumber: 'ACC-2024-001240',
+    patientId: 'PAT-003',
+    patientName: 'Michael Brown',
+    encounterId: 'ENC-003',
+    modality: 'ct',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'CT-ABD-PEL-W')!,
+    procedureCode: 'CT-ABD-PEL-W',
+    procedureName: 'CT Abdomen/Pelvis with Contrast',
+    bodyRegion: 'abdomen',
+    status: 'final',
+    priority: 'stat',
+    category: 'emergency',
+    contrastRequired: true,
+    contrastType: 'oral-iv',
+    orderingProviderId: 'PROV-002',
+    orderingProviderName: 'Dr. James Wilson',
+    performingFacilityId: 'FAC-001',
+    performingFacilityName: 'Springfield Medical Center - Radiology',
+    readingRadiologistId: 'RAD-001',
+    readingRadiologistName: 'Dr. Michael Roberts',
+    diagnosisCodes: [
+      { code: 'R10.9', description: 'Unspecified abdominal pain' },
+      { code: 'R11.10', description: 'Vomiting, unspecified' }
+    ],
+    clinicalHistory: 'Acute onset severe abdominal pain with nausea and vomiting. No prior abdominal surgeries.',
+    reasonForExam: 'Acute abdomen - rule out appendicitis',
+    orderedDate: hoursAgo(6),
+    performedDate: hoursAgo(5),
+    reportedDate: hoursAgo(4),
+    pregnancyStatus: 'not-applicable',
+    renalFunction: {
+      creatinine: 0.9,
+      gfr: 95,
+      lastChecked: hoursAgo(6)
+    },
+    report: {
+      reportId: 'RPT-004',
+      orderId: 'IMG-004',
+      status: 'final',
+      indication: 'Acute abdominal pain with nausea/vomiting',
+      technique: 'CT of the abdomen and pelvis was performed with oral and IV contrast.',
+      comparison: 'None',
+      findings: 'Liver, spleen, pancreas, and adrenal glands are unremarkable. Kidneys enhance symmetrically without hydronephrosis or stones. No free air or free fluid. The appendix measures 12mm in diameter with periappendiceal inflammatory changes and fat stranding. A small amount of fluid is noted in the right lower quadrant. No appendicolith identified. Small and large bowel appear normal without obstruction.',
+      impression: '1. ACUTE APPENDICITIS with periappendiceal inflammation. Surgical consultation recommended.\n2. No evidence of perforation or abscess.',
+      hasCriticalFindings: true,
+      criticalFindingsCommunicated: true,
+      criticalFindingsCommunicatedTo: 'Dr. James Wilson (ordering physician)',
+      criticalFindingsCommunicatedAt: hoursAgo(4),
+      radiologistId: 'RAD-001',
+      radiologistName: 'Dr. Michael Roberts',
+      signedAt: hoursAgo(4),
+      structuredFindings: [
+        {
+          findingId: 'FND-002',
+          location: 'Appendix',
+          description: 'Acute appendicitis',
+          severity: 'highly-suspicious',
+          measurements: { length: 12, unit: 'mm' }
+        }
+      ],
+      createdAt: hoursAgo(4),
+      updatedAt: hoursAgo(4)
+    },
+    createdAt: hoursAgo(6),
+    createdBy: 'PROV-002',
+    updatedAt: hoursAgo(4),
+    updatedBy: 'RAD-001'
+  },
+
+  // 5. Mammography - Pending
+  {
+    orderId: 'IMG-005',
+    patientId: 'PAT-004',
+    patientName: 'Emily Davis',
+    modality: 'mammography',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'MAMMO-SCREEN-BILAT')!,
+    procedureCode: 'MAMMO-SCREEN-BILAT',
+    procedureName: 'Screening Mammography, Bilateral',
+    bodyRegion: 'chest',
+    status: 'pending',
+    priority: 'routine',
+    category: 'screening',
+    contrastRequired: false,
+    orderingProviderId: 'PROV-001',
+    orderingProviderName: 'Dr. Sarah Chen',
+    performingFacilityId: 'FAC-002',
+    performingFacilityName: 'Advanced Imaging Center',
+    diagnosisCodes: [
+      { code: 'Z12.31', description: 'Encounter for screening mammogram for malignant neoplasm of breast' }
+    ],
+    clinicalHistory: 'Annual screening. No breast complaints. No family history of breast cancer.',
+    reasonForExam: 'Annual screening mammography',
+    orderedDate: daysAgo(0),
+    pregnancyStatus: 'not-pregnant',
+    patientInstructions: 'Do not use deodorant, lotion, or powder on day of exam.',
+    createdAt: daysAgo(0),
+    createdBy: 'PROV-001',
+    updatedAt: daysAgo(0),
+    updatedBy: 'PROV-001'
+  },
+
+  // 6. Ultrasound Abdomen - In Progress
+  {
+    orderId: 'IMG-006',
+    accessionNumber: 'ACC-2024-001245',
+    patientId: 'PAT-005',
+    patientName: 'Robert Wilson',
+    modality: 'ultrasound',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'US-ABD-COMP')!,
+    procedureCode: 'US-ABD-COMP',
+    procedureName: 'Ultrasound Abdomen Complete',
+    bodyRegion: 'abdomen',
+    status: 'in-progress',
+    priority: 'routine',
+    category: 'diagnostic',
+    contrastRequired: false,
+    orderingProviderId: 'PROV-001',
+    orderingProviderName: 'Dr. Sarah Chen',
+    performingFacilityId: 'FAC-001',
+    performingFacilityName: 'Springfield Medical Center - Radiology',
+    diagnosisCodes: [
+      { code: 'R16.0', description: 'Hepatomegaly, not elsewhere classified' },
+      { code: 'R74.01', description: 'Elevation of levels of liver transaminase levels' }
+    ],
+    clinicalHistory: 'Elevated liver enzymes on routine labs. No abdominal pain.',
+    reasonForExam: 'Evaluate hepatomegaly and elevated LFTs',
+    orderedDate: daysAgo(1),
+    scheduledDate: hoursAgo(1),
+    performedDate: hoursAgo(0),
+    patientInstructions: 'NPO for 8 hours before exam',
+    createdAt: daysAgo(1),
+    createdBy: 'PROV-001',
+    updatedAt: hoursAgo(0),
+    updatedBy: 'TECH-001'
+  },
+
+  // 7. MRI Knee - Preliminary Report
+  {
+    orderId: 'IMG-007',
+    accessionNumber: 'ACC-2024-001248',
+    patientId: 'PAT-002',
+    patientName: 'Sarah Johnson',
+    modality: 'mri',
+    procedure: MOCK_IMAGING_PROCEDURES.find(p => p.procedureCode === 'MRI-KNEE-WO')!,
+    procedureCode: 'MRI-KNEE-WO',
+    procedureName: 'MRI Knee without Contrast',
+    bodyRegion: 'lower-extremity',
+    laterality: 'right',
+    status: 'preliminary',
+    priority: 'routine',
+    category: 'diagnostic',
+    contrastRequired: false,
+    orderingProviderId: 'PROV-003',
+    orderingProviderName: 'Dr. Amanda Lee',
+    performingFacilityId: 'FAC-002',
+    performingFacilityName: 'Advanced Imaging Center',
+    readingRadiologistId: 'RAD-002',
+    readingRadiologistName: 'Dr. Jennifer Walsh',
+    diagnosisCodes: [
+      { code: 'M23.91', description: 'Unspecified internal derangement of right knee' },
+      { code: 'S83.511A', description: 'Sprain of anterior cruciate ligament of right knee' }
+    ],
+    clinicalHistory: 'Sports injury 3 weeks ago. Knee instability and swelling.',
+    reasonForExam: 'Evaluate for ACL tear',
+    orderedDate: daysAgo(5),
+    scheduledDate: daysAgo(2),
+    performedDate: daysAgo(2),
+    reportedDate: daysAgo(1),
+    claustrophobia: false,
+    implants: [],
+    report: {
+      reportId: 'RPT-007',
+      orderId: 'IMG-007',
+      status: 'preliminary',
+      indication: 'Knee injury with instability',
+      technique: 'Multiplanar, multisequence MRI of the right knee without contrast.',
+      comparison: 'None',
+      findings: 'ACL: Complete tear of the anterior cruciate ligament with retracted fibers. No bony avulsion.\nPCL: Intact.\nMenisci: Complex tear of the posterior horn of the medial meniscus.\nMCL/LCL: Intact.\nQuadriceps and patellar tendons: Intact.\nModerate joint effusion present. Bone marrow edema in the lateral femoral condyle and posterior tibial plateau, compatible with bone contusions.',
+      impression: '1. Complete ACL tear.\n2. Complex tear of the posterior horn of the medial meniscus.\n3. Bone contusions in lateral femoral condyle and posterior tibial plateau.\n4. Moderate joint effusion.',
+      recommendations: 'Orthopedic surgery consultation recommended.',
+      hasCriticalFindings: false,
+      radiologistId: 'RAD-002',
+      radiologistName: 'Dr. Jennifer Walsh',
+      createdAt: daysAgo(1),
+      updatedAt: daysAgo(1)
+    },
+    createdAt: daysAgo(5),
+    createdBy: 'PROV-003',
+    updatedAt: daysAgo(1),
+    updatedBy: 'RAD-002'
+  }
+];
+
+// Export counts for dashboard
+export const IMAGING_STATS = {
+  total: MOCK_IMAGING_ORDERS.length,
+  pending: MOCK_IMAGING_ORDERS.filter(o => o.status === 'pending').length,
+  scheduled: MOCK_IMAGING_ORDERS.filter(o => o.status === 'scheduled').length,
+  inProgress: MOCK_IMAGING_ORDERS.filter(o => o.status === 'in-progress').length,
+  preliminary: MOCK_IMAGING_ORDERS.filter(o => o.status === 'preliminary').length,
+  final: MOCK_IMAGING_ORDERS.filter(o => o.status === 'final').length,
+  critical: MOCK_IMAGING_ORDERS.filter(o => o.report?.hasCriticalFindings).length
+};
