@@ -1,35 +1,42 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog } from '@angular/material/dialog';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
 
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
+// PrimeNG Imports
+import { Card } from 'primeng/card';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Textarea } from 'primeng/textarea';
+import { InputNumber } from 'primeng/inputnumber';
+import { Select } from 'primeng/select';
+import { Checkbox } from 'primeng/checkbox';
+import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
+import { Accordion, AccordionTab } from 'primeng/accordion';
+import { AutoComplete, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
+import { Chip } from 'primeng/chip';
+import { Divider } from 'primeng/divider';
+import { Menu } from 'primeng/menu';
+import { Toast } from 'primeng/toast';
+import { Tooltip } from 'primeng/tooltip';
+import { Avatar } from 'primeng/avatar';
+import { Tag } from 'primeng/tag';
+import { Skeleton } from 'primeng/skeleton';
+import { MessageService, MenuItem } from 'primeng/api';
+
 import { EncounterService } from '../data-access/services/encounter.service';
-import { 
-  Encounter, 
-  VitalSigns,
+import { ThemeService } from '../../../core/services/theme.service';
+import {
+  Encounter,
   EncounterTemplate,
   COMMON_DIAGNOSES,
   ENCOUNTER_CLASS_CONFIG
 } from '../data-access/models/encounter.model';
+
+interface DiagnosisSuggestion {
+  code: string;
+  description: string;
+}
 
 @Component({
   selector: 'app-encounter-editor',
@@ -38,831 +45,1246 @@ import {
     CommonModule,
     RouterLink,
     ReactiveFormsModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatCheckboxModule,
-    MatExpansionModule,
-    MatTabsModule,
-    MatAutocompleteModule,
-    MatChipsModule,
-    MatDividerModule,
-    MatMenuModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-    PageHeaderComponent,
-    AvatarComponent,
+    // PrimeNG
+    Card,
+    Button,
+    InputText,
+    Textarea,
+    InputNumber,
+    Select,
+    Checkbox,
+    Tabs,
+    TabList,
+    Tab,
+    TabPanels,
+    TabPanel,
+    Accordion,
+    AccordionTab,
+    AutoComplete,
+    Chip,
+    Divider,
+    Menu,
+    Toast,
+    Tooltip,
+    Avatar,
+    Tag,
+    Skeleton,
   ],
+  providers: [MessageService],
   template: `
-    <div class="encounter-editor-container">
-      <app-page-header
-        [title]="isEditMode() ? 'Edit Encounter' : 'New Encounter'"
-        [subtitle]="encounter()?.patient?.name || 'Document clinical visit'"
-        icon="edit_note"
-        [breadcrumbs]="breadcrumbs()"
-        [showDivider]="false"
-      >
-        <div class="header-actions" actions>
-          <button mat-stroked-button (click)="cancel()">
-            Cancel
-          </button>
-          <button mat-stroked-button (click)="saveDraft()" [disabled]="saving()">
-            <mat-icon>save</mat-icon>
-            Save Draft
-          </button>
-          <button 
-            mat-flat-button 
-            color="primary" 
-            [matMenuTriggerFor]="saveMenu"
-            [disabled]="saving()"
-          >
-            @if (saving()) {
-              <mat-spinner diameter="20"></mat-spinner>
-            } @else {
-              <mat-icon>check</mat-icon>
-              Save
-            }
-          </button>
-          <mat-menu #saveMenu="matMenu">
-            <button mat-menu-item (click)="saveAndContinue()">
-              <mat-icon>save</mat-icon>
-              Save & Continue Editing
-            </button>
-            <button mat-menu-item (click)="saveAndClose()">
-              <mat-icon>done</mat-icon>
-              Save & Close
-            </button>
-            <mat-divider></mat-divider>
-            <button mat-menu-item (click)="saveAndSign()">
-              <mat-icon>verified</mat-icon>
-              Save & Sign
-            </button>
-          </mat-menu>
-        </div>
-      </app-page-header>
+    <div class="encounter-editor" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
 
-      <!-- Templates Selection -->
+      <!-- Header -->
+      <header class="page-header">
+        <div class="header-content">
+          <div class="breadcrumb">
+            <a routerLink="/encounters" class="breadcrumb-link">
+              <i class="pi pi-file-edit"></i>
+              Encounters
+            </a>
+            <i class="pi pi-chevron-right"></i>
+            <span>{{ isEditMode() ? 'Edit' : 'New' }}</span>
+          </div>
+          <div class="title-section">
+            <h1>{{ isEditMode() ? 'Edit Encounter' : 'New Encounter' }}</h1>
+            <p class="subtitle">{{ encounter()?.patient?.name || 'Document clinical visit' }}</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <p-button
+            label="Cancel"
+            [outlined]="true"
+            severity="secondary"
+            (onClick)="cancel()"
+          />
+          <p-button
+            label="Save Draft"
+            icon="pi pi-save"
+            [outlined]="true"
+            [loading]="saving()"
+            (onClick)="saveDraft()"
+          />
+          <p-button
+            label="Save"
+            icon="pi pi-check"
+            [loading]="saving()"
+            (onClick)="saveMenu.toggle($event)"
+          />
+          <p-menu #saveMenu [model]="saveMenuItems" [popup]="true" />
+        </div>
+      </header>
+
+      <!-- Templates (New Mode Only) -->
       @if (!isEditMode()) {
-        <mat-card class="templates-card">
-          <mat-card-content>
+        <section class="templates-section">
+          <p-card styleClass="templates-card">
             <div class="templates-header">
-              <h3>Quick Start with Template</h3>
-              <button mat-button color="primary" (click)="loadTemplates()">
-                <mat-icon>refresh</mat-icon>
-                Refresh
-              </button>
+              <h3>
+                <i class="pi pi-file"></i>
+                Quick Start with Template
+              </h3>
+              <p-button
+                label="Refresh"
+                icon="pi pi-refresh"
+                [text]="true"
+                (onClick)="loadTemplates()"
+              />
             </div>
-            <div class="templates-list">
+            <div class="templates-grid">
               @for (template of templates(); track template.id) {
-                <button 
-                  mat-stroked-button 
-                  class="template-btn"
+                <div
+                  class="template-item"
                   (click)="applyTemplate(template)"
-                  [matTooltip]="template.description || ''"
-                >
-                  <mat-icon>description</mat-icon>
-                  {{ template.name }}
-                </button>
+                  [pTooltip]="template.description || ''"
+                  tooltipPosition="top">
+                  <i class="pi pi-file-edit"></i>
+                  <span>{{ template.name }}</span>
+                </div>
               }
             </div>
-          </mat-card-content>
-        </mat-card>
+          </p-card>
+        </section>
       }
 
-      <!-- Patient Info Bar -->
+      <!-- Patient Bar -->
       @if (encounter(); as enc) {
-        <div class="patient-bar">
+        <section class="patient-bar">
           <div class="patient-info">
-            <app-avatar [name]="enc.patient.name" [imageUrl]="enc.patient.photo ?? ''" size="md"></app-avatar>
+            <p-avatar
+              [label]="getInitials(enc.patient.name)"
+              [image]="enc.patient.photo || ''"
+              [style]="{ 'background-color': '#3b82f6', 'color': 'white' }"
+              size="large"
+              shape="circle"
+            />
             <div class="patient-details">
               <h3>{{ enc.patient.name }}</h3>
               <span>MRN: {{ enc.patient.mrn }} • DOB: {{ enc.patient.dob }}</span>
             </div>
           </div>
           <div class="encounter-meta">
-            <mat-chip>
-              <mat-icon>{{ getClassIcon(enc.class) }}</mat-icon>
-              {{ getClassLabel(enc.class) }}
-            </mat-chip>
+            <p-chip
+              [label]="getClassLabel(enc.class)"
+              [icon]="'pi ' + getClassIcon(enc.class)"
+              styleClass="class-chip"
+            />
             <span class="time">{{ enc.startTime | date:'MMM d, yyyy h:mm a' }}</span>
           </div>
-        </div>
+        </section>
       }
 
-      <!-- Main Editor -->
-      <div class="editor-content">
-        <mat-tab-group [(selectedIndex)]="selectedTab" animationDuration="200ms">
-          <!-- Vitals Tab -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon>monitor_heart</mat-icon>
-              Vitals
-            </ng-template>
-            <div class="tab-content">
-              <mat-card>
-                <mat-card-content>
-                  <form [formGroup]="vitalsForm">
-                    <div class="vitals-grid">
-                      <div class="vital-group">
-                        <h4>Blood Pressure</h4>
-                        <div class="bp-fields">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Systolic</mat-label>
-                            <input matInput type="number" formControlName="bloodPressureSystolic">
-                            <span matSuffix>mmHg</span>
-                          </mat-form-field>
-                          <span class="bp-separator">/</span>
-                          <mat-form-field appearance="outline">
-                            <mat-label>Diastolic</mat-label>
-                            <input matInput type="number" formControlName="bloodPressureDiastolic">
-                            <span matSuffix>mmHg</span>
-                          </mat-form-field>
+      <!-- Editor Tabs -->
+      <section class="editor-section">
+        <p-tabs [(value)]="selectedTab" class="editor-tabs">
+          <p-tablist>
+            <p-tab value="0">
+              <i class="pi pi-heart"></i>
+              <span>Vitals</span>
+            </p-tab>
+            <p-tab value="1">
+              <i class="pi pi-comments"></i>
+              <span>Subjective</span>
+            </p-tab>
+            <p-tab value="2">
+              <i class="pi pi-search"></i>
+              <span>Objective</span>
+            </p-tab>
+            <p-tab value="3">
+              <i class="pi pi-check-square"></i>
+              <span>Assessment</span>
+            </p-tab>
+            <p-tab value="4">
+              <i class="pi pi-list"></i>
+              <span>Plan</span>
+            </p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            <!-- Vitals Panel -->
+            <p-tabpanel value="0">
+              <div class="tab-content">
+                <form [formGroup]="vitalsForm">
+                  <div class="vitals-grid">
+                    <!-- Blood Pressure -->
+                    <div class="vital-group">
+                      <h4>Blood Pressure</h4>
+                      <div class="bp-row">
+                        <div class="field">
+                          <label>Systolic</label>
+                          <p-inputNumber
+                            formControlName="bloodPressureSystolic"
+                            [showButtons]="false"
+                            suffix=" mmHg"
+                            styleClass="w-full"
+                          />
                         </div>
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>Position</mat-label>
-                          <mat-select formControlName="bloodPressurePosition">
-                            <mat-option value="sitting">Sitting</mat-option>
-                            <mat-option value="standing">Standing</mat-option>
-                            <mat-option value="supine">Supine</mat-option>
-                          </mat-select>
-                        </mat-form-field>
+                        <span class="bp-sep">/</span>
+                        <div class="field">
+                          <label>Diastolic</label>
+                          <p-inputNumber
+                            formControlName="bloodPressureDiastolic"
+                            [showButtons]="false"
+                            suffix=" mmHg"
+                            styleClass="w-full"
+                          />
+                        </div>
                       </div>
-
-                      <div class="vital-group">
-                        <h4>Heart Rate</h4>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Pulse</mat-label>
-                          <input matInput type="number" formControlName="pulseRate">
-                          <span matSuffix>bpm</span>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Rhythm</mat-label>
-                          <mat-select formControlName="pulseRhythm">
-                            <mat-option value="regular">Regular</mat-option>
-                            <mat-option value="irregular">Irregular</mat-option>
-                          </mat-select>
-                        </mat-form-field>
+                      <div class="field">
+                        <label>Position</label>
+                        <p-select
+                          formControlName="bloodPressurePosition"
+                          [options]="positionOptions"
+                          placeholder="Select position"
+                          styleClass="w-full"
+                        />
                       </div>
+                    </div>
 
-                      <div class="vital-group">
-                        <h4>Respiratory</h4>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Rate</mat-label>
-                          <input matInput type="number" formControlName="respiratoryRate">
-                          <span matSuffix>/min</span>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                          <mat-label>SpO2</mat-label>
-                          <input matInput type="number" formControlName="oxygenSaturation">
-                          <span matSuffix>%</span>
-                        </mat-form-field>
+                    <!-- Heart Rate -->
+                    <div class="vital-group">
+                      <h4>Heart Rate</h4>
+                      <div class="field">
+                        <label>Pulse</label>
+                        <p-inputNumber
+                          formControlName="pulseRate"
+                          [showButtons]="false"
+                          suffix=" bpm"
+                          styleClass="w-full"
+                        />
                       </div>
-
-                      <div class="vital-group">
-                        <h4>Temperature</h4>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Temp</mat-label>
-                          <input matInput type="number" step="0.1" formControlName="temperatureCelsius">
-                          <span matSuffix>°C</span>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Location</mat-label>
-                          <mat-select formControlName="temperatureLocation">
-                            <mat-option value="oral">Oral</mat-option>
-                            <mat-option value="tympanic">Tympanic</mat-option>
-                            <mat-option value="temporal">Temporal</mat-option>
-                            <mat-option value="axillary">Axillary</mat-option>
-                            <mat-option value="rectal">Rectal</mat-option>
-                          </mat-select>
-                        </mat-form-field>
+                      <div class="field">
+                        <label>Rhythm</label>
+                        <p-select
+                          formControlName="pulseRhythm"
+                          [options]="rhythmOptions"
+                          placeholder="Select rhythm"
+                          styleClass="w-full"
+                        />
                       </div>
+                    </div>
 
-                      <div class="vital-group">
-                        <h4>Measurements</h4>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Height</mat-label>
-                          <input matInput type="number" step="0.1" formControlName="heightCm">
-                          <span matSuffix>cm</span>
-                        </mat-form-field>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Weight</mat-label>
-                          <input matInput type="number" step="0.1" formControlName="weightKg">
-                          <span matSuffix>kg</span>
-                        </mat-form-field>
+                    <!-- Respiratory -->
+                    <div class="vital-group">
+                      <h4>Respiratory</h4>
+                      <div class="field">
+                        <label>Rate</label>
+                        <p-inputNumber
+                          formControlName="respiratoryRate"
+                          [showButtons]="false"
+                          suffix=" /min"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      <div class="field">
+                        <label>SpO2</label>
+                        <p-inputNumber
+                          formControlName="oxygenSaturation"
+                          [showButtons]="false"
+                          suffix=" %"
+                          styleClass="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Temperature -->
+                    <div class="vital-group">
+                      <h4>Temperature</h4>
+                      <div class="field">
+                        <label>Temperature</label>
+                        <p-inputNumber
+                          formControlName="temperatureCelsius"
+                          [showButtons]="false"
+                          suffix=" °C"
+                          [minFractionDigits]="1"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      <div class="field">
+                        <label>Location</label>
+                        <p-select
+                          formControlName="temperatureLocation"
+                          [options]="tempLocationOptions"
+                          placeholder="Select location"
+                          styleClass="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Measurements -->
+                    <div class="vital-group">
+                      <h4>Measurements</h4>
+                      <div class="field">
+                        <label>Height</label>
+                        <p-inputNumber
+                          formControlName="heightCm"
+                          [showButtons]="false"
+                          suffix=" cm"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      <div class="field">
+                        <label>Weight</label>
+                        <p-inputNumber
+                          formControlName="weightKg"
+                          [showButtons]="false"
+                          suffix=" kg"
+                          [minFractionDigits]="1"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      @if (calculateBMI()) {
                         <div class="bmi-display">
-                          <span>BMI: {{ calculateBMI() | number:'1.1-1' }}</span>
-                        </div>
-                      </div>
-
-                      <div class="vital-group">
-                        <h4>Pain</h4>
-                        <mat-form-field appearance="outline">
-                          <mat-label>Pain Level (0-10)</mat-label>
-                          <input matInput type="number" min="0" max="10" formControlName="painLevel">
-                        </mat-form-field>
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>Pain Location</mat-label>
-                          <input matInput formControlName="painLocation">
-                        </mat-form-field>
-                      </div>
-                    </div>
-                  </form>
-                </mat-card-content>
-              </mat-card>
-            </div>
-          </mat-tab>
-
-          <!-- Subjective Tab -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon>record_voice_over</mat-icon>
-              Subjective
-            </ng-template>
-            <div class="tab-content">
-              <mat-card>
-                <mat-card-content>
-                  <form [formGroup]="subjectiveForm">
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Chief Complaint</mat-label>
-                      <input matInput formControlName="chiefComplaint" placeholder="Patient's primary concern">
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>History of Present Illness</mat-label>
-                      <textarea 
-                        matInput 
-                        formControlName="historyOfPresentIllness" 
-                        rows="6"
-                        placeholder="Describe the onset, duration, character, location, and associated symptoms..."
-                      ></textarea>
-                    </mat-form-field>
-
-                    <mat-expansion-panel class="ros-panel">
-                      <mat-expansion-panel-header>
-                        <mat-panel-title>Review of Systems</mat-panel-title>
-                      </mat-expansion-panel-header>
-                      <div formGroupName="reviewOfSystems" class="ros-grid">
-                        @for (system of rosSystems; track system.key) {
-                          <mat-form-field appearance="outline">
-                            <mat-label>{{ system.label }}</mat-label>
-                            <input matInput [formControlName]="system.key">
-                          </mat-form-field>
-                        }
-                      </div>
-                    </mat-expansion-panel>
-
-                    <div class="row-fields">
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Current Medications</mat-label>
-                        <textarea matInput formControlName="medications" rows="3"></textarea>
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Allergies</mat-label>
-                        <textarea matInput formControlName="allergies" rows="3"></textarea>
-                      </mat-form-field>
-                    </div>
-
-                    <div class="row-fields">
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Social History</mat-label>
-                        <textarea matInput formControlName="socialHistory" rows="3"></textarea>
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Family History</mat-label>
-                        <textarea matInput formControlName="familyHistory" rows="3"></textarea>
-                      </mat-form-field>
-                    </div>
-                  </form>
-                </mat-card-content>
-              </mat-card>
-            </div>
-          </mat-tab>
-
-          <!-- Objective Tab -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon>visibility</mat-icon>
-              Objective
-            </ng-template>
-            <div class="tab-content">
-              <mat-card>
-                <mat-card-content>
-                  <form [formGroup]="objectiveForm">
-                    <mat-expansion-panel expanded class="exam-panel">
-                      <mat-expansion-panel-header>
-                        <mat-panel-title>Physical Examination</mat-panel-title>
-                      </mat-expansion-panel-header>
-                      <div formGroupName="physicalExam" class="exam-grid">
-                        @for (exam of examSystems; track exam.key) {
-                          <mat-form-field appearance="outline">
-                            <mat-label>{{ exam.label }}</mat-label>
-                            <textarea matInput [formControlName]="exam.key" rows="2"></textarea>
-                          </mat-form-field>
-                        }
-                      </div>
-                    </mat-expansion-panel>
-
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Lab Results</mat-label>
-                      <textarea matInput formControlName="labResults" rows="3" placeholder="Reference any relevant lab findings"></textarea>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Imaging Results</mat-label>
-                      <textarea matInput formControlName="imagingResults" rows="3" placeholder="Reference any relevant imaging findings"></textarea>
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Other Findings</mat-label>
-                      <textarea matInput formControlName="otherFindings" rows="2"></textarea>
-                    </mat-form-field>
-                  </form>
-                </mat-card-content>
-              </mat-card>
-            </div>
-          </mat-tab>
-
-          <!-- Assessment Tab -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon>assessment</mat-icon>
-              Assessment
-            </ng-template>
-            <div class="tab-content">
-              <mat-card>
-                <mat-card-content>
-                  <form [formGroup]="assessmentForm">
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Clinical Impression</mat-label>
-                      <textarea 
-                        matInput 
-                        formControlName="clinicalImpression" 
-                        rows="4"
-                        placeholder="Summary of clinical findings and interpretation..."
-                      ></textarea>
-                    </mat-form-field>
-
-                    <div class="diagnoses-section">
-                      <div class="section-header">
-                        <h4>Diagnoses</h4>
-                        <button mat-stroked-button (click)="addDiagnosis()">
-                          <mat-icon>add</mat-icon>
-                          Add Diagnosis
-                        </button>
-                      </div>
-
-                      <div class="diagnoses-list" formArrayName="diagnoses">
-                        @for (dx of diagnoses.controls; track $index; let i = $index) {
-                          <div class="diagnosis-row" [formGroupName]="i">
-                            <mat-form-field appearance="outline" class="code-field">
-                              <mat-label>ICD-10</mat-label>
-                              <input 
-                                matInput 
-                                formControlName="code"
-                                [matAutocomplete]="dxAuto"
-                              >
-                              <mat-autocomplete #dxAuto="matAutocomplete" (optionSelected)="onDiagnosisSelected($event, i)">
-                                @for (dx of filteredDiagnoses(); track dx.code) {
-                                  <mat-option [value]="dx.code">
-                                    <span class="dx-code">{{ dx.code }}</span>
-                                    <span class="dx-desc">{{ dx.description }}</span>
-                                  </mat-option>
-                                }
-                              </mat-autocomplete>
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline" class="description-field">
-                              <mat-label>Description</mat-label>
-                              <input matInput formControlName="description">
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline" class="type-field">
-                              <mat-label>Type</mat-label>
-                              <mat-select formControlName="type">
-                                <mat-option value="primary">Primary</mat-option>
-                                <mat-option value="secondary">Secondary</mat-option>
-                                <mat-option value="billing">Billing</mat-option>
-                              </mat-select>
-                            </mat-form-field>
-
-                            <button mat-icon-button color="warn" (click)="removeDiagnosis(i)">
-                              <mat-icon>delete</mat-icon>
-                            </button>
-                          </div>
-                        }
-                      </div>
-
-                      @if (diagnoses.length === 0) {
-                        <div class="no-diagnoses">
-                          <p>No diagnoses added. Click "Add Diagnosis" to begin.</p>
-                          <div class="quick-add">
-                            <span>Quick add:</span>
-                            @for (dx of commonDiagnoses.slice(0, 5); track dx.code) {
-                              <button mat-stroked-button (click)="quickAddDiagnosis(dx)">
-                                {{ dx.code }}
-                              </button>
-                            }
-                          </div>
+                          <span class="bmi-label">BMI:</span>
+                          <span class="bmi-value">{{ calculateBMI() | number:'1.1-1' }}</span>
                         </div>
                       }
                     </div>
-                  </form>
-                </mat-card-content>
-              </mat-card>
-            </div>
-          </mat-tab>
 
-          <!-- Plan Tab -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon>playlist_add_check</mat-icon>
-              Plan
-            </ng-template>
-            <div class="tab-content">
-              <mat-card>
-                <mat-card-content>
-                  <form [formGroup]="planForm">
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Treatment Plan</mat-label>
-                      <textarea 
-                        matInput 
-                        formControlName="treatmentPlan" 
-                        rows="5"
-                        placeholder="Describe the plan of care..."
-                      ></textarea>
-                    </mat-form-field>
+                    <!-- Pain -->
+                    <div class="vital-group">
+                      <h4>Pain</h4>
+                      <div class="field">
+                        <label>Pain Level (0-10)</label>
+                        <p-inputNumber
+                          formControlName="painLevel"
+                          [showButtons]="true"
+                          [min]="0"
+                          [max]="10"
+                          styleClass="w-full"
+                        />
+                      </div>
+                      <div class="field">
+                        <label>Location</label>
+                        <input
+                          pInputText
+                          formControlName="painLocation"
+                          placeholder="e.g., Lower back"
+                          class="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </p-tabpanel>
 
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Patient Education</mat-label>
-                      <textarea 
-                        matInput 
-                        formControlName="patientEducation" 
-                        rows="3"
-                        placeholder="Topics discussed with patient..."
-                      ></textarea>
-                    </mat-form-field>
+            <!-- Subjective Panel -->
+            <p-tabpanel value="1">
+              <div class="tab-content">
+                <form [formGroup]="subjectiveForm">
+                  <div class="field">
+                    <label>Chief Complaint *</label>
+                    <textarea
+                      pTextarea
+                      formControlName="chiefComplaint"
+                      [rows]="2"
+                      placeholder="Patient's primary reason for visit..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
 
-                    <div class="row-fields">
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Follow-up Timing</mat-label>
-                        <input matInput formControlName="followUpTiming" placeholder="e.g., 2 weeks, PRN">
-                      </mat-form-field>
+                  <div class="field">
+                    <label>History of Present Illness</label>
+                    <textarea
+                      pTextarea
+                      formControlName="historyOfPresentIllness"
+                      [rows]="4"
+                      placeholder="Detailed description of the current illness..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
 
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Follow-up Reason</mat-label>
-                        <input matInput formControlName="followUpReason">
-                      </mat-form-field>
+                  <p-accordion [multiple]="true">
+                    <p-accordionTab header="Review of Systems">
+                      <div class="ros-grid" formGroupName="reviewOfSystems">
+                        @for (system of rosSystems; track system.key) {
+                          <div class="field">
+                            <label>{{ system.label }}</label>
+                            <input
+                              pInputText
+                              [formControlName]="system.key"
+                              placeholder="Findings..."
+                              class="w-full"
+                            />
+                          </div>
+                        }
+                      </div>
+                    </p-accordionTab>
+
+                    <p-accordionTab header="Additional History">
+                      <div class="field">
+                        <label>Social History</label>
+                        <textarea
+                          pTextarea
+                          formControlName="socialHistory"
+                          [rows]="2"
+                          class="w-full"
+                        ></textarea>
+                      </div>
+                      <div class="field">
+                        <label>Family History</label>
+                        <textarea
+                          pTextarea
+                          formControlName="familyHistory"
+                          [rows]="2"
+                          class="w-full"
+                        ></textarea>
+                      </div>
+                    </p-accordionTab>
+                  </p-accordion>
+                </form>
+              </div>
+            </p-tabpanel>
+
+            <!-- Objective Panel -->
+            <p-tabpanel value="2">
+              <div class="tab-content">
+                <form [formGroup]="objectiveForm">
+                  <h4>Physical Examination</h4>
+                  <div class="exam-grid" formGroupName="physicalExam">
+                    @for (system of examSystems; track system.key) {
+                      <div class="field">
+                        <label>{{ system.label }}</label>
+                        <textarea
+                          pTextarea
+                          [formControlName]="system.key"
+                          [rows]="2"
+                          placeholder="Findings..."
+                          class="w-full"
+                        ></textarea>
+                      </div>
+                    }
+                  </div>
+
+                  <p-divider />
+
+                  <div class="field">
+                    <label>Lab Results</label>
+                    <textarea
+                      pTextarea
+                      formControlName="labResults"
+                      [rows]="3"
+                      placeholder="Relevant laboratory findings..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+
+                  <div class="field">
+                    <label>Imaging Results</label>
+                    <textarea
+                      pTextarea
+                      formControlName="imagingResults"
+                      [rows]="3"
+                      placeholder="Relevant imaging findings..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+                </form>
+              </div>
+            </p-tabpanel>
+
+            <!-- Assessment Panel -->
+            <p-tabpanel value="3">
+              <div class="tab-content">
+                <form [formGroup]="assessmentForm">
+                  <div class="field">
+                    <label>Clinical Impression</label>
+                    <textarea
+                      pTextarea
+                      formControlName="clinicalImpression"
+                      [rows]="4"
+                      placeholder="Summary of clinical findings and reasoning..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+
+                  <p-divider />
+
+                  <div class="diagnoses-section">
+                    <div class="section-header">
+                      <h4>Diagnoses</h4>
+                      <p-button
+                        label="Add Diagnosis"
+                        icon="pi pi-plus"
+                        [outlined]="true"
+                        size="small"
+                        (onClick)="addDiagnosis()"
+                      />
                     </div>
 
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Additional Instructions</mat-label>
-                      <textarea matInput formControlName="additionalInstructions" rows="3"></textarea>
-                    </mat-form-field>
-                  </form>
-                </mat-card-content>
-              </mat-card>
+                    <!-- Quick Add -->
+                    <div class="quick-add">
+                      <span class="quick-label">Quick Add:</span>
+                      <div class="quick-chips">
+                        @for (dx of commonDiagnoses.slice(0, 5); track dx.code) {
+                          <p-chip
+                            [label]="dx.description"
+                            [pTooltip]="dx.code"
+                            tooltipPosition="top"
+                            (click)="quickAddDiagnosis(dx)"
+                            styleClass="quick-chip"
+                          />
+                        }
+                      </div>
+                    </div>
 
-              <!-- Quick Actions -->
-              <mat-card class="quick-actions-card">
-                <mat-card-header>
-                  <mat-card-title>Quick Actions</mat-card-title>
-                </mat-card-header>
-                <mat-card-content>
-                  <div class="quick-actions">
-                    <button mat-stroked-button routerLink="/prescriptions/new">
-                      <mat-icon>medication</mat-icon>
-                      New Prescription
-                    </button>
-                    <button mat-stroked-button routerLink="/labs/new">
-                      <mat-icon>science</mat-icon>
-                      Order Labs
-                    </button>
-                    <button mat-stroked-button>
-                      <mat-icon>image</mat-icon>
-                      Order Imaging
-                    </button>
-                    <button mat-stroked-button>
-                      <mat-icon>send</mat-icon>
-                      Create Referral
-                    </button>
+                    <!-- Diagnosis List -->
+                    <div class="diagnoses-list" formArrayName="diagnoses">
+                      @for (dx of diagnoses.controls; track $index; let i = $index) {
+                        <div class="diagnosis-item" [formGroupName]="i">
+                          <div class="dx-fields">
+                            <div class="field code-field">
+                              <label>ICD-10 Code</label>
+                              <p-autoComplete
+                                formControlName="code"
+                                [suggestions]="filteredDiagnoses"
+                                (completeMethod)="searchDiagnoses($event)"
+                                (onSelect)="onDiagnosisSelected($event, i)"
+                                field="code"
+                                placeholder="Search code..."
+                                styleClass="w-full">
+                                <ng-template let-dx pTemplate="item">
+                                  <div class="dx-suggestion">
+                                    <span class="dx-code">{{ dx.code }}</span>
+                                    <span class="dx-desc">{{ dx.description }}</span>
+                                  </div>
+                                </ng-template>
+                              </p-autoComplete>
+                            </div>
+                            <div class="field desc-field">
+                              <label>Description</label>
+                              <input
+                                pInputText
+                                formControlName="description"
+                                class="w-full"
+                              />
+                            </div>
+                            <div class="field type-field">
+                              <label>Type</label>
+                              <p-select
+                                formControlName="type"
+                                [options]="diagnosisTypes"
+                                styleClass="w-full"
+                              />
+                            </div>
+                          </div>
+                          <p-button
+                            icon="pi pi-trash"
+                            [rounded]="true"
+                            [text]="true"
+                            severity="danger"
+                            (onClick)="removeDiagnosis(i)"
+                          />
+                        </div>
+                      }
+                    </div>
                   </div>
-                </mat-card-content>
-              </mat-card>
-            </div>
-          </mat-tab>
-        </mat-tab-group>
+                </form>
+              </div>
+            </p-tabpanel>
+
+            <!-- Plan Panel -->
+            <p-tabpanel value="4">
+              <div class="tab-content">
+                <form [formGroup]="planForm">
+                  <div class="field">
+                    <label>Treatment Plan *</label>
+                    <textarea
+                      pTextarea
+                      formControlName="treatmentPlan"
+                      [rows]="4"
+                      placeholder="Detailed treatment plan..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+
+                  <div class="field">
+                    <label>Patient Education</label>
+                    <textarea
+                      pTextarea
+                      formControlName="patientEducation"
+                      [rows]="3"
+                      placeholder="Patient education and instructions provided..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+
+                  <p-divider />
+
+                  <h4>Follow-up</h4>
+                  <div class="followup-row">
+                    <div class="field">
+                      <label>Timing</label>
+                      <input
+                        pInputText
+                        formControlName="followUpTiming"
+                        placeholder="e.g., 2 weeks, 1 month"
+                        class="w-full"
+                      />
+                    </div>
+                    <div class="field">
+                      <label>Reason</label>
+                      <input
+                        pInputText
+                        formControlName="followUpReason"
+                        placeholder="e.g., Recheck blood pressure"
+                        class="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label>Additional Instructions</label>
+                    <textarea
+                      pTextarea
+                      formControlName="additionalInstructions"
+                      [rows]="3"
+                      placeholder="Any additional notes or instructions..."
+                      class="w-full"
+                    ></textarea>
+                  </div>
+                </form>
+              </div>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </section>
+
+      <!-- Mobile Bottom Actions -->
+      <div class="bottom-actions">
+        <p-button
+          label="Cancel"
+          [outlined]="true"
+          severity="secondary"
+          (onClick)="cancel()"
+          styleClass="w-full"
+        />
+        <p-button
+          label="Save"
+          [loading]="saving()"
+          (onClick)="saveAndClose()"
+          styleClass="w-full"
+        />
       </div>
     </div>
   `,
   styles: [`
-    .encounter-editor-container {
-      padding: 24px;
-      max-width: 1400px;
+    .encounter-editor {
+      padding: 1.5rem;
+      max-width: 1200px;
       margin: 0 auto;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .breadcrumb-link {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb .pi-chevron-right {
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .breadcrumb span {
+      color: #64748b;
+    }
+
+    .dark .breadcrumb span {
+      color: #94a3b8;
+    }
+
+    .title-section h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .dark .title-section h1 {
+      color: #f1f5f9;
+    }
+
+    .subtitle {
+      color: #64748b;
+      margin: 0.25rem 0 0;
+    }
+
+    .dark .subtitle {
+      color: #94a3b8;
     }
 
     .header-actions {
       display: flex;
-      gap: 12px;
+      gap: 0.5rem;
     }
 
-    .templates-card {
-      margin-bottom: 24px;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    /* Templates */
+    .templates-section {
+      margin-bottom: 1.5rem;
+    }
+
+    :host ::ng-deep .templates-card {
+      border-radius: 1rem;
+    }
+
+    .dark :host ::ng-deep .templates-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .templates-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
-
-      h3 {
-        margin: 0;
-        font-size: 1rem;
-        color: #0369a1;
-      }
+      margin-bottom: 1rem;
     }
 
-    .templates-list {
+    .templates-header h3 {
       display: flex;
-      gap: 12px;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0;
+      font-size: 1rem;
+      color: #374151;
+    }
+
+    .dark .templates-header h3 {
+      color: #e2e8f0;
+    }
+
+    .templates-grid {
+      display: flex;
       flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
-    .template-btn {
-      mat-icon {
-        margin-right: 4px;
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
+    .template-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+      color: #374151;
     }
 
+    .dark .template-item {
+      background: #334155;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    .template-item:hover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .dark .template-item:hover {
+      background: #1e3a8a;
+    }
+
+    /* Patient Bar */
     .patient-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
-      background: #f8fafc;
-      border-radius: 12px;
-      margin-bottom: 24px;
+      padding: 1rem 1.25rem;
+      background: white;
+      border-radius: 1rem;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .dark .patient-bar {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .patient-info {
       display: flex;
-      gap: 12px;
       align-items: center;
+      gap: 0.75rem;
     }
 
-    .patient-details {
-      h3 {
-        margin: 0;
-        font-size: 1.1rem;
-      }
+    .patient-details h3 {
+      margin: 0 0 0.25rem;
+      font-size: 1.0625rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
 
-      span {
-        font-size: 0.85rem;
-        color: #6b7280;
-      }
+    .dark .patient-details h3 {
+      color: #f1f5f9;
+    }
+
+    .patient-details span {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .patient-details span {
+      color: #94a3b8;
     }
 
     .encounter-meta {
       display: flex;
       align-items: center;
-      gap: 16px;
-
-      mat-chip {
-        mat-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
-          margin-right: 4px;
-        }
-      }
-
-      .time {
-        font-size: 0.9rem;
-        color: #6b7280;
-      }
+      gap: 1rem;
     }
 
-    .editor-content {
-      mat-tab-group {
-        ::ng-deep .mat-mdc-tab-labels {
-          background: white;
-          border-radius: 8px 8px 0 0;
-        }
-      }
+    :host ::ng-deep .class-chip {
+      background: #f1f5f9;
     }
 
-    .tab-content {
-      padding: 24px 0;
+    .dark :host ::ng-deep .class-chip {
+      background: #334155;
+      color: #e2e8f0;
     }
 
-    mat-card {
-      margin-bottom: 16px;
+    .time {
+      font-size: 0.875rem;
+      color: #64748b;
     }
 
-    .full-width {
+    .dark .time {
+      color: #94a3b8;
+    }
+
+    /* Editor Section */
+    .editor-section {
+      background: white;
+      border-radius: 1rem;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    .dark .editor-section {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    /* PrimeNG v19 Tabs Styling */
+    :host ::ng-deep .editor-tabs {
       width: 100%;
     }
 
-    .row-fields {
-      display: flex;
-      gap: 16px;
+    :host ::ng-deep .editor-tabs .p-tablist {
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 1rem;
+    }
 
-      .flex-1 {
-        flex: 1;
+    .dark :host ::ng-deep .editor-tabs .p-tablist {
+      background: #0f172a;
+      border-bottom-color: #334155;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1rem;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tab:hover {
+      color: #3b82f6;
+      border-bottom-color: #93c5fd;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tab[data-p-active="true"],
+    :host ::ng-deep .editor-tabs .p-tab.p-tab-active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+      background: transparent;
+    }
+
+    .dark :host ::ng-deep .editor-tabs .p-tab {
+      color: #94a3b8;
+    }
+
+    .dark :host ::ng-deep .editor-tabs .p-tab:hover {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+    }
+
+    .dark :host ::ng-deep .editor-tabs .p-tab[data-p-active="true"],
+    .dark :host ::ng-deep .editor-tabs .p-tab.p-tab-active {
+      color: #60a5fa;
+      border-bottom-color: #60a5fa;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tab i {
+      font-size: 1rem;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tabpanels {
+      padding: 0;
+      background: transparent;
+    }
+
+    :host ::ng-deep .editor-tabs .p-tabpanel {
+      padding: 0;
+    }
+
+    .tab-content {
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    /* Form Fields */
+    .field {
+      margin-bottom: 1rem;
+      min-width: 0;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .dark .field label {
+      color: #e2e8f0;
+    }
+
+    .w-full {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    :host ::ng-deep .w-full .p-inputnumber,
+    :host ::ng-deep .w-full .p-select,
+    :host ::ng-deep .w-full .p-inputtext,
+    :host ::ng-deep .w-full .p-autocomplete {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    :host ::ng-deep .p-inputnumber,
+    :host ::ng-deep .p-select {
+      width: 100%;
+    }
+
+    /* Vitals Grid */
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1200px) {
+      .vitals-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    .vitals-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
+    @media (max-width: 768px) {
+      .vitals-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .vital-group {
-      background: #f9fafb;
-      padding: 16px;
-      border-radius: 8px;
-
-      h4 {
-        margin: 0 0 16px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #374151;
-      }
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 0.75rem;
+      min-width: 0;
     }
 
-    .bp-fields {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      mat-form-field {
-        flex: 1;
-      }
+    .dark .vital-group {
+      background: #334155;
     }
 
-    .bp-separator {
-      font-size: 1.5rem;
-      color: #6b7280;
-      margin-bottom: 20px;
-    }
-
-    .bmi-display {
-      text-align: center;
-      padding: 12px;
-      background: #fff;
-      border-radius: 4px;
-      font-weight: 500;
+    .vital-group h4 {
+      margin: 0 0 1rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
       color: #374151;
     }
 
-    .ros-panel, .exam-panel {
-      margin: 16px 0;
+    .dark .vital-group h4 {
+      color: #e2e8f0;
     }
 
-    .ros-grid, .exam-grid {
+    .bp-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
+
+    .bp-sep {
+      font-size: 1.5rem;
+      color: #64748b;
+      padding-bottom: 0.75rem;
+    }
+
+    .bmi-display {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background: #dbeafe;
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .dark .bmi-display {
+      background: #1e3a8a;
+    }
+
+    .bmi-label {
+      font-size: 0.875rem;
+      color: #1e40af;
+    }
+
+    .dark .bmi-label {
+      color: #93c5fd;
+    }
+
+    .bmi-value {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e40af;
+    }
+
+    .dark .bmi-value {
+      color: #93c5fd;
+    }
+
+    /* ROS Grid */
+    .ros-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      padding: 16px 0;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
     }
 
+    /* Exam Grid */
+    .exam-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    /* Diagnoses */
     .diagnoses-section {
-      margin-top: 24px;
+      margin-top: 1rem;
     }
 
     .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 1rem;
+    }
 
-      h4 {
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-      }
+    .section-header h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .dark .section-header h4 {
+      color: #e2e8f0;
+    }
+
+    .quick-add {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .quick-label {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    :host ::ng-deep .quick-chip {
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    :host ::ng-deep .quick-chip:hover {
+      background: #dbeafe;
+    }
+
+    .dark :host ::ng-deep .quick-chip:hover {
+      background: #1e3a8a;
     }
 
     .diagnoses-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 0.75rem;
     }
 
-    .diagnosis-row {
+    .diagnosis-item {
       display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      padding: 12px;
-      background: #f9fafb;
-      border-radius: 8px;
+      align-items: flex-end;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 0.75rem;
     }
 
-    .code-field {
-      width: 150px;
+    .dark .diagnosis-item {
+      background: #334155;
     }
 
-    .description-field {
+    .dx-fields {
       flex: 1;
+      display: grid;
+      grid-template-columns: 150px 1fr 120px;
+      gap: 0.75rem;
     }
 
-    .type-field {
-      width: 140px;
+    .dx-suggestion {
+      display: flex;
+      gap: 0.75rem;
     }
 
-    .dx-code {
+    .dx-suggestion .dx-code {
       font-family: monospace;
-      font-weight: 600;
-      margin-right: 8px;
       color: #3b82f6;
     }
 
-    .dx-desc {
-      font-size: 0.9rem;
+    .dx-suggestion .dx-desc {
+      color: #374151;
     }
 
-    .no-diagnoses {
-      text-align: center;
-      padding: 24px;
-      background: #f9fafb;
-      border-radius: 8px;
+    .dark .dx-suggestion .dx-desc {
+      color: #e2e8f0;
+    }
 
-      p {
-        color: #6b7280;
-        margin-bottom: 16px;
+    /* Follow-up Row */
+    .followup-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Bottom Actions */
+    .bottom-actions {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      gap: 0.75rem;
+      z-index: 100;
+    }
+
+    .dark .bottom-actions {
+      background: #1e293b;
+      border-top-color: #334155;
+    }
+
+    /* Dark mode inputs */
+    .dark :host ::ng-deep .p-inputtext,
+    .dark :host ::ng-deep textarea.p-textarea,
+    .dark :host ::ng-deep .p-inputnumber-input {
+      background: #334155;
+      border-color: #475569;
+      color: #f1f5f9;
+    }
+
+    .dark :host ::ng-deep .p-select {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .dark :host ::ng-deep .p-select-label {
+      color: #f1f5f9;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .exam-grid {
+        grid-template-columns: 1fr;
       }
-    }
 
-    .quick-add {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      align-items: center;
-      flex-wrap: wrap;
-
-      span {
-        font-size: 0.85rem;
-        color: #6b7280;
-      }
-
-      button {
-        font-size: 0.8rem;
-      }
-    }
-
-    .quick-actions-card {
-      background: #f9fafb;
-    }
-
-    .quick-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-
-      button {
-        mat-icon {
-          margin-right: 4px;
-        }
+      .dx-fields {
+        grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 768px) {
-      .encounter-editor-container {
-        padding: 16px;
+      .encounter-editor {
+        padding: 1rem;
+        padding-bottom: 100px;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .header-actions {
+        display: none;
+      }
+
+      .bottom-actions {
+        display: flex;
       }
 
       .patient-bar {
         flex-direction: column;
-        gap: 12px;
         align-items: flex-start;
       }
 
-      .row-fields {
-        flex-direction: column;
-      }
-
-      .diagnosis-row {
-        flex-direction: column;
-
-        .code-field,
-        .type-field {
-          width: 100%;
-        }
-      }
-
-      .vitals-grid {
+      .followup-row {
         grid-template-columns: 1fr;
       }
     }
@@ -873,31 +1295,52 @@ export class EncounterEditorComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly encounterService = inject(EncounterService);
-  private readonly snackBar = inject(MatSnackBar);
-
-  encounter = signal<Encounter | null>(null);
-  templates = signal<EncounterTemplate[]>([]);
-  loading = signal(true);
-  saving = signal(false);
-  selectedTab = 0;
-
-  isEditMode = computed(() => !!this.route.snapshot.paramMap.get('id'));
-
-  breadcrumbs = computed(() => [
-    { label: 'Home', route: '/' },
-    { label: 'Encounters', route: '/encounters' },
-    { label: this.isEditMode() ? 'Edit' : 'New' },
-  ]);
+  private readonly messageService = inject(MessageService);
+  readonly themeService = inject(ThemeService);
 
   // Forms
-  vitalsForm!: FormGroup;
-  subjectiveForm!: FormGroup;
-  objectiveForm!: FormGroup;
-  assessmentForm!: FormGroup;
-  planForm!: FormGroup;
+  vitalsForm: FormGroup;
+  subjectiveForm: FormGroup;
+  objectiveForm: FormGroup;
+  assessmentForm: FormGroup;
+  planForm: FormGroup;
 
+  // Signals
+  isEditMode = signal(false);
+  encounter = signal<Encounter | null>(null);
+  templates = signal<EncounterTemplate[]>([]);
+  loading = signal(false);
+  saving = signal(false);
+
+  selectedTab = '0';
   commonDiagnoses = COMMON_DIAGNOSES;
-  filteredDiagnoses = signal(COMMON_DIAGNOSES);
+  filteredDiagnoses: DiagnosisSuggestion[] = [];
+
+  // Options
+  positionOptions = [
+    { label: 'Sitting', value: 'sitting' },
+    { label: 'Standing', value: 'standing' },
+    { label: 'Supine', value: 'supine' },
+  ];
+
+  rhythmOptions = [
+    { label: 'Regular', value: 'regular' },
+    { label: 'Irregular', value: 'irregular' },
+  ];
+
+  tempLocationOptions = [
+    { label: 'Oral', value: 'oral' },
+    { label: 'Rectal', value: 'rectal' },
+    { label: 'Axillary', value: 'axillary' },
+    { label: 'Tympanic', value: 'tympanic' },
+    { label: 'Temporal', value: 'temporal' },
+  ];
+
+  diagnosisTypes = [
+    { label: 'Primary', value: 'primary' },
+    { label: 'Secondary', value: 'secondary' },
+    { label: 'Billing', value: 'billing' },
+  ];
 
   rosSystems = [
     { key: 'constitutional', label: 'Constitutional' },
@@ -919,37 +1362,41 @@ export class EncounterEditorComponent implements OnInit {
     { key: 'ears', label: 'Ears' },
     { key: 'throat', label: 'Throat' },
     { key: 'neck', label: 'Neck' },
-    { key: 'heart', label: 'Heart' },
-    { key: 'lungs', label: 'Lungs' },
+    { key: 'chest', label: 'Chest/Heart/Lungs' },
     { key: 'abdomen', label: 'Abdomen' },
     { key: 'extremities', label: 'Extremities' },
-    { key: 'skin', label: 'Skin' },
     { key: 'neurological', label: 'Neurological' },
+    { key: 'skin', label: 'Skin' },
   ];
 
-  ngOnInit(): void {
-    this.initForms();
-    this.loadTemplates();
+  saveMenuItems: MenuItem[] = [
+    { label: 'Save & Continue', icon: 'pi pi-save', command: () => this.saveAndContinue() },
+    { label: 'Save & Close', icon: 'pi pi-check', command: () => this.saveAndClose() },
+    { separator: true },
+    { label: 'Save & Sign', icon: 'pi pi-verified', command: () => this.saveAndSign() },
+  ];
 
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.loadEncounter(id);
-    } else {
-      this.loading.set(false);
-    }
+  breadcrumbs = computed(() => [
+    { label: 'Encounters', route: '/encounters' },
+    { label: this.isEditMode() ? 'Edit' : 'New' },
+  ]);
+
+  get diagnoses(): FormArray {
+    return this.assessmentForm.get('diagnoses') as FormArray;
   }
 
-  initForms(): void {
+  constructor() {
+    // Initialize forms
     this.vitalsForm = this.fb.group({
       bloodPressureSystolic: [null],
       bloodPressureDiastolic: [null],
-      bloodPressurePosition: ['sitting'],
+      bloodPressurePosition: [null],
       pulseRate: [null],
-      pulseRhythm: ['regular'],
+      pulseRhythm: [null],
       respiratoryRate: [null],
       oxygenSaturation: [null],
       temperatureCelsius: [null],
-      temperatureLocation: ['oral'],
+      temperatureLocation: [null],
       heightCm: [null],
       weightKg: [null],
       painLevel: [null],
@@ -959,6 +1406,8 @@ export class EncounterEditorComponent implements OnInit {
     this.subjectiveForm = this.fb.group({
       chiefComplaint: ['', Validators.required],
       historyOfPresentIllness: [''],
+      socialHistory: [''],
+      familyHistory: [''],
       reviewOfSystems: this.fb.group({
         constitutional: [''],
         eyes: [''],
@@ -971,10 +1420,6 @@ export class EncounterEditorComponent implements OnInit {
         neurological: [''],
         psychiatric: [''],
       }),
-      medications: [''],
-      allergies: [''],
-      socialHistory: [''],
-      familyHistory: [''],
     });
 
     this.objectiveForm = this.fb.group({
@@ -985,16 +1430,14 @@ export class EncounterEditorComponent implements OnInit {
         ears: [''],
         throat: [''],
         neck: [''],
-        heart: [''],
-        lungs: [''],
+        chest: [''],
         abdomen: [''],
         extremities: [''],
-        skin: [''],
         neurological: [''],
+        skin: [''],
       }),
       labResults: [''],
       imagingResults: [''],
-      otherFindings: [''],
     });
 
     this.assessmentForm = this.fb.group({
@@ -1003,7 +1446,7 @@ export class EncounterEditorComponent implements OnInit {
     });
 
     this.planForm = this.fb.group({
-      treatmentPlan: [''],
+      treatmentPlan: ['', Validators.required],
       patientEducation: [''],
       followUpTiming: [''],
       followUpReason: [''],
@@ -1011,11 +1454,17 @@ export class EncounterEditorComponent implements OnInit {
     });
   }
 
-  get diagnoses(): FormArray {
-    return this.assessmentForm.get('diagnoses') as FormArray;
+  ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id && id !== 'new') {
+      this.isEditMode.set(true);
+      this.loadEncounter(id);
+    } else {
+      this.loadTemplates();
+    }
   }
 
-  loadEncounter(id: string): void {
+  private loadEncounter(id: string): void {
     this.loading.set(true);
     this.encounterService.getEncounter(id).subscribe({
       next: (encounter) => {
@@ -1024,7 +1473,11 @@ export class EncounterEditorComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.snackBar.open('Failed to load encounter', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load encounter'
+        });
         this.router.navigate(['/encounters']);
       },
     });
@@ -1036,7 +1489,7 @@ export class EncounterEditorComponent implements OnInit {
     });
   }
 
-  populateForms(enc: Encounter): void {
+  private populateForms(enc: Encounter): void {
     if (enc.vitalSigns) {
       this.vitalsForm.patchValue(enc.vitalSigns);
     }
@@ -1079,16 +1532,6 @@ export class EncounterEditorComponent implements OnInit {
     }
     if (template.assessment) {
       this.assessmentForm.patchValue({ clinicalImpression: template.assessment.clinicalImpression });
-      template.assessment.diagnoses?.forEach((dx) => {
-        this.diagnoses.push(this.fb.group({
-          id: [dx.id],
-          code: [dx.code],
-          codeSystem: [dx.codeSystem || 'ICD-10'],
-          description: [dx.description],
-          type: [dx.type],
-          status: [dx.status || 'active'],
-        }));
-      });
     }
     if (template.plan) {
       this.planForm.patchValue({
@@ -1097,7 +1540,11 @@ export class EncounterEditorComponent implements OnInit {
         followUpReason: template.plan.followUp?.reason,
       });
     }
-    this.snackBar.open(`Template "${template.name}" applied`, 'Close', { duration: 2000 });
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Template Applied',
+      detail: `"${template.name}" has been applied`
+    });
   }
 
   calculateBMI(): number | null {
@@ -1136,9 +1583,16 @@ export class EncounterEditorComponent implements OnInit {
     }));
   }
 
+  searchDiagnoses(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.toLowerCase();
+    this.filteredDiagnoses = COMMON_DIAGNOSES.filter(dx =>
+      dx.code.toLowerCase().includes(query) ||
+      dx.description.toLowerCase().includes(query)
+    );
+  }
+
   onDiagnosisSelected(event: any, index: number): void {
-    const code = event.option.value;
-    const dx = COMMON_DIAGNOSES.find((d) => d.code === code);
+    const dx = event.value;
     if (dx) {
       this.diagnoses.at(index).patchValue({
         code: dx.code,
@@ -1147,8 +1601,20 @@ export class EncounterEditorComponent implements OnInit {
     }
   }
 
+  getInitials(name: string): string {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
   getClassIcon(cls: string): string {
-    return ENCOUNTER_CLASS_CONFIG[cls as keyof typeof ENCOUNTER_CLASS_CONFIG]?.icon || 'medical_services';
+    const icons: Record<string, string> = {
+      'ambulatory': 'pi-briefcase',
+      'emergency': 'pi-exclamation-triangle',
+      'inpatient': 'pi-building',
+      'observation': 'pi-eye',
+      'virtual': 'pi-video',
+      'home': 'pi-home',
+    };
+    return icons[cls] || 'pi-file-edit';
   }
 
   getClassLabel(cls: string): string {
@@ -1196,7 +1662,7 @@ export class EncounterEditorComponent implements OnInit {
     this.saving.set(true);
     const data = this.collectFormData();
     const enc = this.encounter();
-    
+
     if (enc) {
       this.encounterService.updateEncounter(enc.id, data).subscribe({
         next: (updated) => {
@@ -1204,19 +1670,31 @@ export class EncounterEditorComponent implements OnInit {
             this.encounterService.signEncounter(updated.id).subscribe({
               next: () => {
                 this.saving.set(false);
-                this.snackBar.open('Encounter saved and signed', 'Close', { duration: 3000 });
+                this.messageService.add({
+                  severity: 'success',
+                  summary: 'Success',
+                  detail: 'Encounter saved and signed'
+                });
                 if (close) {
                   this.router.navigate(['/encounters', updated.id]);
                 }
               },
               error: () => {
                 this.saving.set(false);
-                this.snackBar.open('Saved but failed to sign', 'Close', { duration: 3000 });
+                this.messageService.add({
+                  severity: 'warn',
+                  summary: 'Warning',
+                  detail: 'Saved but failed to sign'
+                });
               },
             });
           } else {
             this.saving.set(false);
-            this.snackBar.open('Encounter saved', 'Close', { duration: 3000 });
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Success',
+              detail: 'Encounter saved'
+            });
             if (close) {
               this.router.navigate(['/encounters', updated.id]);
             } else {
@@ -1226,7 +1704,11 @@ export class EncounterEditorComponent implements OnInit {
         },
         error: () => {
           this.saving.set(false);
-          this.snackBar.open('Failed to save encounter', 'Close', { duration: 3000 });
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to save encounter'
+          });
         },
       });
     }

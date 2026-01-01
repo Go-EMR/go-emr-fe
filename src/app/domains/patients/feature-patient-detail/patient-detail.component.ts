@@ -4,20 +4,19 @@ import { ActivatedRoute, RouterLink, RouterOutlet, RouterLinkActive } from '@ang
 import { Subject, takeUntil, switchMap } from 'rxjs';
 
 // PrimeNG Imports
-import { CardModule } from 'primeng/card';
-import { ButtonModule } from 'primeng/button';
-import { AvatarModule } from 'primeng/avatar';
-import { TagModule } from 'primeng/tag';
-import { ChipModule } from 'primeng/chip';
-import { MenuModule } from 'primeng/menu';
-import { TooltipModule } from 'primeng/tooltip';
-import { DividerModule } from 'primeng/divider';
-import { TabMenuModule } from 'primeng/tabmenu';
-import { SkeletonModule } from 'primeng/skeleton';
-import { PanelModule } from 'primeng/panel';
-import { TimelineModule } from 'primeng/timeline';
-import { BadgeModule } from 'primeng/badge';
-import { RippleModule } from 'primeng/ripple';
+import { Card } from 'primeng/card';
+import { Button } from 'primeng/button';
+import { Avatar } from 'primeng/avatar';
+import { Tag } from 'primeng/tag';
+import { Chip } from 'primeng/chip';
+import { Menu } from 'primeng/menu';
+import { Tooltip } from 'primeng/tooltip';
+import { Divider } from 'primeng/divider';
+import { TabMenu } from 'primeng/tabmenu';
+import { Skeleton } from 'primeng/skeleton';
+import { Panel } from 'primeng/panel';
+import { Badge } from 'primeng/badge';
+import { Ripple } from 'primeng/ripple';
 import { MenuItem } from 'primeng/api';
 
 import { PatientService } from '../data-access/services/patient.service';
@@ -51,20 +50,19 @@ interface RecentActivity {
     RouterOutlet,
     RouterLinkActive,
     // PrimeNG
-    CardModule,
-    ButtonModule,
-    AvatarModule,
-    TagModule,
-    ChipModule,
-    MenuModule,
-    TooltipModule,
-    DividerModule,
-    TabMenuModule,
-    SkeletonModule,
-    PanelModule,
-    TimelineModule,
-    BadgeModule,
-    RippleModule,
+    Card,
+    Button,
+    Avatar,
+    Tag,
+    Chip,
+    Menu,
+    Tooltip,
+    Divider,
+    TabMenu,
+    Skeleton,
+    Panel,
+    Badge,
+    Ripple,
   ],
   template: `
     <div class="patient-detail" [class.dark]="themeService.isDarkMode()">
@@ -344,20 +342,20 @@ interface RecentActivity {
               <div class="activity-panel">
                 <p-panel header="Recent Activity" [toggleable]="true">
                   @if (recentActivity.length > 0) {
-                    <p-timeline [value]="recentActivity" styleClass="activity-timeline">
-                      <ng-template pTemplate="marker" let-activity>
-                        <span class="activity-marker" [class]="activity.type">
-                          <i [class]="'pi ' + activity.icon"></i>
-                        </span>
-                      </ng-template>
-                      <ng-template pTemplate="content" let-activity>
-                        <div class="activity-content">
-                          <span class="activity-title">{{ activity.title }}</span>
-                          <span class="activity-desc">{{ activity.description }}</span>
-                          <span class="activity-date">{{ activity.date | date:'short' }}</span>
+                    <div class="activity-list">
+                      @for (activity of recentActivity; track activity.id) {
+                        <div class="activity-item">
+                          <span class="activity-marker" [class]="activity.type">
+                            <i [class]="'pi ' + activity.icon"></i>
+                          </span>
+                          <div class="activity-content">
+                            <span class="activity-title">{{ activity.title }}</span>
+                            <span class="activity-desc">{{ activity.description }}</span>
+                            <span class="activity-date">{{ activity.date | date:'short' }}</span>
+                          </div>
                         </div>
-                      </ng-template>
-                    </p-timeline>
+                      }
+                    </div>
                   } @else {
                     <div class="no-data">
                       <i class="pi pi-history"></i>
@@ -808,20 +806,56 @@ interface RecentActivity {
       padding: 0 1.5rem;
       max-width: 1600px;
       margin: 0 auto;
-      border-bottom: 1px solid #e2e8f0;
+      background: white;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
     }
 
     .dark .tabs-section {
-      border-bottom-color: #334155;
+      background: #1e293b;
     }
 
-    :host ::ng-deep .chart-tabs .p-tabmenu-nav {
+    :host ::ng-deep .chart-tabs {
       border: none;
-      gap: 0.5rem;
     }
 
-    :host ::ng-deep .chart-tabs .p-tabmenuitem .p-menuitem-link {
-      border-radius: 0.5rem 0.5rem 0 0;
+    :host ::ng-deep .chart-tabs .p-tabmenu-tablist {
+      border: none;
+      background: transparent;
+      gap: 0.25rem;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenu-item {
+      margin: 0;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenu-item-link {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenu-item-link:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+
+    .dark :host ::ng-deep .chart-tabs .p-tabmenu-item-link:hover {
+      background: #334155;
+      color: #f1f5f9;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenu-item.p-tabmenu-item-active .p-tabmenu-item-link {
+      background: #3b82f6;
+      color: white;
+      border: none;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenu-item-link .p-tabmenu-item-icon {
+      margin-right: 0.5rem;
     }
 
     /* Content Section */
@@ -861,14 +895,43 @@ interface RecentActivity {
       color: #e2e8f0;
     }
 
-    /* Activity Timeline */
+    /* Activity List */
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 0;
+      position: relative;
+    }
+
+    .activity-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 48px;
+      bottom: 0;
+      width: 2px;
+      background: #e2e8f0;
+    }
+
+    .dark .activity-item:not(:last-child)::before {
+      background: #475569;
+    }
+
     .activity-marker {
       width: 32px;
       height: 32px;
+      min-width: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      z-index: 1;
     }
 
     .activity-marker i {
@@ -885,6 +948,7 @@ interface RecentActivity {
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
+      flex: 1;
     }
 
     .activity-title {
