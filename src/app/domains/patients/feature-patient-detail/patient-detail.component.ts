@@ -1,23 +1,46 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, RouterLink, RouterOutlet, RouterLinkActive } from '@angular/router';
 import { Subject, takeUntil, switchMap } from 'rxjs';
 
-// Material Imports
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatListModule } from '@angular/material/list';
-import { MatExpansionModule } from '@angular/material/expansion';
+// PrimeNG Imports
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { AvatarModule } from 'primeng/avatar';
+import { TagModule } from 'primeng/tag';
+import { ChipModule } from 'primeng/chip';
+import { MenuModule } from 'primeng/menu';
+import { TooltipModule } from 'primeng/tooltip';
+import { DividerModule } from 'primeng/divider';
+import { TabMenuModule } from 'primeng/tabmenu';
+import { SkeletonModule } from 'primeng/skeleton';
+import { PanelModule } from 'primeng/panel';
+import { TimelineModule } from 'primeng/timeline';
+import { BadgeModule } from 'primeng/badge';
+import { RippleModule } from 'primeng/ripple';
+import { MenuItem } from 'primeng/api';
 
 import { PatientService } from '../data-access/services/patient.service';
-import { Patient, PatientHeader } from '../data-access/models/patient.model';
+import { Patient } from '../data-access/models/patient.model';
+import { ThemeService } from '../../../core/services/theme.service';
+
+interface VitalSign {
+  label: string;
+  value: string;
+  unit: string;
+  icon: string;
+  iconClass: string;
+  date: Date;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'encounter' | 'lab' | 'prescription' | 'appointment';
+  title: string;
+  description: string;
+  date: Date;
+  icon: string;
+}
 
 @Component({
   selector: 'app-patient-detail',
@@ -26,467 +49,423 @@ import { Patient, PatientHeader } from '../data-access/models/patient.model';
     CommonModule,
     RouterLink,
     RouterOutlet,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTabsModule,
-    MatMenuModule,
-    MatTooltipModule,
-    MatChipsModule,
-    MatProgressSpinnerModule,
-    MatDividerModule,
-    MatListModule,
-    MatExpansionModule,
+    RouterLinkActive,
+    // PrimeNG
+    CardModule,
+    ButtonModule,
+    AvatarModule,
+    TagModule,
+    ChipModule,
+    MenuModule,
+    TooltipModule,
+    DividerModule,
+    TabMenuModule,
+    SkeletonModule,
+    PanelModule,
+    TimelineModule,
+    BadgeModule,
+    RippleModule,
   ],
   template: `
-    <div class="patient-detail-container">
+    <div class="patient-detail" [class.dark]="themeService.isDarkMode()">
       @if (loading()) {
+        <!-- Loading State -->
         <div class="loading-state">
-          <mat-spinner diameter="48"></mat-spinner>
-          <p>Loading patient chart...</p>
+          <div class="banner-skeleton">
+            <p-skeleton shape="circle" size="80px" />
+            <div class="info-skeleton">
+              <p-skeleton width="200px" height="28px" />
+              <p-skeleton width="300px" height="16px" />
+            </div>
+          </div>
+          <div class="content-skeleton">
+            <p-skeleton width="100%" height="200px" borderRadius="16px" />
+          </div>
         </div>
       } @else if (patient()) {
-        <!-- Patient Header Banner -->
+        <!-- Patient Banner -->
         <header class="patient-banner" [class.has-alerts]="hasAlerts()">
           <div class="banner-content">
+            <!-- Patient Identity -->
             <div class="patient-identity">
               <div class="avatar-section">
-                <div class="patient-avatar">
-                  @if (patient()!.photoUrl) {
-                    <img [src]="patient()!.photoUrl" [alt]="patientFullName()" loading="lazy">
-                  } @else {
-                    <mat-icon>person</mat-icon>
-                  }
-                </div>
-                <span class="status-badge" [class]="patient()!.status">
-                  {{ patient()!.status | titlecase }}
-                </span>
+                <p-avatar 
+                  [label]="patientInitials()"
+                  [image]="patient()!.photoUrl || ''"
+                  [style]="{ 'background-color': '#3b82f6', 'color': 'white', 'font-size': '1.5rem' }"
+                  size="xlarge"
+                  shape="circle"
+                />
+                <p-tag 
+                  [value]="patient()!.status | titlecase"
+                  [severity]="getStatusSeverity(patient()!.status)"
+                  [rounded]="true"
+                  class="status-tag"
+                />
               </div>
 
               <div class="patient-info">
                 <h1 class="patient-name">{{ patientFullName() }}</h1>
                 <div class="patient-meta">
                   <span class="meta-item">
-                    <mat-icon>badge</mat-icon>
+                    <i class="pi pi-id-card"></i>
                     MRN: {{ patient()!.mrn }}
                   </span>
                   <span class="meta-item">
-                    <mat-icon>cake</mat-icon>
+                    <i class="pi pi-calendar"></i>
                     {{ patient()!.dateOfBirth | date:'mediumDate' }} ({{ patientAge() }} yrs)
                   </span>
                   <span class="meta-item">
-                    <mat-icon>{{ patient()!.gender === 'male' ? 'male' : patient()!.gender === 'female' ? 'female' : 'transgender' }}</mat-icon>
+                    <i [class]="'pi ' + getGenderIcon(patient()!.gender)"></i>
                     {{ patient()!.gender | titlecase }}
                   </span>
-                  @if (patient()!.ssn) {
+                  @if (patient()!.phone) {
                     <span class="meta-item">
-                      <mat-icon>fingerprint</mat-icon>
-                      SSN: ***-**-{{ patient()!.ssn!.slice(-4) }}
+                      <i class="pi pi-phone"></i>
+                      {{ patient()!.phone }}
                     </span>
                   }
                 </div>
               </div>
             </div>
 
+            <!-- Banner Actions -->
             <div class="banner-actions">
-              <button mat-flat-button color="primary" [matMenuTriggerFor]="actionsMenu" class="action-btn">
-                <mat-icon>add</mat-icon>
-                New
-              </button>
-              <mat-menu #actionsMenu="matMenu">
-                <button mat-menu-item [routerLink]="['encounters']">
-                  <mat-icon>medical_services</mat-icon>
-                  <span>New Encounter</span>
-                </button>
-                <button mat-menu-item [routerLink]="['appointments']">
-                  <mat-icon>event</mat-icon>
-                  <span>Schedule Appointment</span>
-                </button>
-                <button mat-menu-item [routerLink]="['prescriptions']">
-                  <mat-icon>medication</mat-icon>
-                  <span>New Prescription</span>
-                </button>
-                <button mat-menu-item [routerLink]="['labs']">
-                  <mat-icon>science</mat-icon>
-                  <span>Order Lab</span>
-                </button>
-              </mat-menu>
+              <p-button 
+                label="New" 
+                icon="pi pi-plus"
+                (onClick)="newMenu.toggle($event)"
+              />
+              <p-menu #newMenu [model]="newMenuItems" [popup]="true" />
 
-              <button mat-icon-button matTooltip="Print Chart" class="icon-action">
-                <mat-icon>print</mat-icon>
-              </button>
-              <button mat-icon-button matTooltip="Share" class="icon-action">
-                <mat-icon>share</mat-icon>
-              </button>
-              <button mat-icon-button [matMenuTriggerFor]="moreMenu" class="icon-action">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-              <mat-menu #moreMenu="matMenu">
-                <button mat-menu-item [routerLink]="['edit']">
-                  <mat-icon>edit</mat-icon>
-                  <span>Edit Patient</span>
-                </button>
-                <button mat-menu-item>
-                  <mat-icon>history</mat-icon>
-                  <span>View Audit Log</span>
-                </button>
-                <button mat-menu-item>
-                  <mat-icon>download</mat-icon>
-                  <span>Export Record</span>
-                </button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item class="text-danger">
-                  <mat-icon>archive</mat-icon>
-                  <span>Archive Patient</span>
-                </button>
-              </mat-menu>
+              <p-button 
+                icon="pi pi-print" 
+                [rounded]="true" 
+                [outlined]="true"
+                pTooltip="Print Chart"
+                tooltipPosition="bottom"
+              />
+              <p-button 
+                icon="pi pi-share-alt" 
+                [rounded]="true" 
+                [outlined]="true"
+                pTooltip="Share"
+                tooltipPosition="bottom"
+              />
+              <p-button 
+                icon="pi pi-ellipsis-v" 
+                [rounded]="true" 
+                [outlined]="true"
+                (onClick)="moreMenu.toggle($event)"
+              />
+              <p-menu #moreMenu [model]="moreMenuItems" [popup]="true" />
             </div>
           </div>
 
           <!-- Alert Strip -->
           @if (hasAlerts()) {
             <div class="alert-strip">
-              @if (patient()!.allergies && patient()!.allergies!.length > 0) {
-                <div class="alert allergy">
-                  <mat-icon>warning</mat-icon>
-                  <span>Allergies:</span>
+              <div class="alert allergy">
+                <i class="pi pi-exclamation-triangle"></i>
+                <span class="alert-label">Allergies:</span>
+                <div class="allergy-chips">
                   @for (allergy of patient()!.allergies; track allergy.allergen) {
-                    <mat-chip class="allergy-chip">
-                      {{ allergy.allergen }}
-                      @if (allergy.severity === 'severe') {
-                        <mat-icon>priority_high</mat-icon>
-                      }
-                    </mat-chip>
+                    <p-chip 
+                      [label]="allergy.allergen"
+                      [icon]="allergy.severity === 'severe' ? 'pi pi-exclamation-circle' : ''"
+                      styleClass="allergy-chip"
+                    />
                   }
                 </div>
-              }
+              </div>
             </div>
           }
         </header>
 
         <!-- Quick Info Cards -->
-        <section class="quick-info-section">
+        <section class="info-section">
           <div class="info-grid">
-            <!-- Contact Card -->
-            <mat-card class="info-card contact-card">
-              <mat-card-header>
-                <mat-icon mat-card-avatar>contact_phone</mat-icon>
-                <mat-card-title>Contact Information</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
+            <!-- Contact Info -->
+            <p-card styleClass="info-card">
+              <ng-template pTemplate="header">
+                <div class="card-header">
+                  <div class="header-icon contact">
+                    <i class="pi pi-phone"></i>
+                  </div>
+                  <h3>Contact Information</h3>
+                </div>
+              </ng-template>
+              <div class="info-list">
+                @if (patient()!.phone) {
+                  <div class="info-row">
+                    <i class="pi pi-phone"></i>
+                    <span class="value">{{ patient()!.phone }}</span>
+                    <span class="label">Primary</span>
+                  </div>
+                }
+                @if (patient()!.mobilePhone) {
+                  <div class="info-row">
+                    <i class="pi pi-mobile"></i>
+                    <span class="value">{{ patient()!.mobilePhone }}</span>
+                    <span class="label">Mobile</span>
+                  </div>
+                }
+                @if (patient()!.email) {
+                  <div class="info-row">
+                    <i class="pi pi-envelope"></i>
+                    <span class="value">{{ patient()!.email }}</span>
+                  </div>
+                }
+                @if (patient()!.address) {
+                  <div class="info-row address">
+                    <i class="pi pi-map-marker"></i>
+                    <span class="value">
+                      {{ patient()!.address!.line1 || patient()!.address!.street1 }}<br>
+                      @if (patient()!.address!.line2 || patient()!.address!.street2) {
+                        {{ patient()!.address!.line2 || patient()!.address!.street2 }}<br>
+                      }
+                      {{ patient()!.address!.city }}, {{ patient()!.address!.state }} {{ patient()!.address!.postalCode || patient()!.address!.zipCode }}
+                    </span>
+                  </div>
+                }
+              </div>
+            </p-card>
+
+            <!-- Emergency Contact -->
+            <p-card styleClass="info-card">
+              <ng-template pTemplate="header">
+                <div class="card-header">
+                  <div class="header-icon emergency">
+                    <i class="pi pi-exclamation-circle"></i>
+                  </div>
+                  <h3>Emergency Contact</h3>
+                </div>
+              </ng-template>
+              @if (patient()!.emergencyContact) {
                 <div class="info-list">
-                  @if (patient()!.phone) {
-                    <div class="info-row">
-                      <mat-icon>phone</mat-icon>
-                      <span>{{ patient()!.phone }}</span>
-                      <span class="label">Primary</span>
-                    </div>
-                  }
-                  @if (patient()!.email) {
-                    <div class="info-row">
-                      <mat-icon>email</mat-icon>
-                      <span>{{ patient()!.email }}</span>
-                    </div>
-                  }
-                  @if (patient()!.address) {
-                    <div class="info-row address">
-                      <mat-icon>location_on</mat-icon>
-                      <span>
-                        {{ patient()!.address!.street1 }}<br>
-                        @if (patient()!.address!.street2) {
-                          {{ patient()!.address!.street2 }}<br>
+                  <div class="info-row">
+                    <i class="pi pi-user"></i>
+                    <span class="value">{{ patient()!.emergencyContact!.name }}</span>
+                    <span class="label">{{ patient()!.emergencyContact!.relationship }}</span>
+                  </div>
+                  <div class="info-row">
+                    <i class="pi pi-phone"></i>
+                    <span class="value">{{ patient()!.emergencyContact!.phone }}</span>
+                  </div>
+                </div>
+              } @else {
+                <div class="no-data">
+                  <i class="pi pi-info-circle"></i>
+                  <span>No emergency contact on file</span>
+                </div>
+              }
+            </p-card>
+
+            <!-- Insurance -->
+            <p-card styleClass="info-card">
+              <ng-template pTemplate="header">
+                <div class="card-header">
+                  <div class="header-icon insurance">
+                    <i class="pi pi-shield"></i>
+                  </div>
+                  <h3>Insurance</h3>
+                </div>
+              </ng-template>
+              @if (patient()!.insurance && patient()!.insurance!.length > 0) {
+                <div class="insurance-list">
+                  @for (ins of patient()!.insurance; track ins.memberId) {
+                    <div class="insurance-item">
+                      <div class="insurance-header">
+                        <span class="payer-name">{{ ins.payerName }}</span>
+                        @if (ins.type === 'primary') {
+                          <p-tag value="Primary" severity="info" [rounded]="true" />
                         }
-                        {{ patient()!.address!.city }}, {{ patient()!.address!.state }} {{ patient()!.address!.zipCode }}
-                      </span>
+                      </div>
+                      <div class="insurance-details">
+                        <span>Plan: {{ ins.planName }}</span>
+                        <span>Member ID: {{ ins.memberId }}</span>
+                      </div>
                     </div>
                   }
                 </div>
-              </mat-card-content>
-            </mat-card>
+              } @else {
+                <div class="no-data">
+                  <i class="pi pi-info-circle"></i>
+                  <span>No insurance on file</span>
+                </div>
+              }
+            </p-card>
 
-            <!-- Emergency Contact Card -->
-            <mat-card class="info-card emergency-card">
-              <mat-card-header>
-                <mat-icon mat-card-avatar>emergency</mat-icon>
-                <mat-card-title>Emergency Contact</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                @if (patient()!.emergencyContact) {
-                  <div class="info-list">
-                    <div class="info-row">
-                      <mat-icon>person</mat-icon>
-                      <span>{{ patient()!.emergencyContact!.name }}</span>
-                      <span class="label">{{ patient()!.emergencyContact!.relationship }}</span>
-                    </div>
-                    <div class="info-row">
-                      <mat-icon>phone</mat-icon>
-                      <span>{{ patient()!.emergencyContact!.phone }}</span>
-                    </div>
+            <!-- Primary Provider -->
+            <p-card styleClass="info-card">
+              <ng-template pTemplate="header">
+                <div class="card-header">
+                  <div class="header-icon provider">
+                    <i class="pi pi-user-edit"></i>
                   </div>
-                } @else {
-                  <p class="no-data">No emergency contact on file</p>
-                }
-              </mat-card-content>
-            </mat-card>
-
-            <!-- Insurance Card -->
-            <mat-card class="info-card insurance-card">
-              <mat-card-header>
-                <mat-icon mat-card-avatar>health_and_safety</mat-icon>
-                <mat-card-title>Insurance</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                @if (patient()!.insurance && patient()!.insurance!.length > 0) {
-                  <div class="info-list">
-                    @for (ins of patient()!.insurance; track ins.memberId) {
-                      <div class="insurance-item">
-                        <div class="insurance-header">
-                          <span class="insurance-type">{{ ins.type | titlecase }}</span>
-                         @if (ins.type === 'primary') {
-                            <span class="primary-badge">Primary</span>
-                          }
-                        </div>
-                        <div class="info-row">
-                          <span class="insurance-name">{{ ins.payerName }}</span>
-                        </div>
-                        <div class="info-row small">
-                          <span>Member ID: {{ ins.memberId }}</span>
-                        </div>
-                        <div class="info-row small">
-                          <span>Group: {{ ins.groupNumber }}</span>
-                        </div>
-                      </div>
-                    }
+                  <h3>Primary Provider</h3>
+                </div>
+              </ng-template>
+              @if (patient()!.primaryProvider) {
+                <div class="provider-info">
+                  <p-avatar 
+                    [label]="getProviderInitials()"
+                    [style]="{ 'background-color': '#10b981', 'color': 'white' }"
+                    size="large"
+                    shape="circle"
+                  />
+                  <div class="provider-details">
+                    <span class="provider-name">{{ patient()!.primaryProvider!.name }}</span>
+                    <span class="provider-specialty">{{ patient()!.primaryProvider!.specialty }}</span>
+                    <span class="provider-npi">NPI: {{ patient()!.primaryProvider!.npi }}</span>
                   </div>
-                } @else {
-                  <p class="no-data">No insurance on file</p>
-                }
-              </mat-card-content>
-            </mat-card>
-
-            <!-- Active Problems Card -->
-            <mat-card class="info-card problems-card">
-              <mat-card-header>
-                <mat-icon mat-card-avatar>healing</mat-icon>
-                <mat-card-title>Active Problems</mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                @if (activeProblems().length > 0) {
-                  <mat-list class="problem-list">
-                    @for (problem of activeProblems().slice(0, 5); track problem.code) {
-                      <mat-list-item>
-                        <mat-icon matListItemIcon [class]="problem.severity">
-                          {{ problem.severity === 'severe' ? 'error' : problem.severity === 'moderate' ? 'warning' : 'info' }}
-                        </mat-icon>
-                        <span matListItemTitle>{{ problem.description }}</span>
-                        <span matListItemLine>{{ problem.code }} · Since {{ problem.onsetDate | date:'mediumDate' }}</span>
-                      </mat-list-item>
-                    }
-                  </mat-list>
-                  @if (activeProblems().length > 5) {
-                    <button mat-button color="primary" class="view-all-btn">
-                      View All ({{ activeProblems().length }})
-                    </button>
-                  }
-                } @else {
-                  <p class="no-data">No active problems</p>
-                }
-              </mat-card-content>
-            </mat-card>
+                </div>
+              } @else {
+                <div class="no-data">
+                  <i class="pi pi-info-circle"></i>
+                  <span>No primary provider assigned</span>
+                </div>
+              }
+            </p-card>
           </div>
         </section>
 
         <!-- Navigation Tabs -->
         <section class="tabs-section">
-          <nav mat-tab-nav-bar [tabPanel]="tabPanel" class="chart-tabs">
-            <a mat-tab-link 
-               [routerLink]="[]" 
-               [active]="isOverviewActive()"
-               queryParamsHandling="preserve">
-              <mat-icon>dashboard</mat-icon>
-              Overview
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['encounters']"
-               routerLinkActive="active">
-              <mat-icon>medical_services</mat-icon>
-              Encounters
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['appointments']"
-               routerLinkActive="active">
-              <mat-icon>event</mat-icon>
-              Appointments
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['prescriptions']"
-               routerLinkActive="active">
-              <mat-icon>medication</mat-icon>
-              Medications
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['labs']"
-               routerLinkActive="active">
-              <mat-icon>science</mat-icon>
-              Labs
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['documents']"
-               routerLinkActive="active">
-              <mat-icon>folder</mat-icon>
-              Documents
-            </a>
-            <a mat-tab-link 
-               [routerLink]="['billing']"
-               routerLinkActive="active">
-              <mat-icon>receipt</mat-icon>
-              Billing
-            </a>
-          </nav>
-          <mat-tab-nav-panel #tabPanel>
-            <!-- Overview content when no child route -->
-            @if (isOverviewActive()) {
-              <div class="overview-content">
-                <!-- Recent Activity -->
-                <div class="activity-section">
-                  <h3 class="section-title">
-                    <mat-icon>history</mat-icon>
-                    Recent Activity
-                  </h3>
-                  <mat-card class="activity-card">
-                    <mat-list class="activity-list">
-                      <mat-list-item>
-                        <mat-icon matListItemIcon class="activity-icon encounter">medical_services</mat-icon>
-                        <span matListItemTitle>Office Visit - Annual Physical</span>
-                        <span matListItemLine>Dr. Sarah Johnson · Dec 15, 2024</span>
-                      </mat-list-item>
-                      <mat-list-item>
-                        <mat-icon matListItemIcon class="activity-icon lab">science</mat-icon>
-                        <span matListItemTitle>Lab Results - Comprehensive Metabolic Panel</span>
-                        <span matListItemLine>Quest Diagnostics · Dec 10, 2024</span>
-                      </mat-list-item>
-                      <mat-list-item>
-                        <mat-icon matListItemIcon class="activity-icon prescription">medication</mat-icon>
-                        <span matListItemTitle>Prescription Refill - Lisinopril 10mg</span>
-                        <span matListItemLine>E-prescribed · Dec 5, 2024</span>
-                      </mat-list-item>
-                      <mat-list-item>
-                        <mat-icon matListItemIcon class="activity-icon appointment">event</mat-icon>
-                        <span matListItemTitle>Appointment Scheduled</span>
-                        <span matListItemLine>Follow-up · Jan 15, 2025</span>
-                      </mat-list-item>
-                    </mat-list>
-                  </mat-card>
-                </div>
+          <p-tabMenu [model]="tabItems" [activeItem]="activeTab" styleClass="chart-tabs" />
+        </section>
 
-                <!-- Vitals Summary -->
-                <div class="vitals-section">
-                  <h3 class="section-title">
-                    <mat-icon>monitor_heart</mat-icon>
-                    Latest Vitals
-                  </h3>
-                  <div class="vitals-grid">
-                    <div class="vital-card">
-                      <div class="vital-icon bp"></div>
-                      <div class="vital-info">
-                        <span class="vital-value">120/80</span>
-                        <span class="vital-label">Blood Pressure</span>
-                        <span class="vital-date">Dec 15, 2024</span>
-                      </div>
+        <!-- Tab Content / Router Outlet -->
+        <section class="content-section">
+          @if (isOverviewActive()) {
+            <!-- Overview Content -->
+            <div class="overview-content">
+              <!-- Recent Activity -->
+              <div class="activity-panel">
+                <p-panel header="Recent Activity" [toggleable]="true">
+                  @if (recentActivity.length > 0) {
+                    <p-timeline [value]="recentActivity" styleClass="activity-timeline">
+                      <ng-template pTemplate="marker" let-activity>
+                        <span class="activity-marker" [class]="activity.type">
+                          <i [class]="'pi ' + activity.icon"></i>
+                        </span>
+                      </ng-template>
+                      <ng-template pTemplate="content" let-activity>
+                        <div class="activity-content">
+                          <span class="activity-title">{{ activity.title }}</span>
+                          <span class="activity-desc">{{ activity.description }}</span>
+                          <span class="activity-date">{{ activity.date | date:'short' }}</span>
+                        </div>
+                      </ng-template>
+                    </p-timeline>
+                  } @else {
+                    <div class="no-data">
+                      <i class="pi pi-history"></i>
+                      <span>No recent activity</span>
                     </div>
-                    <div class="vital-card">
-                      <div class="vital-icon hr"></div>
-                      <div class="vital-info">
-                        <span class="vital-value">72</span>
-                        <span class="vital-label">Heart Rate</span>
-                        <span class="vital-date">Dec 15, 2024</span>
-                      </div>
-                    </div>
-                    <div class="vital-card">
-                      <div class="vital-icon temp"></div>
-                      <div class="vital-info">
-                        <span class="vital-value">98.6°F</span>
-                        <span class="vital-label">Temperature</span>
-                        <span class="vital-date">Dec 15, 2024</span>
-                      </div>
-                    </div>
-                    <div class="vital-card">
-                      <div class="vital-icon weight"></div>
-                      <div class="vital-info">
-                        <span class="vital-value">165 lbs</span>
-                        <span class="vital-label">Weight</span>
-                        <span class="vital-date">Dec 15, 2024</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Consent Status -->
-                <div class="consent-section">
-                  <h3 class="section-title">
-                    <mat-icon>verified_user</mat-icon>
-                    Consent Status
-                  </h3>
-                  <mat-card class="consent-card">
-                    <div class="consent-grid">
-                      <div class="consent-item" [class.granted]="patient()!.consentStatus?.hipaaConsent">
-                        <mat-icon>{{ patient()!.consentStatus?.hipaaConsent ? 'check_circle' : 'cancel' }}</mat-icon>
-                        <span>HIPAA Authorization</span>
-                      </div>
-                      <div class="consent-item" [class.granted]="patient()!.consentStatus?.treatmentConsent">
-                        <mat-icon>{{ patient()!.consentStatus?.treatmentConsent ? 'check_circle' : 'cancel' }}</mat-icon>
-                        <span>Treatment Consent</span>
-                      </div>
-                      <div class="consent-item" [class.granted]="patient()!.consentStatus?.portalConsent">
-                        <mat-icon>{{ patient()!.consentStatus?.portalConsent ? 'check_circle' : 'cancel' }}</mat-icon>
-                        <span>Patient Portal Access</span>
-                      </div>
-                      <div class="consent-item" [class.granted]="patient()!.consentStatus?.marketingConsent">
-                        <mat-icon>{{ patient()!.consentStatus?.marketingConsent ? 'check_circle' : 'cancel' }}</mat-icon>
-                        <span>Marketing Communications</span>
-                      </div>
-                    </div>
-                  </mat-card>
-                </div>
+                  }
+                </p-panel>
               </div>
-            } @else {
-              <router-outlet></router-outlet>
-            }
-          </mat-tab-nav-panel>
+
+              <!-- Vitals -->
+              <div class="vitals-panel">
+                <p-panel header="Latest Vitals" [toggleable]="true">
+                  <div class="vitals-grid">
+                    @for (vital of vitals; track vital.label) {
+                      <div class="vital-card" pRipple>
+                        <div class="vital-icon" [class]="vital.iconClass">
+                          <i [class]="'pi ' + vital.icon"></i>
+                        </div>
+                        <div class="vital-info">
+                          <span class="vital-value">{{ vital.value }} <small>{{ vital.unit }}</small></span>
+                          <span class="vital-label">{{ vital.label }}</span>
+                          <span class="vital-date">{{ vital.date | date:'shortDate' }}</span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </p-panel>
+              </div>
+
+              <!-- Active Problems -->
+              <div class="problems-panel">
+                <p-panel header="Active Problems" [toggleable]="true">
+                  @if (activeProblems().length > 0) {
+                    <div class="problems-list">
+                      @for (problem of activeProblems(); track problem.id) {
+                        <div class="problem-item">
+                          <div class="problem-info">
+                            <span class="problem-name">{{ problem.description }}</span>
+                            <span class="problem-code">ICD-10: {{ problem.code }}</span>
+                          </div>
+                          <p-tag 
+                            [value]="problem.severity || 'Unknown'" 
+                            [severity]="getProblemSeverity(problem.severity)"
+                            [rounded]="true"
+                          />
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="no-data">
+                      <i class="pi pi-check-circle"></i>
+                      <span>No active problems</span>
+                    </div>
+                  }
+                </p-panel>
+              </div>
+            </div>
+          } @else {
+            <router-outlet />
+          }
         </section>
       } @else {
+        <!-- Error State -->
         <div class="error-state">
-          <mat-icon>error_outline</mat-icon>
-          <h3>Patient Not Found</h3>
-          <p>The requested patient record could not be found.</p>
-          <button mat-flat-button color="primary" routerLink="/patients">
-            Back to Patient List
-          </button>
+          <i class="pi pi-exclamation-triangle"></i>
+          <h3>Patient not found</h3>
+          <p>The requested patient record could not be loaded.</p>
+          <p-button 
+            label="Back to Patients" 
+            icon="pi pi-arrow-left"
+            routerLink="/patients"
+          />
         </div>
       }
     </div>
   `,
   styles: [`
-    :host {
-      display: block;
+    .patient-detail {
       min-height: 100%;
-      background: #f8fafc;
-    }
-
-    .patient-detail-container {
-      max-width: 1600px;
-      margin: 0 auto;
     }
 
     /* Loading State */
     .loading-state {
+      padding: 1.5rem;
+    }
+
+    .banner-skeleton {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 2rem;
+      background: white;
+      border-radius: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .dark .banner-skeleton {
+      background: #1e293b;
+    }
+
+    .info-skeleton {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 120px 24px;
-      gap: 16px;
-      color: #64748b;
+      gap: 0.75rem;
+    }
+
+    .content-skeleton {
+      margin-top: 1.5rem;
     }
 
     /* Error State */
@@ -495,536 +474,567 @@ import { Patient, PatientHeader } from '../data-access/models/patient.model';
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 120px 24px;
+      min-height: 400px;
       text-align: center;
+      padding: 2rem;
+    }
 
-      mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        color: #ef4444;
-        margin-bottom: 16px;
-      }
+    .error-state i {
+      font-size: 4rem;
+      color: #f59e0b;
+      margin-bottom: 1rem;
+    }
 
-      h3 {
-        margin: 0 0 8px;
-        color: #1e293b;
-      }
+    .error-state h3 {
+      color: #1e293b;
+      margin: 0 0 0.5rem;
+    }
 
-      p {
-        margin: 0 0 24px;
-        color: #64748b;
-      }
+    .dark .error-state h3 {
+      color: #f1f5f9;
+    }
+
+    .error-state p {
+      color: #64748b;
+      margin: 0 0 1.5rem;
     }
 
     /* Patient Banner */
     .patient-banner {
-      background: linear-gradient(135deg, #0077b6 0%, #023e8a 100%);
-      padding: 24px;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      padding: 1.5rem;
       color: white;
-      animation: slideDown 0.4s ease-out;
-
-      &.has-alerts {
-        padding-bottom: 0;
-      }
     }
 
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .patient-banner.has-alerts {
+      padding-bottom: 0;
     }
 
     .banner-content {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 24px;
       flex-wrap: wrap;
+      gap: 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
     }
 
     .patient-identity {
       display: flex;
-      gap: 20px;
-      align-items: flex-start;
+      align-items: center;
+      gap: 1.5rem;
     }
 
     .avatar-section {
       position: relative;
     }
 
-    .patient-avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      border: 3px solid rgba(255, 255, 255, 0.4);
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      mat-icon {
-        font-size: 40px;
-        width: 40px;
-        height: 40px;
-        color: white;
-      }
-    }
-
-    .status-badge {
+    .status-tag {
       position: absolute;
       bottom: -8px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 2px 12px;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-
-      &.active {
-        background: #22c55e;
-        color: white;
-      }
-      &.inactive {
-        background: #94a3b8;
-        color: white;
-      }
-      &.deceased {
-        background: #1e293b;
-        color: white;
-      }
     }
 
-    .patient-info {
-      .patient-name {
-        margin: 0 0 8px;
-        font-size: 1.75rem;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-      }
+    .patient-name {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+    }
 
-      .patient-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
+    .patient-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
 
-        .meta-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.9rem;
-          opacity: 0.9;
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.9375rem;
+      opacity: 0.9;
+    }
 
-          mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
-          }
-        }
-      }
+    .meta-item i {
+      font-size: 0.875rem;
     }
 
     .banner-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 0.5rem;
+    }
 
-      .action-btn {
-        background: white;
-        color: #0077b6;
-        font-weight: 500;
+    :host ::ng-deep .banner-actions .p-button-outlined {
+      border-color: rgba(255, 255, 255, 0.5);
+      color: white;
+    }
 
-        mat-icon {
-          margin-right: 4px;
-        }
-      }
-
-      .icon-action {
-        color: white;
-        opacity: 0.9;
-
-        &:hover {
-          opacity: 1;
-          background: rgba(255, 255, 255, 0.1);
-        }
-      }
+    :host ::ng-deep .banner-actions .p-button-outlined:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: white;
     }
 
     /* Alert Strip */
     .alert-strip {
-      margin-top: 20px;
-      padding: 12px 16px;
       background: rgba(0, 0, 0, 0.2);
-      border-radius: 8px 8px 0 0;
+      margin: 1.5rem -1.5rem -0rem;
+      padding: 0.75rem 1.5rem;
     }
 
     .alert {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 0.75rem;
+    }
+
+    .alert-label {
+      font-weight: 600;
+    }
+
+    .allergy-chips {
+      display: flex;
       flex-wrap: wrap;
-
-      &.allergy {
-        mat-icon {
-          color: #fbbf24;
-        }
-
-        span {
-          font-weight: 500;
-        }
-      }
+      gap: 0.5rem;
     }
 
-    .allergy-chip {
-      background: rgba(255, 255, 255, 0.2) !important;
-      color: white !important;
-      font-size: 0.8rem;
-
-      mat-icon {
-        font-size: 14px !important;
-        width: 14px !important;
-        height: 14px !important;
-        color: #fbbf24 !important;
-      }
+    :host ::ng-deep .allergy-chip {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
     }
 
-    /* Quick Info Section */
-    .quick-info-section {
-      padding: 24px;
-      animation: fadeIn 0.5s ease-out 0.1s both;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    /* Info Section */
+    .info-section {
+      padding: 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
     }
 
     .info-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
+      gap: 1.25rem;
     }
 
-    .info-card {
-      border-radius: 16px;
-      overflow: hidden;
+    :host ::ng-deep .info-card {
+      border-radius: 1rem;
+    }
 
-      mat-card-header {
-        padding: 16px 20px;
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
+    :host ::ng-deep .info-card .p-card-header {
+      padding: 1rem 1.25rem 0;
+    }
 
-        mat-icon[mat-card-avatar] {
-          background: linear-gradient(135deg, #0077b6 0%, #023e8a 100%);
-          color: white;
-          border-radius: 12px;
-          padding: 8px;
-          margin: 0;
-        }
+    :host ::ng-deep .info-card .p-card-body {
+      padding: 1rem 1.25rem 1.25rem;
+    }
 
-        mat-card-title {
-          font-size: 1rem;
-          font-weight: 600;
-          color: #1e293b;
-        }
-      }
+    .dark :host ::ng-deep .info-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
 
-      mat-card-content {
-        padding: 16px 20px;
-      }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon i {
+      font-size: 1rem;
+      color: white;
+    }
+
+    .header-icon.contact { background: #3b82f6; }
+    .header-icon.emergency { background: #ef4444; }
+    .header-icon.insurance { background: #10b981; }
+    .header-icon.provider { background: #8b5cf6; }
+
+    .card-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .card-header h3 {
+      color: #f1f5f9;
     }
 
     .info-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 0.75rem;
     }
 
     .info-row {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      font-size: 0.9rem;
+      gap: 0.75rem;
+    }
+
+    .info-row i {
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .dark .info-row i {
+      color: #94a3b8;
+    }
+
+    .info-row .value {
+      flex: 1;
       color: #374151;
+      font-size: 0.9375rem;
+    }
 
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        color: #64748b;
-        margin-top: 2px;
-      }
+    .dark .info-row .value {
+      color: #e2e8f0;
+    }
 
-      .label {
-        margin-left: auto;
-        font-size: 0.75rem;
-        color: #94a3b8;
-        text-transform: uppercase;
-      }
+    .info-row .label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      background: #f1f5f9;
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
+    }
 
-      &.address {
-        span {
-          line-height: 1.5;
-        }
-      }
-
-      &.small {
-        font-size: 0.8rem;
-        color: #64748b;
-      }
+    .dark .info-row .label {
+      background: #334155;
+      color: #94a3b8;
     }
 
     .no-data {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       color: #94a3b8;
-      font-size: 0.9rem;
-      font-style: italic;
-      margin: 0;
+      font-size: 0.875rem;
     }
 
     /* Insurance */
-    .insurance-item {
-      padding-bottom: 12px;
-      border-bottom: 1px solid #e2e8f0;
+    .insurance-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
 
-      &:last-child {
-        padding-bottom: 0;
-        border-bottom: none;
-      }
+    .insurance-item {
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .dark .insurance-item {
+      border-bottom-color: #334155;
+    }
+
+    .insurance-item:last-child {
+      padding-bottom: 0;
+      border-bottom: none;
     }
 
     .insurance-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 0.5rem;
     }
 
-    .insurance-type {
-      font-weight: 600;
+    .payer-name {
+      font-weight: 500;
       color: #1e293b;
     }
 
-    .primary-badge {
-      padding: 2px 8px;
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
+    .dark .payer-name {
+      color: #f1f5f9;
     }
 
-    .insurance-name {
-      font-weight: 500;
-      color: #374151;
+    .insurance-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.8125rem;
+      color: #64748b;
     }
 
-    /* Problems */
-    .problem-list {
-      padding: 0;
-
-      mat-list-item {
-        height: auto !important;
-        padding: 8px 0 !important;
-      }
-
-      mat-icon {
-        &.mild { color: #3b82f6; }
-        &.moderate { color: #f59e0b; }
-        &.severe { color: #ef4444; }
-      }
+    .dark .insurance-details {
+      color: #94a3b8;
     }
 
-    .view-all-btn {
-      width: 100%;
-      margin-top: 8px;
-    }
-
-    /* Tabs Section */
-    .tabs-section {
-      padding: 0 24px 24px;
-      animation: fadeIn 0.5s ease-out 0.2s both;
-    }
-
-    .chart-tabs {
-      background: white;
-      border-radius: 16px 16px 0 0;
-      padding: 0 8px;
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-
-      a {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 20px;
-        min-width: auto;
-
-        mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-        }
-      }
-    }
-
-    mat-tab-nav-panel {
-      background: white;
-      border-radius: 0 0 16px 16px;
-      min-height: 400px;
-    }
-
-    /* Overview Content */
-    .overview-content {
-      padding: 24px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
-
-    .section-title {
+    /* Provider */
+    .provider-info {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin: 0 0 16px;
-      font-size: 1rem;
+      gap: 1rem;
+    }
+
+    .provider-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .provider-name {
       font-weight: 600;
       color: #1e293b;
-
-      mat-icon {
-        color: #0077b6;
-      }
     }
 
-    .activity-section {
-      grid-column: 1;
+    .dark .provider-name {
+      color: #f1f5f9;
     }
 
-    .activity-card {
-      border-radius: 12px;
+    .provider-specialty {
+      font-size: 0.875rem;
+      color: #64748b;
     }
 
-    .activity-list {
-      padding: 0;
+    .provider-npi {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
 
-      mat-list-item {
-        border-bottom: 1px solid #f1f5f9;
+    /* Tabs */
+    .tabs-section {
+      padding: 0 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      border-bottom: 1px solid #e2e8f0;
+    }
 
-        &:last-child {
-          border-bottom: none;
-        }
-      }
+    .dark .tabs-section {
+      border-bottom-color: #334155;
+    }
 
-      .activity-icon {
-        &.encounter { color: #0077b6; }
-        &.lab { color: #8b5cf6; }
-        &.prescription { color: #10b981; }
-        &.appointment { color: #f59e0b; }
-      }
+    :host ::ng-deep .chart-tabs .p-tabmenu-nav {
+      border: none;
+      gap: 0.5rem;
+    }
+
+    :host ::ng-deep .chart-tabs .p-tabmenuitem .p-menuitem-link {
+      border-radius: 0.5rem 0.5rem 0 0;
+    }
+
+    /* Content Section */
+    .content-section {
+      padding: 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .overview-content {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .activity-panel {
+      grid-row: span 2;
+    }
+
+    :host ::ng-deep .p-panel {
+      border-radius: 1rem;
+    }
+
+    .dark :host ::ng-deep .p-panel {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark :host ::ng-deep .p-panel .p-panel-header {
+      background: #1e293b;
+      border-color: #334155;
+      color: #f1f5f9;
+    }
+
+    .dark :host ::ng-deep .p-panel .p-panel-content {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+
+    /* Activity Timeline */
+    .activity-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .activity-marker i {
+      font-size: 0.875rem;
+      color: white;
+    }
+
+    .activity-marker.encounter { background: #3b82f6; }
+    .activity-marker.lab { background: #8b5cf6; }
+    .activity-marker.prescription { background: #10b981; }
+    .activity-marker.appointment { background: #f59e0b; }
+
+    .activity-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .activity-title {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .dark .activity-title {
+      color: #f1f5f9;
+    }
+
+    .activity-desc {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    .dark .activity-desc {
+      color: #94a3b8;
+    }
+
+    .activity-date {
+      font-size: 0.75rem;
+      color: #94a3b8;
     }
 
     /* Vitals */
-    .vitals-section {
-      grid-column: 2;
-    }
-
     .vitals-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
+      gap: 1rem;
     }
 
     .vital-card {
       display: flex;
-      gap: 12px;
-      padding: 16px;
-      background: white;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-
-      .vital-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        flex-shrink: 0;
-
-        &.bp { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-        &.hr { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-        &.temp { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-        &.weight { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-      }
-
-      .vital-info {
-        display: flex;
-        flex-direction: column;
-
-        .vital-value {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .vital-label {
-          font-size: 0.8rem;
-          color: #64748b;
-        }
-
-        .vital-date {
-          font-size: 0.7rem;
-          color: #94a3b8;
-          margin-top: 4px;
-        }
-      }
+      gap: 0.75rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
     }
 
-    /* Consent */
-    .consent-section {
-      grid-column: 1 / -1;
+    .dark .vital-card {
+      background: #334155;
     }
 
-    .consent-card {
-      border-radius: 12px;
-      padding: 20px;
+    .vital-card:hover {
+      background: #f1f5f9;
     }
 
-    .consent-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
+    .dark .vital-card:hover {
+      background: #475569;
     }
 
-    .consent-item {
+    .vital-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px;
-      border-radius: 8px;
-      background: #fef2f2;
-      color: #dc2626;
+      justify-content: center;
+      flex-shrink: 0;
+    }
 
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
+    .vital-icon i {
+      font-size: 1rem;
+      color: white;
+    }
 
-      &.granted {
-        background: #f0fdf4;
-        color: #16a34a;
-      }
+    .vital-icon.bp { background: #ef4444; }
+    .vital-icon.hr { background: #f59e0b; }
+    .vital-icon.temp { background: #3b82f6; }
+    .vital-icon.weight { background: #10b981; }
+
+    .vital-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .vital-value {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .vital-value {
+      color: #f1f5f9;
+    }
+
+    .vital-value small {
+      font-size: 0.75rem;
+      font-weight: normal;
+      color: #64748b;
+    }
+
+    .vital-label {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    .dark .vital-label {
+      color: #94a3b8;
+    }
+
+    .vital-date {
+      font-size: 0.6875rem;
+      color: #94a3b8;
+    }
+
+    /* Problems */
+    .problems-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .problem-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: #f8fafc;
+      border-radius: 0.5rem;
+    }
+
+    .dark .problem-item {
+      background: #334155;
+    }
+
+    .problem-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .problem-name {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .dark .problem-name {
+      color: #f1f5f9;
+    }
+
+    .problem-code {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    .dark .problem-code {
+      color: #94a3b8;
     }
 
     /* Responsive */
@@ -1033,23 +1043,24 @@ import { Patient, PatientHeader } from '../data-access/models/patient.model';
         grid-template-columns: 1fr;
       }
 
-      .activity-section,
-      .vitals-section,
-      .consent-section {
-        grid-column: 1;
+      .activity-panel {
+        grid-row: auto;
       }
     }
 
     @media (max-width: 768px) {
       .patient-banner {
-        padding: 16px;
+        padding: 1rem;
+      }
+
+      .banner-content {
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .patient-identity {
         flex-direction: column;
-        align-items: center;
         text-align: center;
-        width: 100%;
       }
 
       .patient-meta {
@@ -1057,50 +1068,74 @@ import { Patient, PatientHeader } from '../data-access/models/patient.model';
       }
 
       .banner-actions {
-        width: 100%;
         justify-content: center;
       }
 
-      .quick-info-section,
-      .tabs-section {
-        padding: 16px;
-      }
-
-      .info-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .chart-tabs {
-        overflow-x: auto;
-
-        a {
-          padding: 0 12px;
-          font-size: 0.85rem;
-        }
+      .info-section,
+      .tabs-section,
+      .content-section {
+        padding: 1rem;
       }
 
       .vitals-grid {
         grid-template-columns: 1fr;
       }
-
-      .overview-content {
-        padding: 16px;
-      }
-    }
-
-    .text-danger {
-      color: #dc2626;
     }
   `]
 })
 export class PatientDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly patientService = inject(PatientService);
+  readonly themeService = inject(ThemeService);
   private readonly destroy$ = new Subject<void>();
 
   // Signals
   patient = signal<Patient | null>(null);
   loading = signal(true);
+
+  // Menu items
+  newMenuItems: MenuItem[] = [
+    { label: 'New Encounter', icon: 'pi pi-file-edit', routerLink: ['encounters'] },
+    { label: 'Schedule Appointment', icon: 'pi pi-calendar-plus', routerLink: ['appointments'] },
+    { separator: true },
+    { label: 'New Prescription', icon: 'pi pi-box', routerLink: ['prescriptions'] },
+    { label: 'Order Lab', icon: 'pi pi-chart-bar', routerLink: ['labs'] },
+  ];
+
+  moreMenuItems: MenuItem[] = [
+    { label: 'Edit Patient', icon: 'pi pi-pencil', routerLink: ['edit'] },
+    { label: 'View Audit Log', icon: 'pi pi-history' },
+    { label: 'Export Record', icon: 'pi pi-download' },
+    { separator: true },
+    { label: 'Archive Patient', icon: 'pi pi-trash', styleClass: 'text-danger' },
+  ];
+
+  // Tab items
+  tabItems: MenuItem[] = [
+    { label: 'Overview', icon: 'pi pi-home', routerLink: ['./'] },
+    { label: 'Encounters', icon: 'pi pi-file-edit', routerLink: ['encounters'] },
+    { label: 'Problems', icon: 'pi pi-list', routerLink: ['problems'] },
+    { label: 'Medications', icon: 'pi pi-box', routerLink: ['medications'] },
+    { label: 'Allergies', icon: 'pi pi-exclamation-triangle', routerLink: ['allergies'] },
+    { label: 'Labs', icon: 'pi pi-chart-bar', routerLink: ['labs'] },
+    { label: 'Documents', icon: 'pi pi-folder', routerLink: ['documents'] },
+  ];
+
+  activeTab = this.tabItems[0];
+
+  // Mock data
+  vitals: VitalSign[] = [
+    { label: 'Blood Pressure', value: '120/80', unit: 'mmHg', icon: 'pi-heart', iconClass: 'bp', date: new Date() },
+    { label: 'Heart Rate', value: '72', unit: 'bpm', icon: 'pi-heart-fill', iconClass: 'hr', date: new Date() },
+    { label: 'Temperature', value: '98.6', unit: '°F', icon: 'pi-sun', iconClass: 'temp', date: new Date() },
+    { label: 'Weight', value: '165', unit: 'lbs', icon: 'pi-chart-line', iconClass: 'weight', date: new Date() },
+  ];
+
+  recentActivity: RecentActivity[] = [
+    { id: '1', type: 'encounter', title: 'Office Visit', description: 'Annual checkup completed', date: new Date(), icon: 'pi-file-edit' },
+    { id: '2', type: 'lab', title: 'Lab Results', description: 'CBC panel reviewed', date: new Date(Date.now() - 86400000), icon: 'pi-chart-bar' },
+    { id: '3', type: 'prescription', title: 'Prescription', description: 'Lisinopril 10mg renewed', date: new Date(Date.now() - 172800000), icon: 'pi-box' },
+  ];
 
   // Computed
   patientFullName = computed(() => {
@@ -1108,19 +1143,24 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
     return p ? `${p.firstName} ${p.lastName}` : '';
   });
 
+  patientInitials = computed(() => {
+    const p = this.patient();
+    return p ? `${p.firstName[0]}${p.lastName[0]}`.toUpperCase() : '';
+  });
+
   patientAge = computed(() => {
     const p = this.patient();
     if (!p) return 0;
-    
+
     const today = new Date();
     const birthDate = new Date(p.dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   });
 
@@ -1146,8 +1186,7 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
         this.patient.set(patient);
         this.loading.set(false);
       },
-      error: (err) => {
-        console.error('Error loading patient:', err);
+      error: () => {
         this.patient.set(null);
         this.loading.set(false);
       }
@@ -1160,7 +1199,39 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
   }
 
   isOverviewActive(): boolean {
-    // Check if we're on the base patient detail route (no child routes)
     return !this.route.firstChild;
+  }
+
+  getGenderIcon(gender: string): string {
+    switch (gender) {
+      case 'male': return 'pi-mars';
+      case 'female': return 'pi-venus';
+      default: return 'pi-user';
+    }
+  }
+
+  getProviderInitials(): string {
+    const p = this.patient();
+    if (!p?.primaryProvider?.name) return '';
+    const names = p.primaryProvider.name.split(' ');
+    return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
+    const severities: Record<string, 'success' | 'secondary' | 'danger'> = {
+      active: 'success',
+      inactive: 'secondary',
+      deceased: 'danger',
+    };
+    return severities[status] || 'secondary';
+  }
+
+  getProblemSeverity(severity: string | undefined): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
+    const severities: Record<string, 'success' | 'warn' | 'danger'> = {
+      mild: 'success',
+      moderate: 'warn',
+      severe: 'danger',
+    };
+    return severities[severity || ''] || 'secondary';
   }
 }
