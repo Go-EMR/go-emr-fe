@@ -1,34 +1,34 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 
-// Material Imports
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MatRippleModule } from '@angular/material/core';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-
-// Shared Components
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
-import { StatusBadgeComponent, getStatusVariant } from '../../../shared/ui/status-badge/status-badge.component';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
+// PrimeNG Imports
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { SelectModule } from 'primeng/select';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { CalendarModule } from 'primeng/calendar';
+import { TooltipModule } from 'primeng/tooltip';
+import { RippleModule } from 'primeng/ripple';
+import { TagModule } from 'primeng/tag';
+import { AvatarModule } from 'primeng/avatar';
+import { BadgeModule } from 'primeng/badge';
+import { MenuModule } from 'primeng/menu';
+import { SkeletonModule } from 'primeng/skeleton';
+import { DialogModule } from 'primeng/dialog';
+import { DividerModule } from 'primeng/divider';
+import { OverlayPanelModule, OverlayPanel } from 'primeng/overlaypanel';
+import { MenuItem } from 'primeng/api';
 
 // Services & Models
 import { AppointmentService } from '../data-access/services/appointment.service';
-import { 
-  Appointment, 
+import { ThemeService } from '../../../core/services/theme.service';
+import {
+  Appointment,
+  AppointmentType,
   getAppointmentTypeConfig,
   APPOINTMENT_TYPE_CONFIG,
 } from '../data-access/models/appointment.model';
@@ -47,249 +47,409 @@ interface TimeSlot {
   label: string;
 }
 
+interface ViewOption {
+  icon: string;
+  value: CalendarView;
+  tooltip: string;
+}
+
+interface ProviderOption {
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-appointments-calendar',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     ReactiveFormsModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatSelectModule,
-    MatFormFieldModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatProgressSpinnerModule,
-    MatMenuModule,
-    MatTooltipModule,
-    MatChipsModule,
-    MatDialogModule,
-    MatRippleModule,
-    MatButtonToggleModule,
-    PageHeaderComponent,
-    StatusBadgeComponent,
-    AvatarComponent,
+    // PrimeNG
+    CardModule,
+    ButtonModule,
+    SelectModule,
+    SelectButtonModule,
+    CalendarModule,
+    TooltipModule,
+    RippleModule,
+    TagModule,
+    AvatarModule,
+    BadgeModule,
+    MenuModule,
+    SkeletonModule,
+    DialogModule,
+    DividerModule,
+    OverlayPanelModule,
   ],
   template: `
-    <div class="calendar-container">
+    <div class="appointments-calendar" [class.dark]="themeService.isDarkMode()">
       <!-- Header -->
-      <app-page-header
-        title="Appointments"
-        subtitle="Manage your schedule"
-        icon="calendar_month">
-        <div actions>
-          <button mat-flat-button color="primary" routerLink="new">
-            <mat-icon>add</mat-icon>
-            New Appointment
-          </button>
+      <header class="page-header">
+        <div class="header-content">
+          <div class="title-section">
+            <h1>
+              <i class="pi pi-calendar"></i>
+              Appointments
+            </h1>
+            <p class="subtitle">Manage your schedule</p>
+          </div>
+          <div class="header-actions">
+            <p-button
+              label="New Appointment"
+              icon="pi pi-plus"
+              routerLink="new"
+            />
+          </div>
         </div>
-      </app-page-header>
+      </header>
 
       <!-- Toolbar -->
-      <mat-card class="toolbar-card">
-        <div class="toolbar-content">
-          <div class="date-navigation">
-            <button mat-icon-button (click)="navigatePrevious()" matTooltip="Previous">
-              <mat-icon>chevron_left</mat-icon>
-            </button>
-            
-            <button mat-button (click)="goToToday()" class="today-btn">
-              Today
-            </button>
+      <section class="toolbar-section">
+        <p-card styleClass="toolbar-card">
+          <div class="toolbar-content">
+            <!-- Date Navigation -->
+            <div class="date-navigation">
+              <p-button
+                icon="pi pi-chevron-left"
+                [rounded]="true"
+                [outlined]="true"
+                severity="secondary"
+                (onClick)="navigatePrevious()"
+                pTooltip="Previous"
+                tooltipPosition="bottom"
+              />
+              <p-button
+                label="Today"
+                [outlined]="true"
+                severity="secondary"
+                (onClick)="goToToday()"
+              />
+              <p-button
+                icon="pi pi-chevron-right"
+                [rounded]="true"
+                [outlined]="true"
+                severity="secondary"
+                (onClick)="navigateNext()"
+                pTooltip="Next"
+                tooltipPosition="bottom"
+              />
+              <h2 class="current-period">{{ currentPeriodLabel() }}</h2>
+            </div>
 
-            <button mat-icon-button (click)="navigateNext()" matTooltip="Next">
-              <mat-icon>chevron_right</mat-icon>
-            </button>
+            <!-- Controls -->
+            <div class="toolbar-controls">
+              <!-- Provider Filter -->
+              <p-select
+                [options]="providerOptions"
+                [formControl]="providerControl"
+                placeholder="All Providers"
+                [showClear]="true"
+                class="provider-select"
+              />
 
-            <h2 class="current-period">{{ currentPeriodLabel() }}</h2>
+              <!-- View Toggle -->
+              <p-selectButton
+                [options]="viewOptions"
+                [(ngModel)]="selectedView"
+                (onChange)="setViewMode($event.value)"
+                optionLabel="tooltip"
+                optionValue="value"
+                class="view-toggle">
+                <ng-template pTemplate="item" let-item>
+                  <i [class]="'pi ' + item.icon" [pTooltip]="item.tooltip" tooltipPosition="bottom"></i>
+                </ng-template>
+              </p-selectButton>
+            </div>
           </div>
+        </p-card>
+      </section>
 
-          <div class="toolbar-controls">
-            <mat-form-field appearance="outline" class="provider-select">
-              <mat-label>Provider</mat-label>
-              <mat-select [formControl]="providerControl">
-                <mat-option value="">All Providers</mat-option>
-                <mat-option value="prov-001">Dr. Emily Chen</mat-option>
-                <mat-option value="prov-002">Dr. James Wilson</mat-option>
-                <mat-option value="prov-003">Dr. Maria Garcia</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)">
-              <mat-button-toggle value="day" matTooltip="Day View">
-                <mat-icon>view_day</mat-icon>
-              </mat-button-toggle>
-              <mat-button-toggle value="week" matTooltip="Week View">
-                <mat-icon>view_week</mat-icon>
-              </mat-button-toggle>
-              <mat-button-toggle value="month" matTooltip="Month View">
-                <mat-icon>calendar_view_month</mat-icon>
-              </mat-button-toggle>
-            </mat-button-toggle-group>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- Calendar Views -->
-      <div class="calendar-content">
-        @if (loading()) {
-          <div class="loading-overlay">
-            <mat-spinner diameter="48"></mat-spinner>
-            <p>Loading appointments...</p>
-          </div>
-        }
-
-        @switch (viewMode()) {
-          @case ('day') {
-            <div class="day-view">
-              <div class="time-grid">
-                <div class="time-column">
-                  @for (slot of timeSlots; track slot.hour) {
-                    <div class="time-slot-label">
-                      {{ slot.label }}
-                    </div>
-                  }
-                </div>
-                <div class="appointments-column">
-                  @for (slot of timeSlots; track slot.hour) {
-                    <div class="time-slot" (click)="onSlotClick(slot.hour)">
-                      @for (apt of getAppointmentsForHour(slot.hour); track apt.id) {
-                        <div 
-                          class="appointment-block"
-                          [style.top.px]="getAppointmentTop(apt)"
-                          [style.height.px]="getAppointmentHeight(apt)"
-                          [style.background]="getAppointmentColor(apt)"
-                          matRipple
-                          (click)="onAppointmentClick(apt); $event.stopPropagation()">
-                          <div class="apt-content">
-                            <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
-                            <span class="apt-patient">{{ apt.patientName }}</span>
-                            <span class="apt-type">{{ getTypeLabel(apt.appointmentType) }}</span>
-                          </div>
-                          <app-status-badge
-                            [text]="apt.status"
-                            [variant]="getStatusVariant(apt.status)"
-                            size="small">
-                          </app-status-badge>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              </div>
+      <!-- Calendar Content -->
+      <section class="calendar-section">
+        <div class="calendar-content" [class.loading]="loading()">
+          @if (loading()) {
+            <div class="loading-overlay">
+              <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: #3b82f6;"></i>
+              <p>Loading appointments...</p>
             </div>
           }
 
-          @case ('week') {
-            <div class="week-view">
-              <div class="week-header">
-                <div class="time-header"></div>
-                @for (day of weekDays(); track day.date.toISOString()) {
-                  <div class="day-header" [class.today]="day.isToday">
-                    <span class="day-name">{{ day.date | date:'EEE' }}</span>
-                    <span class="day-number">{{ day.date | date:'d' }}</span>
-                  </div>
-                }
-              </div>
-              <div class="week-body">
-                <div class="time-column">
-                  @for (slot of timeSlots; track slot.hour) {
-                    <div class="time-slot-label">
-                      {{ slot.label }}
-                    </div>
-                  }
-                </div>
-                @for (day of weekDays(); track day.date.toISOString()) {
-                  <div class="day-column" [class.today]="day.isToday">
+          @switch (viewMode()) {
+            @case ('day') {
+              <!-- Day View -->
+              <div class="day-view">
+                <div class="time-grid">
+                  <div class="time-column">
                     @for (slot of timeSlots; track slot.hour) {
-                      <div class="time-slot" (click)="onSlotClick(slot.hour, day.date)">
-                        @for (apt of getAppointmentsForDayHour(day.date, slot.hour); track apt.id) {
-                          <div 
-                            class="appointment-block compact"
+                      <div class="time-slot-label">{{ slot.label }}</div>
+                    }
+                  </div>
+                  <div class="appointments-column">
+                    @for (slot of timeSlots; track slot.hour) {
+                      <div class="time-slot" (click)="onSlotClick(slot.hour)" pRipple>
+                        @for (apt of getAppointmentsForHour(slot.hour); track apt.id) {
+                          <div
+                            class="appointment-block"
                             [style.top.px]="getAppointmentTop(apt)"
                             [style.height.px]="getAppointmentHeight(apt)"
                             [style.background]="getAppointmentColor(apt)"
-                            matRipple
-                            [matTooltip]="apt.patientName + ' - ' + apt.reasonDescription"
-                            (click)="onAppointmentClick(apt); $event.stopPropagation()">
-                            <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
-                            <span class="apt-patient">{{ apt.patientName }}</span>
+                            (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()"
+                            pRipple>
+                            <div class="apt-content">
+                              <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
+                              <span class="apt-patient">{{ apt.patientName }}</span>
+                              <span class="apt-type">{{ getTypeLabel(apt.appointmentType) }}</span>
+                            </div>
+                            <p-tag
+                              [value]="apt.status | titlecase"
+                              [severity]="getStatusSeverity(apt.status)"
+                              [rounded]="true"
+                              class="apt-status"
+                            />
                           </div>
                         }
                       </div>
                     }
                   </div>
-                }
+                </div>
               </div>
-            </div>
-          }
+            }
 
-          @case ('month') {
-            <div class="month-view">
-              <div class="month-header">
-                @for (day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track day) {
-                  <div class="weekday-header">{{ day }}</div>
-                }
-              </div>
-              <div class="month-grid">
-                @for (day of calendarDays(); track day.date.toISOString()) {
-                  <div 
-                    class="calendar-day"
-                    [class.today]="day.isToday"
-                    [class.other-month]="!day.isCurrentMonth"
-                    (click)="onDayClick(day.date)">
-                    <span class="day-number">{{ day.date | date:'d' }}</span>
-                    <div class="day-appointments">
-                      @for (apt of day.appointments.slice(0, 3); track apt.id) {
-                        <div 
-                          class="mini-appointment"
-                          [style.background]="getAppointmentColor(apt)"
-                          (click)="onAppointmentClick(apt); $event.stopPropagation()">
-                          {{ apt.start | date:'shortTime' }} {{ apt.patientName }}
-                        </div>
-                      }
-                      @if (day.appointments.length > 3) {
-                        <div class="more-appointments">
-                          +{{ day.appointments.length - 3 }} more
+            @case ('week') {
+              <!-- Week View -->
+              <div class="week-view">
+                <div class="week-header">
+                  <div class="time-header"></div>
+                  @for (day of weekDays(); track day.date.toISOString()) {
+                    <div class="day-header" [class.today]="day.isToday">
+                      <span class="day-name">{{ day.date | date:'EEE' }}</span>
+                      <span class="day-number" [class.today-number]="day.isToday">{{ day.date | date:'d' }}</span>
+                    </div>
+                  }
+                </div>
+                <div class="week-body">
+                  <div class="time-column">
+                    @for (slot of timeSlots; track slot.hour) {
+                      <div class="time-slot-label">{{ slot.label }}</div>
+                    }
+                  </div>
+                  @for (day of weekDays(); track day.date.toISOString()) {
+                    <div class="day-column" [class.today]="day.isToday">
+                      @for (slot of timeSlots; track slot.hour) {
+                        <div class="time-slot" (click)="onSlotClick(slot.hour, day.date)" pRipple>
+                          @for (apt of getAppointmentsForDayHour(day.date, slot.hour); track apt.id) {
+                            <div
+                              class="appointment-block compact"
+                              [style.top.px]="getAppointmentTop(apt)"
+                              [style.height.px]="getAppointmentHeight(apt)"
+                              [style.background]="getAppointmentColor(apt)"
+                              [pTooltip]="apt.patientName + ' - ' + getTypeLabel(apt.appointmentType)"
+                              tooltipPosition="top"
+                              (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()"
+                              pRipple>
+                              <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
+                              <span class="apt-patient">{{ apt.patientName }}</span>
+                            </div>
+                          }
                         </div>
                       }
                     </div>
-                  </div>
-                }
+                  }
+                </div>
               </div>
-            </div>
-          }
-        }
-      </div>
+            }
 
-      <!-- Legend -->
-      <mat-card class="legend-card">
-        <div class="legend-content">
-          <span class="legend-title">Appointment Types:</span>
-          @for (type of appointmentTypes.slice(0, 6); track type.type) {
-            <div class="legend-item">
-              <span class="legend-color" [style.background]="type.color"></span>
-              <span class="legend-label">{{ type.label }}</span>
-            </div>
+            @case ('month') {
+              <!-- Month View -->
+              <div class="month-view">
+                <div class="month-header">
+                  @for (day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track day) {
+                    <div class="weekday-header">{{ day }}</div>
+                  }
+                </div>
+                <div class="month-grid">
+                  @for (day of calendarDays(); track day.date.toISOString()) {
+                    <div
+                      class="calendar-day"
+                      [class.today]="day.isToday"
+                      [class.other-month]="!day.isCurrentMonth"
+                      (click)="onDayClick(day.date)"
+                      pRipple>
+                      <span class="day-number" [class.today-badge]="day.isToday">{{ day.date | date:'d' }}</span>
+                      <div class="day-appointments">
+                        @for (apt of day.appointments.slice(0, 3); track apt.id) {
+                          <div
+                            class="mini-appointment"
+                            [style.background]="getAppointmentColor(apt)"
+                            (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()">
+                            <span class="mini-time">{{ apt.start | date:'shortTime' }}</span>
+                            <span class="mini-name">{{ apt.patientName }}</span>
+                          </div>
+                        }
+                        @if (day.appointments.length > 3) {
+                          <div class="more-appointments" (click)="onDayClick(day.date); $event.stopPropagation()">
+                            +{{ day.appointments.length - 3 }} more
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           }
         </div>
-      </mat-card>
+      </section>
+
+      <!-- Legend -->
+      <section class="legend-section">
+        <p-card styleClass="legend-card">
+          <div class="legend-content">
+            <span class="legend-title">Appointment Types:</span>
+            <div class="legend-items">
+              @for (type of appointmentTypeConfigs.slice(0, 6); track type.type) {
+                <div class="legend-item">
+                  <span class="legend-color" [style.background]="type.color"></span>
+                  <span class="legend-label">{{ type.label }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </p-card>
+      </section>
+
+      <!-- Appointment Detail Overlay -->
+      <p-overlayPanel #appointmentDetail styleClass="appointment-detail-panel">
+        @if (selectedAppointment()) {
+          <div class="detail-header">
+            <div class="detail-type" [style.background]="getAppointmentColor(selectedAppointment()!)">
+              <i [class]="'pi ' + getTypeIcon(selectedAppointment()!.appointmentType)"></i>
+            </div>
+            <div class="detail-info">
+              <h3>{{ selectedAppointment()!.patientName }}</h3>
+              <span class="detail-type-label">{{ getTypeLabel(selectedAppointment()!.appointmentType) }}</span>
+            </div>
+            <p-tag
+              [value]="selectedAppointment()!.status | titlecase"
+              [severity]="getStatusSeverity(selectedAppointment()!.status)"
+              [rounded]="true"
+            />
+          </div>
+          <p-divider />
+          <div class="detail-body">
+            <div class="detail-row">
+              <i class="pi pi-clock"></i>
+              <span>{{ selectedAppointment()!.start | date:'medium' }}</span>
+            </div>
+            <div class="detail-row">
+              <i class="pi pi-stopwatch"></i>
+              <span>{{ selectedAppointment()!.duration }} minutes</span>
+            </div>
+            <div class="detail-row">
+              <i class="pi pi-user"></i>
+              <span>{{ selectedAppointment()!.providerName }}</span>
+            </div>
+            @if (selectedAppointment()!.reasonDescription) {
+              <div class="detail-row">
+                <i class="pi pi-info-circle"></i>
+                <span>{{ selectedAppointment()!.reasonDescription }}</span>
+              </div>
+            }
+          </div>
+          <p-divider />
+          <div class="detail-actions">
+            <p-button
+              label="View Details"
+              icon="pi pi-eye"
+              [text]="true"
+              (onClick)="navigateToAppointment(selectedAppointment()!.id)"
+            />
+            <p-button
+              label="Check In"
+              icon="pi pi-check"
+              [text]="true"
+              severity="success"
+              [disabled]="selectedAppointment()!.status !== 'booked'"
+            />
+            <p-button
+              label="Cancel"
+              icon="pi pi-times"
+              [text]="true"
+              severity="danger"
+              [disabled]="selectedAppointment()!.status === 'cancelled'"
+            />
+          </div>
+        }
+      </p-overlayPanel>
     </div>
   `,
   styles: [`
-    .calendar-container {
-      padding: 24px;
-      max-width: 1400px;
+    .appointments-calendar {
+      padding: 1.5rem;
+      max-width: 1600px;
       margin: 0 auto;
     }
 
+    /* Header */
+    .page-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .title-section h1 {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .dark .title-section h1 {
+      color: #f1f5f9;
+    }
+
+    .title-section h1 i {
+      font-size: 1.5rem;
+      color: #3b82f6;
+    }
+
+    .subtitle {
+      color: #64748b;
+      margin: 0.25rem 0 0;
+      font-size: 0.9375rem;
+    }
+
+    .dark .subtitle {
+      color: #94a3b8;
+    }
+
     /* Toolbar */
-    .toolbar-card {
-      border-radius: 12px;
-      margin-bottom: 24px;
-      padding: 16px 20px;
+    .toolbar-section {
+      margin-bottom: 1.5rem;
+    }
+
+    :host ::ng-deep .toolbar-card {
+      border-radius: 1rem;
+    }
+
+    :host ::ng-deep .toolbar-card .p-card-body {
+      padding: 1rem 1.25rem;
+    }
+
+    .dark :host ::ng-deep .toolbar-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .toolbar-content {
@@ -297,47 +457,61 @@ interface TimeSlot {
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 1rem;
     }
 
     .date-navigation {
       display: flex;
       align-items: center;
-      gap: 8px;
-    }
-
-    .today-btn {
-      font-weight: 500;
+      gap: 0.5rem;
     }
 
     .current-period {
-      margin: 0 0 0 16px;
+      margin: 0 0 0 1rem;
       font-size: 1.25rem;
       font-weight: 600;
       color: #1e293b;
     }
 
+    .dark .current-period {
+      color: #f1f5f9;
+    }
+
     .toolbar-controls {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 1rem;
     }
 
     .provider-select {
-      width: 200px;
+      min-width: 180px;
+    }
 
-      ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-        display: none;
-      }
+    :host ::ng-deep .view-toggle .p-selectbutton .p-button {
+      padding: 0.5rem 0.75rem;
     }
 
     /* Calendar Content */
+    .calendar-section {
+      margin-bottom: 1.5rem;
+    }
+
     .calendar-content {
-      position: relative;
       background: white;
-      border-radius: 12px;
-      overflow: hidden;
+      border-radius: 1rem;
+      border: 1px solid #e2e8f0;
       min-height: 600px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dark .calendar-content {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .calendar-content.loading {
+      pointer-events: none;
     }
 
     .loading-overlay {
@@ -349,57 +523,73 @@ interface TimeSlot {
       align-items: center;
       justify-content: center;
       z-index: 10;
+      gap: 1rem;
+    }
 
-      p {
-        margin-top: 16px;
-        color: #64748b;
-      }
+    .dark .loading-overlay {
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .loading-overlay p {
+      color: #64748b;
+      margin: 0;
     }
 
     /* Day View */
-    .day-view {
-      .time-grid {
-        display: flex;
-      }
+    .day-view .time-grid {
+      display: flex;
+    }
 
-      .time-column {
-        width: 80px;
-        flex-shrink: 0;
-        border-right: 1px solid #e2e8f0;
-      }
+    .time-column {
+      width: 70px;
+      flex-shrink: 0;
+      border-right: 1px solid #e2e8f0;
+    }
 
-      .time-slot-label {
-        height: 60px;
-        display: flex;
-        align-items: flex-start;
-        justify-content: flex-end;
-        padding: 4px 12px 0 0;
-        font-size: 0.75rem;
-        color: #64748b;
-      }
+    .dark .time-column {
+      border-right-color: #334155;
+    }
 
-      .appointments-column {
-        flex: 1;
-        position: relative;
-      }
+    .time-slot-label {
+      height: 60px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 4px 8px 0 0;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
 
-      .time-slot {
-        height: 60px;
-        border-bottom: 1px solid #f1f5f9;
-        position: relative;
-        cursor: pointer;
+    .appointments-column {
+      flex: 1;
+      position: relative;
+    }
 
-        &:hover {
-          background: #f8fafc;
-        }
-      }
+    .time-slot {
+      height: 60px;
+      border-bottom: 1px solid #f1f5f9;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .dark .time-slot {
+      border-bottom-color: #334155;
+    }
+
+    .time-slot:hover {
+      background: #f8fafc;
+    }
+
+    .dark .time-slot:hover {
+      background: #334155;
     }
 
     .appointment-block {
       position: absolute;
       left: 4px;
       right: 4px;
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 8px;
       cursor: pointer;
       overflow: hidden;
@@ -407,349 +597,581 @@ interface TimeSlot {
       flex-direction: column;
       gap: 4px;
       z-index: 1;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: transform 0.2s, box-shadow 0.2s;
+    }
 
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 2;
-      }
+    .appointment-block:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      z-index: 2;
+    }
 
-      .apt-content {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
+    .apt-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
 
-      .apt-time {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.9);
-      }
+    .apt-time {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+    }
 
-      .apt-patient {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: white;
-      }
+    .apt-patient {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: white;
+    }
 
-      .apt-type {
-        font-size: 0.7rem;
-        color: rgba(255, 255, 255, 0.8);
-      }
+    .apt-type {
+      font-size: 0.6875rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
 
-      &.compact {
-        padding: 4px 6px;
-        gap: 2px;
+    .apt-status {
+      align-self: flex-start;
+      margin-top: auto;
+    }
 
-        .apt-time, .apt-patient {
-          font-size: 0.7rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      }
+    :host ::ng-deep .apt-status .p-tag {
+      font-size: 0.625rem;
+      padding: 0.125rem 0.375rem;
+    }
+
+    .appointment-block.compact {
+      padding: 4px 6px;
+      gap: 2px;
+    }
+
+    .appointment-block.compact .apt-time,
+    .appointment-block.compact .apt-patient {
+      font-size: 0.6875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* Week View */
     .week-view {
-      .week-header {
-        display: flex;
-        border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
 
-        .time-header {
-          width: 60px;
-          flex-shrink: 0;
-        }
+    .week-header {
+      display: flex;
+      border-bottom: 1px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 5;
+    }
 
-        .day-header {
-          flex: 1;
-          padding: 12px;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
+    .dark .week-header {
+      border-bottom-color: #334155;
+      background: #1e293b;
+    }
 
-          &.today {
-            background: #e0f7fa;
+    .time-header {
+      width: 70px;
+      flex-shrink: 0;
+    }
 
-            .day-number {
-              background: #0077b6;
-              color: white;
-            }
-          }
+    .day-header {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      border-left: 1px solid #e2e8f0;
+    }
 
-          .day-name {
-            font-size: 0.75rem;
-            color: #64748b;
-            text-transform: uppercase;
-          }
+    .dark .day-header {
+      border-left-color: #334155;
+    }
 
-          .day-number {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1e293b;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            margin: 0 auto;
-          }
-        }
-      }
+    .day-header.today {
+      background: #eff6ff;
+    }
 
-      .week-body {
-        display: flex;
-        overflow-y: auto;
-        max-height: 600px;
+    .dark .day-header.today {
+      background: #1e3a8a;
+    }
 
-        .time-column {
-          width: 60px;
-          flex-shrink: 0;
-          border-right: 1px solid #e2e8f0;
+    .day-name {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
 
-          .time-slot-label {
-            height: 60px;
-            display: flex;
-            align-items: flex-start;
-            justify-content: flex-end;
-            padding: 4px 8px 0 0;
-            font-size: 0.7rem;
-            color: #94a3b8;
-          }
-        }
+    .dark .day-name {
+      color: #94a3b8;
+    }
 
-        .day-column {
-          flex: 1;
-          border-right: 1px solid #f1f5f9;
+    .day-number {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
 
-          &:last-child {
-            border-right: none;
-          }
+    .dark .day-number {
+      color: #f1f5f9;
+    }
 
-          &.today {
-            background: rgba(0, 119, 182, 0.02);
-          }
+    .today-number {
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
 
-          .time-slot {
-            height: 60px;
-            border-bottom: 1px solid #f1f5f9;
-            position: relative;
-            cursor: pointer;
+    .week-body {
+      display: flex;
+      overflow-y: auto;
+      max-height: calc(100vh - 400px);
+    }
 
-            &:hover {
-              background: #f8fafc;
-            }
-          }
-        }
-      }
+    .day-column {
+      flex: 1;
+      border-left: 1px solid #e2e8f0;
+      position: relative;
+    }
+
+    .dark .day-column {
+      border-left-color: #334155;
+    }
+
+    .day-column.today {
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .dark .day-column.today {
+      background: rgba(59, 130, 246, 0.1);
     }
 
     /* Month View */
     .month-view {
-      .month-header {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
 
-        .weekday-header {
-          padding: 12px;
-          text-align: center;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #64748b;
-          text-transform: uppercase;
-        }
-      }
+    .month-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-bottom: 1px solid #e2e8f0;
+    }
 
-      .month-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-      }
+    .dark .month-header {
+      border-bottom-color: #334155;
+    }
 
-      .calendar-day {
-        min-height: 120px;
-        padding: 8px;
-        border-right: 1px solid #f1f5f9;
-        border-bottom: 1px solid #f1f5f9;
-        cursor: pointer;
-        transition: background 0.2s;
+    .weekday-header {
+      padding: 0.75rem;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+    }
 
-        &:nth-child(7n) {
-          border-right: none;
-        }
+    .dark .weekday-header {
+      color: #94a3b8;
+    }
 
-        &:hover {
-          background: #f8fafc;
-        }
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-auto-rows: minmax(120px, 1fr);
+    }
 
-        &.today {
-          background: #e0f7fa;
+    .calendar-day {
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0.5rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
 
-          .day-number {
-            background: #0077b6;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-        }
+    .dark .calendar-day {
+      border-color: #334155;
+    }
 
-        &.other-month {
-          background: #fafafa;
+    .calendar-day:nth-child(7n) {
+      border-right: none;
+    }
 
-          .day-number {
-            color: #94a3b8;
-          }
-        }
+    .calendar-day:hover {
+      background: #f8fafc;
+    }
 
-        .day-number {
-          font-size: 0.9rem;
-          font-weight: 500;
-          color: #1e293b;
-          margin-bottom: 4px;
-        }
+    .dark .calendar-day:hover {
+      background: #334155;
+    }
 
-        .day-appointments {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
+    .calendar-day.today {
+      background: #eff6ff;
+    }
 
-        .mini-appointment {
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 0.7rem;
-          color: white;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+    .dark .calendar-day.today {
+      background: rgba(59, 130, 246, 0.15);
+    }
 
-        .more-appointments {
-          font-size: 0.7rem;
-          color: #64748b;
-          padding: 2px 6px;
-        }
-      }
+    .calendar-day.other-month {
+      background: #f8fafc;
+    }
+
+    .dark .calendar-day.other-month {
+      background: #0f172a;
+    }
+
+    .calendar-day.other-month .day-number {
+      color: #cbd5e1;
+    }
+
+    .dark .calendar-day.other-month .day-number {
+      color: #475569;
+    }
+
+    .calendar-day .day-number {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .dark .calendar-day .day-number {
+      color: #e2e8f0;
+    }
+
+    .today-badge {
+      background: #3b82f6;
+      color: white !important;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+    }
+
+    .day-appointments {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .mini-appointment {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.6875rem;
+      color: white;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .mini-time {
+      font-weight: 600;
+    }
+
+    .mini-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .more-appointments {
+      font-size: 0.6875rem;
+      color: #3b82f6;
+      font-weight: 500;
+      padding: 2px 4px;
+      cursor: pointer;
+    }
+
+    .more-appointments:hover {
+      text-decoration: underline;
     }
 
     /* Legend */
-    .legend-card {
-      margin-top: 16px;
-      border-radius: 12px;
-      padding: 12px 20px;
+    :host ::ng-deep .legend-card {
+      border-radius: 1rem;
+    }
+
+    :host ::ng-deep .legend-card .p-card-body {
+      padding: 0.75rem 1.25rem;
+    }
+
+    .dark :host ::ng-deep .legend-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .legend-content {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 1.5rem;
       flex-wrap: wrap;
+    }
 
-      .legend-title {
-        font-weight: 500;
-        color: #64748b;
-        font-size: 0.85rem;
-      }
+    .legend-title {
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.875rem;
+    }
 
-      .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
+    .dark .legend-title {
+      color: #e2e8f0;
+    }
 
-      .legend-color {
-        width: 12px;
-        height: 12px;
-        border-radius: 3px;
-      }
+    .legend-items {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
 
-      .legend-label {
-        font-size: 0.8rem;
-        color: #64748b;
-      }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .legend-label {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .legend-label {
+      color: #94a3b8;
+    }
+
+    /* Appointment Detail Panel */
+    :host ::ng-deep .appointment-detail-panel {
+      width: 320px;
+    }
+
+    .dark :host ::ng-deep .appointment-detail-panel .p-overlaypanel {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .detail-type {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .detail-type i {
+      font-size: 1.125rem;
+      color: white;
+    }
+
+    .detail-info {
+      flex: 1;
+    }
+
+    .detail-info h3 {
+      margin: 0 0 0.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .detail-info h3 {
+      color: #f1f5f9;
+    }
+
+    .detail-type-label {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .detail-type-label {
+      color: #94a3b8;
+    }
+
+    .detail-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .detail-row i {
+      color: #64748b;
+      width: 16px;
+    }
+
+    .dark .detail-row i {
+      color: #94a3b8;
+    }
+
+    .detail-row span {
+      color: #374151;
+    }
+
+    .dark .detail-row span {
+      color: #e2e8f0;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Dark mode inputs */
+    .dark :host ::ng-deep .p-select {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .dark :host ::ng-deep .p-select-label {
+      color: #f1f5f9;
+    }
+
+    .dark :host ::ng-deep .p-selectbutton .p-button {
+      background: #334155;
+      border-color: #475569;
+      color: #94a3b8;
+    }
+
+    .dark :host ::ng-deep .p-selectbutton .p-button.p-highlight {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
     }
 
     /* Responsive */
     @media (max-width: 1024px) {
       .toolbar-content {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
       }
 
-      .month-view .calendar-day {
-        min-height: 80px;
-        padding: 4px;
+      .date-navigation {
+        justify-content: center;
+      }
 
-        .mini-appointment {
-          display: none;
-        }
+      .toolbar-controls {
+        justify-content: center;
+      }
 
-        .day-appointments::after {
-          content: attr(data-count);
-          font-size: 0.7rem;
-          color: #64748b;
-        }
+      .current-period {
+        margin: 0;
+        text-align: center;
+        width: 100%;
+        order: -1;
       }
     }
 
     @media (max-width: 768px) {
-      .calendar-container {
-        padding: 16px;
+      .appointments-calendar {
+        padding: 1rem;
       }
 
-      .week-view {
-        .day-header .day-name {
-          font-size: 0.65rem;
-        }
+      .header-content {
+        flex-direction: column;
+        align-items: stretch;
+      }
 
-        .day-header .day-number {
-          font-size: 1rem;
-          width: 28px;
-          height: 28px;
-        }
+      .month-grid {
+        grid-auto-rows: minmax(80px, 1fr);
+      }
+
+      .mini-appointment {
+        font-size: 0.625rem;
+        padding: 1px 4px;
+      }
+
+      .legend-items {
+        display: none;
       }
     }
   `]
 })
 export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
   private readonly appointmentService = inject(AppointmentService);
-  private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
+  readonly themeService = inject(ThemeService);
   private readonly destroy$ = new Subject<void>();
 
   // Form controls
-  providerControl = new FormControl('');
+  providerControl = new FormControl<string | null>(null);
 
-  // State signals
-  viewMode = signal<CalendarView>('week');
-  currentDate = signal(new Date());
+  // Options
+  providerOptions: ProviderOption[] = [
+    { label: 'Dr. Emily Chen', value: 'prov-001' },
+    { label: 'Dr. James Wilson', value: 'prov-002' },
+    { label: 'Dr. Maria Garcia', value: 'prov-003' },
+  ];
+
+  viewOptions: ViewOption[] = [
+    { icon: 'pi-calendar', value: 'day', tooltip: 'Day View' },
+    { icon: 'pi-calendar-plus', value: 'week', tooltip: 'Week View' },
+    { icon: 'pi-th-large', value: 'month', tooltip: 'Month View' },
+  ];
+
+  selectedView: CalendarView = 'week';
+  appointmentTypeConfigs = APPOINTMENT_TYPE_CONFIG;
+  timeSlots: TimeSlot[] = [];
+
+  // Signals
   appointments = signal<Appointment[]>([]);
+  currentDate = signal(new Date());
+  viewMode = signal<CalendarView>('week');
   loading = signal(false);
+  selectedAppointment = signal<Appointment | null>(null);
 
-  // Computed values
+  // Computed
   currentPeriodLabel = computed(() => {
     const date = this.currentDate();
     const view = this.viewMode();
 
     switch (view) {
       case 'day':
-        return date.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          month: 'long', 
-          day: 'numeric', 
-          year: 'numeric' 
-        });
+        return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       case 'week':
         const weekStart = this.getWeekStart(date);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
+        if (weekStart.getMonth() === weekEnd.getMonth()) {
+          return `${weekStart.toLocaleDateString('en-US', { month: 'long' })} ${weekStart.getDate()} - ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+        }
         return `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       case 'month':
         return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -759,17 +1181,25 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
   });
 
   weekDays = computed(() => {
-    const weekStart = this.getWeekStart(this.currentDate());
-    const days: { date: Date; isToday: boolean }[] = [];
+    const current = this.currentDate();
+    const weekStart = this.getWeekStart(current);
+    const days: CalendarDay[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(weekStart);
       date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+
       days.push({
         date,
         isToday: date.getTime() === today.getTime(),
+        isCurrentMonth: date.getMonth() === current.getMonth(),
+        appointments: this.appointments().filter(apt => {
+          const aptDate = new Date(apt.start).toISOString().split('T')[0];
+          return aptDate === dateStr;
+        }),
       });
     }
 
@@ -780,7 +1210,7 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     const current = this.currentDate();
     const firstOfMonth = new Date(current.getFullYear(), current.getMonth(), 1);
     const lastOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-    
+
     const startDate = this.getWeekStart(firstOfMonth);
     const endDate = new Date(lastOfMonth);
     while (endDate.getDay() !== 6) {
@@ -809,15 +1239,10 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     return days;
   });
 
-  // Time slots for day/week view
-  timeSlots: TimeSlot[] = [];
-  appointmentTypes = APPOINTMENT_TYPE_CONFIG;
-
   ngOnInit(): void {
     this.generateTimeSlots();
     this.loadAppointments();
 
-    // Reload on provider change
     this.providerControl.valueChanges.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => this.loadAppointments());
@@ -845,8 +1270,8 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     const { startDate, endDate } = this.getDateRange();
 
     this.appointmentService.getAppointmentsByDateRange(
-      startDate, 
-      endDate, 
+      startDate,
+      endDate,
       this.providerControl.value || undefined
     ).pipe(
       takeUntil(this.destroy$)
@@ -981,7 +1406,7 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
   }
 
   getAppointmentHeight(apt: Appointment): number {
-    return Math.max(apt.duration, 15);
+    return Math.max(apt.duration, 20);
   }
 
   getAppointmentColor(apt: Appointment): string {
@@ -989,18 +1414,48 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     return config?.color || '#64748b';
   }
 
-  getTypeLabel(type: string): string {
-    const config = getAppointmentTypeConfig(type as any);
+  getTypeLabel(type: AppointmentType): string {
+    const config = getAppointmentTypeConfig(type);
     return config?.label || type;
   }
 
-  getStatusVariant(status: string) {
-    return getStatusVariant(status);
+  getTypeIcon(type: AppointmentType): string {
+    const icons: Record<string, string> = {
+      'new-patient': 'pi-user-plus',
+      'routine': 'pi-calendar',
+      'followup': 'pi-replay',
+      'physical': 'pi-heart',
+      'wellness': 'pi-sun',
+      'urgent': 'pi-exclamation-triangle',
+      'procedure': 'pi-wrench',
+      'telehealth': 'pi-video',
+      'lab-review': 'pi-chart-bar',
+      'consultation': 'pi-comments',
+    };
+    return icons[type] || 'pi-calendar';
+  }
+
+  getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
+    const severities: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+      booked: 'info',
+      confirmed: 'info',
+      arrived: 'success',
+      'checked-in': 'success',
+      'in-progress': 'warn',
+      fulfilled: 'secondary',
+      cancelled: 'danger',
+      noshow: 'danger',
+    };
+    return severities[status] || 'secondary';
   }
 
   onSlotClick(hour: number, date?: Date): void {
-    // Navigate to new appointment with pre-filled time
-    console.log('Slot clicked:', hour, date);
+    const targetDate = date || this.currentDate();
+    const startTime = new Date(targetDate);
+    startTime.setHours(hour, 0, 0, 0);
+    this.router.navigate(['/appointments/new'], {
+      queryParams: { date: startTime.toISOString() }
+    });
   }
 
   onDayClick(date: Date): void {
@@ -1009,8 +1464,12 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     this.loadAppointments();
   }
 
-  onAppointmentClick(apt: Appointment): void {
-    // Navigate to appointment detail or open dialog
-    console.log('Appointment clicked:', apt);
+  showAppointmentDetail(apt: Appointment, event: Event): void {
+    this.selectedAppointment.set(apt);
+    // The overlay panel should be triggered by the click
+  }
+
+  navigateToAppointment(id: string): void {
+    this.router.navigate(['/appointments', id]);
   }
 }

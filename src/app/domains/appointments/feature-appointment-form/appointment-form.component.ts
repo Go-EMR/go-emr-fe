@@ -1,30 +1,35 @@
 import { Component, inject, signal, computed, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { debounceTime, distinctUntilChanged, switchMap, of, Observable } from 'rxjs';
+import { FormBuilder, FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
+// PrimeNG Imports
+import { Card } from 'primeng/card';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Textarea } from 'primeng/textarea';
+import { InputNumber } from 'primeng/inputnumber';
+import { Select } from 'primeng/select';
+import { DatePicker } from 'primeng/datepicker';
+import { Checkbox } from 'primeng/checkbox';
+import { AutoComplete, AutoCompleteCompleteEvent, AutoCompleteSelectEvent } from 'primeng/autocomplete';
+import { Chip } from 'primeng/chip';
+import { Divider } from 'primeng/divider';
+import { Toast } from 'primeng/toast';
+import { Tooltip } from 'primeng/tooltip';
+import { Avatar } from 'primeng/avatar';
+import { Tag } from 'primeng/tag';
+import { Skeleton } from 'primeng/skeleton';
+import { Ripple } from 'primeng/ripple';
+import { ToggleButton } from 'primeng/togglebutton';
+import { MessageService } from 'primeng/api';
+
 import { AppointmentService } from '../data-access/services/appointment.service';
-import { 
-  Appointment, 
-  AppointmentSlot, 
-  AppointmentType, 
+import { ThemeService } from '../../../core/services/theme.service';
+import {
+  AppointmentSlot,
+  AppointmentType,
   APPOINTMENT_TYPE_CONFIG,
   CreateAppointmentDto
 } from '../data-access/models/appointment.model';
@@ -49,6 +54,16 @@ interface FacilityOption {
   rooms?: { id: string; name: string }[];
 }
 
+interface DurationOption {
+  label: string;
+  value: number;
+}
+
+interface RecurrenceOption {
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-appointment-form',
   standalone: true,
@@ -56,528 +71,727 @@ interface FacilityOption {
     CommonModule,
     RouterLink,
     ReactiveFormsModule,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatCheckboxModule,
-    MatAutocompleteModule,
-    MatChipsModule,
-    MatDividerModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    PageHeaderComponent,
-    AvatarComponent,
+    // PrimeNG
+    Card,
+    Button,
+    InputText,
+    Textarea,
+    InputNumber,
+    Select,
+    DatePicker,
+    Checkbox,
+    AutoComplete,
+    Chip,
+    Divider,
+    Toast,
+    Tooltip,
+    Avatar,
+    Tag,
+    Skeleton,
+    Ripple,
+    ToggleButton,
   ],
+  providers: [MessageService],
   template: `
-    <div class="appointment-form-container">
-      <app-page-header
-        [title]="isEditMode() ? 'Edit Appointment' : 'New Appointment'"
-        [subtitle]="isEditMode() ? 'Update appointment details' : 'Schedule a new appointment'"
-        icon="event"
-        [breadcrumbs]="breadcrumbs()"
-        [showDivider]="false"
-      >
-        <div class="header-actions" actions>
-          <button mat-stroked-button routerLink="/appointments">
-            Cancel
-          </button>
-          <button 
-            mat-flat-button 
-            color="primary" 
-            (click)="onSubmit()"
-            [disabled]="!form.valid || saving()"
-          >
-            @if (saving()) {
-              <mat-spinner diameter="20"></mat-spinner>
-            } @else {
-              <mat-icon>{{ isEditMode() ? 'save' : 'add' }}</mat-icon>
-              {{ isEditMode() ? 'Save Changes' : 'Schedule Appointment' }}
-            }
-          </button>
-        </div>
-      </app-page-header>
+    <div class="appointment-form" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
 
+      <!-- Header -->
+      <header class="page-header">
+        <div class="header-content">
+          <div class="breadcrumb">
+            <a routerLink="/appointments" class="breadcrumb-link">
+              <i class="pi pi-calendar"></i>
+              Appointments
+            </a>
+            <i class="pi pi-chevron-right"></i>
+            <span>{{ isEditMode() ? 'Edit' : 'New' }}</span>
+          </div>
+          <div class="title-section">
+            <h1>{{ isEditMode() ? 'Edit Appointment' : 'New Appointment' }}</h1>
+            <p class="subtitle">{{ isEditMode() ? 'Update appointment details' : 'Schedule a new appointment' }}</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <p-button
+            label="Cancel"
+            [outlined]="true"
+            severity="secondary"
+            routerLink="/appointments"
+          />
+          <p-button
+            [label]="isEditMode() ? 'Save Changes' : 'Schedule Appointment'"
+            [icon]="isEditMode() ? 'pi pi-save' : 'pi pi-plus'"
+            [loading]="saving()"
+            [disabled]="!form.valid"
+            (onClick)="onSubmit()"
+          />
+        </div>
+      </header>
+
+      <!-- Form -->
       <form [formGroup]="form" class="form-grid">
         <!-- Patient Selection Card -->
-        <mat-card class="form-card patient-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>person</mat-icon>
-              Patient
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            @if (selectedPatient()) {
-              <div class="selected-patient">
-                <app-avatar 
-                  [name]="selectedPatient()!.name"
-                  [imageUrl]="selectedPatient()!.photo || ''"
-                  size="lg"
-                ></app-avatar>
-                <div class="patient-info">
-                  <span class="patient-name">{{ selectedPatient()!.name }}</span>
-                  @if (selectedPatient()!.dob) {
-                    <span class="patient-dob">DOB: {{ selectedPatient()!.dob }}</span>
-                  }
-                  @if (selectedPatient()!.mrn) {
-                    <span class="patient-mrn">MRN: {{ selectedPatient()!.mrn }}</span>
-                  }
-                </div>
-                <button mat-icon-button (click)="clearPatient()" class="clear-button">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-            } @else {
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Search Patient</mat-label>
-                <input 
-                  matInput 
-                  [formControl]="patientSearchControl"
-                  [matAutocomplete]="patientAuto"
-                  placeholder="Type patient name or MRN..."
-                >
-                <mat-icon matPrefix>search</mat-icon>
-                <mat-autocomplete 
-                  #patientAuto="matAutocomplete" 
-                  (optionSelected)="onPatientSelected($event)"
-                >
-                  @for (patient of filteredPatients(); track patient.id) {
-                    <mat-option [value]="patient">
-                      <div class="patient-option">
-                        <app-avatar [name]="patient.name" size="sm"></app-avatar>
-                        <div class="patient-option-info">
-                          <span class="name">{{ patient.name }}</span>
-                          @if (patient.mrn) {
-                            <span class="mrn">MRN: {{ patient.mrn }}</span>
-                          }
-                        </div>
-                      </div>
-                    </mat-option>
-                  }
-                </mat-autocomplete>
-                @if (form.get('patientId')?.hasError('required') && form.get('patientId')?.touched) {
-                  <mat-error>Patient is required</mat-error>
+        <p-card styleClass="form-card patient-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-user"></i>
+              <h3>Patient</h3>
+            </div>
+          </ng-template>
+
+          @if (selectedPatient()) {
+            <div class="selected-patient">
+              <p-avatar
+                [label]="getPatientInitials(selectedPatient()!)"
+                [image]="selectedPatient()!.photo || ''"
+                [style]="{ 'background-color': '#3b82f6', 'color': 'white' }"
+                size="large"
+                shape="circle"
+              />
+              <div class="patient-info">
+                <span class="patient-name">{{ selectedPatient()!.name }}</span>
+                @if (selectedPatient()!.dob) {
+                  <span class="patient-meta">DOB: {{ selectedPatient()!.dob }}</span>
                 }
-              </mat-form-field>
-            }
-          </mat-card-content>
-        </mat-card>
+                @if (selectedPatient()!.mrn) {
+                  <span class="patient-meta">MRN: {{ selectedPatient()!.mrn }}</span>
+                }
+              </div>
+              <p-button
+                icon="pi pi-times"
+                [rounded]="true"
+                [text]="true"
+                severity="secondary"
+                (onClick)="clearPatient()"
+                pTooltip="Remove"
+                tooltipPosition="top"
+              />
+            </div>
+          } @else {
+            <div class="patient-search">
+              <span class="p-input-icon-left w-full">
+                <i class="pi pi-search"></i>
+                <p-autoComplete
+                  [formControl]="patientSearchControl"
+                  [suggestions]="filteredPatients()"
+                  (completeMethod)="searchPatients($event)"
+                  (onSelect)="onPatientSelected($event)"
+                  field="name"
+                  placeholder="Search patient by name or MRN..."
+                  [showEmptyMessage]="true"
+                  emptyMessage="No patients found"
+                  styleClass="w-full">
+                  <ng-template let-patient pTemplate="item">
+                    <div class="patient-option">
+                      <p-avatar
+                        [label]="getPatientInitials(patient)"
+                        [style]="{ 'background-color': '#3b82f6', 'color': 'white', 'font-size': '0.75rem' }"
+                        shape="circle"
+                      />
+                      <div class="patient-option-info">
+                        <span class="name">{{ patient.name }}</span>
+                        @if (patient.mrn) {
+                          <span class="mrn">MRN: {{ patient.mrn }}</span>
+                        }
+                      </div>
+                    </div>
+                  </ng-template>
+                </p-autoComplete>
+              </span>
+              @if (form.get('patientId')?.invalid && form.get('patientId')?.touched) {
+                <small class="p-error">Patient is required</small>
+              }
+            </div>
+          }
+        </p-card>
 
         <!-- Appointment Type Card -->
-        <mat-card class="form-card type-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>category</mat-icon>
-              Appointment Type
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="type-grid">
-              @for (typeConfig of appointmentTypes; track typeConfig.type) {
-                <div 
-                  class="type-option"
-                  [class.selected]="form.get('type')?.value === typeConfig.type"
-                  (click)="selectType(typeConfig.type)"
-                >
-                  <div class="type-icon" [style.background-color]="typeConfig.color + '20'" [style.color]="typeConfig.color">
-                    <mat-icon>{{ typeConfig.icon }}</mat-icon>
-                  </div>
-                  <span class="type-label">{{ typeConfig.label }}</span>
-                  <span class="type-duration">{{ typeConfig.defaultDuration }} min</span>
+        <p-card styleClass="form-card type-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-tag"></i>
+              <h3>Appointment Type</h3>
+            </div>
+          </ng-template>
+
+          <div class="type-grid">
+            @for (typeConfig of appointmentTypes; track typeConfig.type) {
+              <div
+                class="type-option"
+                [class.selected]="form.get('type')?.value === typeConfig.type"
+                (click)="selectType(typeConfig.type)"
+                pRipple>
+                <div class="type-icon" [style.background]="typeConfig.color + '20'" [style.color]="typeConfig.color">
+                  <i [class]="'pi ' + getTypeIcon(typeConfig.type)"></i>
+                </div>
+                <span class="type-label">{{ typeConfig.label }}</span>
+                <span class="type-duration">{{ typeConfig.duration }} min</span>
+              </div>
+            }
+          </div>
+        </p-card>
+
+        <!-- Date & Time Card -->
+        <p-card styleClass="form-card datetime-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-clock"></i>
+              <h3>Date & Time</h3>
+            </div>
+          </ng-template>
+
+          <div class="datetime-row">
+            <div class="field">
+              <label for="date">Date</label>
+              <p-datepicker
+                formControlName="date"
+                [minDate]="minDate"
+                [showIcon]="true"
+                [showButtonBar]="true"
+                dateFormat="DD, MM dd, yy"
+                inputId="date"
+                styleClass="w-full"
+              />
+              @if (form.get('date')?.invalid && form.get('date')?.touched) {
+                <small class="p-error">Date is required</small>
+              }
+            </div>
+
+            <div class="field">
+              <label for="duration">Duration</label>
+              <p-select
+                formControlName="duration"
+                [options]="durationOptions"
+                optionLabel="label"
+                optionValue="value"
+                inputId="duration"
+                styleClass="w-full"
+              />
+            </div>
+          </div>
+
+          <!-- Time Slots -->
+          @if (form.get('date')?.value && form.get('providerId')?.value) {
+            <div class="time-slots-section">
+              <h4>Available Time Slots</h4>
+              @if (loadingSlots()) {
+                <div class="loading-slots">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <span>Loading available slots...</span>
+                </div>
+              } @else if (availableSlots().length === 0) {
+                <div class="no-slots">
+                  <i class="pi pi-calendar-times"></i>
+                  <span>No available slots for this date</span>
+                </div>
+              } @else {
+                <div class="time-slots-grid">
+                  @for (slot of availableSlots(); track slot.start) {
+                    <button
+                      type="button"
+                      class="time-slot"
+                      [class.selected]="isSlotSelected(slot)"
+                      [class.unavailable]="!slot.isAvailable"
+                      [disabled]="!slot.isAvailable"
+                      (click)="selectSlot(slot)"
+                      pRipple>
+                      {{ slot.start | date:'h:mm a' }}
+                    </button>
+                  }
                 </div>
               }
             </div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Date & Time Card -->
-        <mat-card class="form-card datetime-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>schedule</mat-icon>
-              Date & Time
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="datetime-row">
-              <mat-form-field appearance="outline">
-                <mat-label>Date</mat-label>
-                <input matInput [matDatepicker]="picker" formControlName="date" [min]="minDate">
-                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-                <mat-datepicker #picker></mat-datepicker>
-                @if (form.get('date')?.hasError('required')) {
-                  <mat-error>Date is required</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Duration</mat-label>
-                <mat-select formControlName="duration">
-                  @for (duration of durations; track duration) {
-                    <mat-option [value]="duration">{{ duration }} minutes</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
+          } @else {
+            <div class="select-date-hint">
+              <i class="pi pi-info-circle"></i>
+              <span>Select a date and provider to see available time slots</span>
             </div>
+          }
 
-            @if (form.get('date')?.value && form.get('providerId')?.value) {
-              <div class="time-slots-section">
-                <h4>Available Time Slots</h4>
-                @if (loadingSlots()) {
-                  <div class="loading-slots">
-                    <mat-spinner diameter="24"></mat-spinner>
-                    <span>Loading available slots...</span>
-                  </div>
-                } @else if (availableSlots().length === 0) {
-                  <div class="no-slots">
-                    <mat-icon>event_busy</mat-icon>
-                    <span>No available slots for this date</span>
-                  </div>
-                } @else {
-                  <div class="time-slots-grid">
-                    @for (slot of availableSlots(); track slot.start) {
-                      <button 
-                        type="button"
-                        class="time-slot"
-                        [class.selected]="selectedSlot()?.start === slot.start"
-                        [class.unavailable]="!slot.available"
-                        [disabled]="!slot.available"
-                        (click)="selectSlot(slot)"
-                      >
-                        {{ slot.start | date:'h:mm a' }}
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
-            } @else {
-              <div class="select-date-hint">
-                <mat-icon>info</mat-icon>
-                <span>Select a date and provider to see available time slots</span>
-              </div>
-            }
+          <p-divider />
 
-            <mat-divider></mat-divider>
-
-            <mat-checkbox formControlName="isTelehealth" class="telehealth-checkbox">
-              <mat-icon>videocam</mat-icon>
+          <div class="telehealth-toggle">
+            <p-checkbox
+              formControlName="isTelehealth"
+              [binary]="true"
+              inputId="telehealth"
+            />
+            <label for="telehealth" class="telehealth-label">
+              <i class="pi pi-video"></i>
               This is a telehealth appointment
-            </mat-checkbox>
-          </mat-card-content>
-        </mat-card>
+            </label>
+          </div>
+        </p-card>
 
         <!-- Provider & Location Card -->
-        <mat-card class="form-card provider-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>location_on</mat-icon>
-              Provider & Location
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Provider</mat-label>
-              <mat-select formControlName="providerId">
-                @for (provider of providers; track provider.id) {
-                  <mat-option [value]="provider.id">
-                    <div class="provider-option">
-                      <app-avatar [name]="provider.name" size="xs"></app-avatar>
-                      <span>{{ provider.name }}</span>
-                      @if (provider.specialty) {
-                        <span class="specialty">- {{ provider.specialty }}</span>
-                      }
-                    </div>
-                  </mat-option>
-                }
-              </mat-select>
-              @if (form.get('providerId')?.hasError('required')) {
-                <mat-error>Provider is required</mat-error>
-              }
-            </mat-form-field>
+        <p-card styleClass="form-card provider-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-map-marker"></i>
+              <h3>Provider & Location</h3>
+            </div>
+          </ng-template>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Facility</mat-label>
-              <mat-select formControlName="facilityId">
-                @for (facility of facilities; track facility.id) {
-                  <mat-option [value]="facility.id">{{ facility.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            @if (selectedFacility()?.rooms?.length) {
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Room</mat-label>
-                <mat-select formControlName="roomId">
-                  @for (room of selectedFacility()!.rooms; track room.id) {
-                    <mat-option [value]="room.id">{{ room.name }}</mat-option>
+          <div class="field">
+            <label for="provider">Provider *</label>
+            <p-select
+              formControlName="providerId"
+              [options]="providers"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="Select a provider"
+              inputId="provider"
+              styleClass="w-full">
+              <ng-template let-provider pTemplate="item">
+                <div class="provider-option">
+                  <p-avatar
+                    [label]="getProviderInitials(provider)"
+                    [style]="{ 'background-color': '#10b981', 'color': 'white', 'font-size': '0.75rem' }"
+                    shape="circle"
+                  />
+                  <span class="provider-name">{{ provider.name }}</span>
+                  @if (provider.specialty) {
+                    <span class="provider-specialty">{{ provider.specialty }}</span>
                   }
-                </mat-select>
-              </mat-form-field>
+                </div>
+              </ng-template>
+            </p-select>
+            @if (form.get('providerId')?.invalid && form.get('providerId')?.touched) {
+              <small class="p-error">Provider is required</small>
             }
-          </mat-card-content>
-        </mat-card>
+          </div>
+
+          <div class="field">
+            <label for="facility">Facility</label>
+            <p-select
+              formControlName="facilityId"
+              [options]="facilities"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="Select a facility"
+              inputId="facility"
+              styleClass="w-full"
+            />
+          </div>
+
+          @if (selectedFacility()?.rooms?.length) {
+            <div class="field">
+              <label for="room">Room</label>
+              <p-select
+                formControlName="roomId"
+                [options]="selectedFacility()!.rooms"
+                optionLabel="name"
+                optionValue="id"
+                placeholder="Select a room"
+                inputId="room"
+                styleClass="w-full"
+              />
+            </div>
+          }
+        </p-card>
 
         <!-- Reason & Notes Card -->
-        <mat-card class="form-card reason-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>description</mat-icon>
-              Reason & Notes
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Reason for Visit</mat-label>
-              <input matInput formControlName="reasonDescription" placeholder="e.g., Annual checkup, Follow-up visit">
-            </mat-form-field>
+        <p-card styleClass="form-card reason-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-file-edit"></i>
+              <h3>Reason & Notes</h3>
+            </div>
+          </ng-template>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Chief Complaint</mat-label>
-              <textarea 
-                matInput 
-                formControlName="chiefComplaint" 
-                rows="2"
-                placeholder="Patient's main concern or symptoms..."
-              ></textarea>
-            </mat-form-field>
+          <div class="field">
+            <label for="reason">Reason for Visit</label>
+            <input
+              pInputText
+              formControlName="reasonDescription"
+              id="reason"
+              placeholder="e.g., Annual checkup, Follow-up visit"
+              class="w-full"
+            />
+          </div>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Notes</mat-label>
-              <textarea 
-                matInput 
-                formControlName="notes" 
-                rows="3"
-                placeholder="Additional notes for this appointment..."
-              ></textarea>
-            </mat-form-field>
-          </mat-card-content>
-        </mat-card>
+          <div class="field">
+            <label for="complaint">Chief Complaint</label>
+            <textarea
+              pTextarea
+              formControlName="chiefComplaint"
+              id="complaint"
+              [rows]="2"
+              placeholder="Patient's main concern or symptoms..."
+              class="w-full"
+            ></textarea>
+          </div>
+
+          <div class="field">
+            <label for="notes">Notes</label>
+            <textarea
+              pTextarea
+              formControlName="notes"
+              id="notes"
+              [rows]="3"
+              placeholder="Additional notes for this appointment..."
+              class="w-full"
+            ></textarea>
+          </div>
+        </p-card>
 
         <!-- Billing Card -->
-        <mat-card class="form-card billing-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>payments</mat-icon>
-              Billing
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Service Type</mat-label>
-              <input matInput formControlName="serviceType" placeholder="e.g., Office Visit, Consultation">
-            </mat-form-field>
-
-            <div class="billing-row">
-              <mat-form-field appearance="outline">
-                <mat-label>Copay Amount</mat-label>
-                <span matPrefix>$&nbsp;</span>
-                <input matInput type="number" formControlName="copayAmount" min="0" step="0.01">
-              </mat-form-field>
-
-              <mat-checkbox formControlName="insuranceVerified">
-                Insurance Verified
-              </mat-checkbox>
+        <p-card styleClass="form-card billing-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-credit-card"></i>
+              <h3>Billing</h3>
             </div>
-          </mat-card-content>
-        </mat-card>
+          </ng-template>
+
+          <div class="field">
+            <label for="serviceType">Service Type</label>
+            <input
+              pInputText
+              formControlName="serviceType"
+              id="serviceType"
+              placeholder="e.g., Office Visit, Consultation"
+              class="w-full"
+            />
+          </div>
+
+          <div class="billing-row">
+            <div class="field">
+              <label for="copay">Copay Amount</label>
+              <p-inputNumber
+                formControlName="copayAmount"
+                inputId="copay"
+                mode="currency"
+                currency="USD"
+                locale="en-US"
+                [minFractionDigits]="2"
+                styleClass="w-full"
+              />
+            </div>
+
+            <div class="field checkbox-field">
+              <p-checkbox
+                formControlName="insuranceVerified"
+                [binary]="true"
+                inputId="insurance"
+              />
+              <label for="insurance">Insurance Verified</label>
+            </div>
+          </div>
+        </p-card>
 
         <!-- Recurrence Card -->
-        <mat-card class="form-card recurrence-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>repeat</mat-icon>
-              Recurrence
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-checkbox formControlName="isRecurring" class="recurring-checkbox">
-              Make this a recurring appointment
-            </mat-checkbox>
+        <p-card styleClass="form-card recurrence-card">
+          <ng-template pTemplate="header">
+            <div class="card-header">
+              <i class="pi pi-replay"></i>
+              <h3>Recurrence</h3>
+            </div>
+          </ng-template>
 
-            @if (form.get('isRecurring')?.value) {
-              <div class="recurrence-options">
-                <mat-form-field appearance="outline">
-                  <mat-label>Repeat</mat-label>
-                  <mat-select formControlName="recurrencePattern">
-                    <mat-option value="daily">Daily</mat-option>
-                    <mat-option value="weekly">Weekly</mat-option>
-                    <mat-option value="biweekly">Bi-weekly</mat-option>
-                    <mat-option value="monthly">Monthly</mat-option>
-                  </mat-select>
-                </mat-form-field>
+          <div class="field checkbox-field">
+            <p-checkbox
+              formControlName="isRecurring"
+              [binary]="true"
+              inputId="recurring"
+            />
+            <label for="recurring">Make this a recurring appointment</label>
+          </div>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>End Date</mat-label>
-                  <input matInput [matDatepicker]="endPicker" formControlName="recurrenceEndDate" [min]="form.get('date')?.value">
-                  <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
-                  <mat-datepicker #endPicker></mat-datepicker>
-                </mat-form-field>
+          @if (form.get('isRecurring')?.value) {
+            <div class="recurrence-options">
+              <div class="field">
+                <label for="pattern">Repeat</label>
+                <p-select
+                  formControlName="recurrencePattern"
+                  [options]="recurrenceOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  inputId="pattern"
+                  styleClass="w-full"
+                />
               </div>
-            }
-          </mat-card-content>
-        </mat-card>
+
+              <div class="field">
+                <label for="endDate">End Date</label>
+                <p-datepicker
+                  formControlName="recurrenceEndDate"
+                  [minDate]="form.get('date')?.value"
+                  [showIcon]="true"
+                  dateFormat="mm/dd/yy"
+                  inputId="endDate"
+                  styleClass="w-full"
+                />
+              </div>
+            </div>
+          }
+        </p-card>
       </form>
 
-      <!-- Bottom Actions (Mobile) -->
+      <!-- Mobile Bottom Actions -->
       <div class="bottom-actions">
-        <button mat-stroked-button routerLink="/appointments" class="full-width">
-          Cancel
-        </button>
-        <button 
-          mat-flat-button 
-          color="primary" 
-          (click)="onSubmit()"
-          [disabled]="!form.valid || saving()"
-          class="full-width"
-        >
-          @if (saving()) {
-            <mat-spinner diameter="20"></mat-spinner>
-          } @else {
-            {{ isEditMode() ? 'Save Changes' : 'Schedule Appointment' }}
-          }
-        </button>
+        <p-button
+          label="Cancel"
+          [outlined]="true"
+          severity="secondary"
+          routerLink="/appointments"
+          styleClass="w-full"
+        />
+        <p-button
+          [label]="isEditMode() ? 'Save' : 'Schedule'"
+          [loading]="saving()"
+          [disabled]="!form.valid"
+          (onClick)="onSubmit()"
+          styleClass="w-full"
+        />
       </div>
     </div>
   `,
   styles: [`
-    .appointment-form-container {
-      padding: 24px;
+    .appointment-form {
+      padding: 1.5rem;
       max-width: 1200px;
       margin: 0 auto;
     }
 
-    .header-actions {
+    /* Header */
+    .page-header {
       display: flex;
-      gap: 12px;
-
-      mat-spinner {
-        margin-right: 8px;
-      }
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
 
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .breadcrumb-link {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb .pi-chevron-right {
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .breadcrumb span {
+      color: #64748b;
+    }
+
+    .dark .breadcrumb span {
+      color: #94a3b8;
+    }
+
+    .title-section h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .dark .title-section h1 {
+      color: #f1f5f9;
+    }
+
+    .subtitle {
+      color: #64748b;
+      margin: 0.25rem 0 0;
+    }
+
+    .dark .subtitle {
+      color: #94a3b8;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Form Grid */
     .form-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
+      gap: 1.5rem;
     }
 
-    .form-card {
-      border-radius: 12px;
-
-      mat-card-header {
-        padding: 16px 20px;
-        border-bottom: 1px solid #e5e7eb;
-
-        mat-card-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 16px;
-          font-weight: 600;
-          color: #111827;
-
-          mat-icon {
-            color: #6b7280;
-          }
-        }
-      }
-
-      mat-card-content {
-        padding: 20px;
-      }
+    :host ::ng-deep .form-card {
+      border-radius: 1rem;
     }
 
-    .full-width {
+    .dark :host ::ng-deep .form-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .dark .card-header {
+      border-bottom-color: #334155;
+    }
+
+    .card-header i {
+      font-size: 1.125rem;
+      color: #3b82f6;
+    }
+
+    .card-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .card-header h3 {
+      color: #f1f5f9;
+    }
+
+    /* Field Styles */
+    .field {
+      margin-bottom: 1rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .dark .field label {
+      color: #e2e8f0;
+    }
+
+    .w-full {
       width: 100%;
     }
 
-    /* Patient Card */
+    /* Patient Selection */
     .selected-patient {
       display: flex;
       align-items: center;
-      gap: 16px;
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 8px;
-      position: relative;
+      gap: 1rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 0.75rem;
+    }
+
+    .dark .selected-patient {
+      background: #334155;
     }
 
     .patient-info {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      flex: 1;
     }
 
     .patient-name {
       font-weight: 600;
-      font-size: 16px;
-      color: #111827;
+      color: #1e293b;
     }
 
-    .patient-dob, .patient-mrn {
-      font-size: 13px;
-      color: #6b7280;
+    .dark .patient-name {
+      color: #f1f5f9;
     }
 
-    .clear-button {
-      position: absolute;
-      top: 8px;
-      right: 8px;
+    .patient-meta {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .patient-meta {
+      color: #94a3b8;
+    }
+
+    .patient-search {
+      padding: 0.5rem;
     }
 
     .patient-option {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
     }
 
     .patient-option-info {
       display: flex;
       flex-direction: column;
-
-      .name {
-        font-weight: 500;
-      }
-
-      .mrn {
-        font-size: 12px;
-        color: #6b7280;
-      }
     }
 
-    /* Type Card */
+    .patient-option-info .name {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .dark .patient-option-info .name {
+      color: #f1f5f9;
+    }
+
+    .patient-option-info .mrn {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Appointment Type Grid */
     .type-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 12px;
+      gap: 0.75rem;
+      padding: 0.5rem;
     }
 
     .type-option {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      padding: 16px 12px;
-      border: 2px solid #e5e7eb;
-      border-radius: 12px;
+      gap: 0.5rem;
+      padding: 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.2s;
+      text-align: center;
+    }
 
-      &:hover {
-        border-color: #d1d5db;
-        background: #f9fafb;
-      }
+    .dark .type-option {
+      border-color: #334155;
+    }
 
-      &.selected {
-        border-color: #2563eb;
-        background: #eff6ff;
-      }
+    .type-option:hover {
+      border-color: #94a3b8;
+    }
+
+    .type-option.selected {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .dark .type-option.selected {
+      background: #1e3a8a;
     }
 
     .type-icon {
@@ -587,152 +801,198 @@ interface FacilityOption {
       display: flex;
       align-items: center;
       justify-content: center;
+    }
 
-      mat-icon {
-        font-size: 24px;
-        width: 24px;
-        height: 24px;
-      }
+    .type-icon i {
+      font-size: 1.25rem;
     }
 
     .type-label {
       font-weight: 500;
-      font-size: 13px;
-      color: #374151;
-      text-align: center;
+      font-size: 0.875rem;
+      color: #1e293b;
+    }
+
+    .dark .type-label {
+      color: #f1f5f9;
     }
 
     .type-duration {
-      font-size: 12px;
-      color: #9ca3af;
+      font-size: 0.75rem;
+      color: #64748b;
     }
 
-    /* DateTime Card */
-    .datetime-row {
-      display: flex;
-      gap: 16px;
+    .dark .type-duration {
+      color: #94a3b8;
+    }
 
-      mat-form-field {
-        flex: 1;
-      }
+    /* DateTime */
+    .datetime-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1rem;
+      padding: 0.5rem;
     }
 
     .time-slots-section {
-      margin-top: 20px;
+      padding: 0.5rem;
+    }
 
-      h4 {
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-        margin: 0 0 12px;
-      }
+    .time-slots-section h4 {
+      margin: 0 0 0.75rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .dark .time-slots-section h4 {
+      color: #e2e8f0;
+    }
+
+    .loading-slots,
+    .no-slots,
+    .select-date-hint {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 0.5rem;
+      color: #64748b;
+    }
+
+    .dark .loading-slots,
+    .dark .no-slots,
+    .dark .select-date-hint {
+      background: #334155;
+      color: #94a3b8;
     }
 
     .time-slots-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 0.5rem;
     }
 
     .time-slot {
-      padding: 10px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
       background: white;
-      font-size: 14px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
       cursor: pointer;
-      transition: all 0.15s ease;
-
-      &:hover:not(:disabled) {
-        border-color: #2563eb;
-        background: #eff6ff;
-      }
-
-      &.selected {
-        border-color: #2563eb;
-        background: #2563eb;
-        color: white;
-      }
-
-      &.unavailable {
-        background: #f3f4f6;
-        color: #9ca3af;
-        cursor: not-allowed;
-        text-decoration: line-through;
-      }
+      transition: all 0.2s;
     }
 
-    .loading-slots, .no-slots {
+    .dark .time-slot {
+      background: #1e293b;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+
+    .time-slot:hover:not(:disabled) {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .dark .time-slot:hover:not(:disabled) {
+      background: #1e3a8a;
+    }
+
+    .time-slot.selected {
+      border-color: #3b82f6;
+      background: #3b82f6;
+      color: white;
+    }
+
+    .time-slot.unavailable {
+      background: #f1f5f9;
+      color: #cbd5e1;
+      cursor: not-allowed;
+    }
+
+    .dark .time-slot.unavailable {
+      background: #0f172a;
+      color: #475569;
+    }
+
+    .telehealth-toggle {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 24px;
-      background: #f9fafb;
-      border-radius: 8px;
-      color: #6b7280;
+      gap: 0.75rem;
+      padding: 0.5rem;
     }
 
-    .select-date-hint {
+    .telehealth-label {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 16px;
-      background: #fef3c7;
-      border-radius: 8px;
-      color: #92400e;
-      margin-top: 16px;
-
-      mat-icon {
-        font-size: 20px;
-      }
+      gap: 0.5rem;
+      color: #374151;
+      cursor: pointer;
     }
 
-    .telehealth-checkbox {
-      margin-top: 16px;
-
-      mat-icon {
-        margin-right: 4px;
-        font-size: 18px;
-        vertical-align: middle;
-      }
+    .dark .telehealth-label {
+      color: #e2e8f0;
     }
 
-    /* Provider Card */
+    .telehealth-label i {
+      color: #8b5cf6;
+    }
+
+    /* Provider Option */
     .provider-option {
       display: flex;
       align-items: center;
-      gap: 8px;
-
-      .specialty {
-        color: #6b7280;
-        font-size: 13px;
-      }
+      gap: 0.75rem;
     }
 
-    /* Billing Card */
+    .provider-name {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .dark .provider-name {
+      color: #f1f5f9;
+    }
+
+    .provider-specialty {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    /* Billing */
     .billing-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      align-items: end;
+    }
+
+    .checkbox-field {
       display: flex;
       align-items: center;
-      gap: 24px;
-
-      mat-form-field {
-        flex: 1;
-      }
+      gap: 0.5rem;
     }
 
-    /* Recurrence Card */
-    .recurring-checkbox {
-      margin-bottom: 16px;
+    .checkbox-field label {
+      margin-bottom: 0;
+      cursor: pointer;
     }
 
+    /* Recurrence */
     .recurrence-options {
-      display: flex;
-      gap: 16px;
-      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+    }
 
-      mat-form-field {
-        flex: 1;
-      }
+    .dark .recurrence-options {
+      border-top-color: #334155;
     }
 
     /* Bottom Actions (Mobile) */
@@ -742,124 +1002,149 @@ interface FacilityOption {
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 16px;
+      padding: 1rem;
       background: white;
-      border-top: 1px solid #e5e7eb;
-      gap: 12px;
+      border-top: 1px solid #e2e8f0;
+      gap: 0.75rem;
       z-index: 100;
     }
 
+    .dark .bottom-actions {
+      background: #1e293b;
+      border-top-color: #334155;
+    }
+
+    /* Dark mode inputs */
+    .dark :host ::ng-deep .p-inputtext,
+    .dark :host ::ng-deep textarea.p-textarea,
+    .dark :host ::ng-deep .p-inputnumber-input {
+      background: #334155;
+      border-color: #475569;
+      color: #f1f5f9;
+    }
+
+    .dark :host ::ng-deep .p-select {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .dark :host ::ng-deep .p-select-label {
+      color: #f1f5f9;
+    }
+
+    .dark :host ::ng-deep .p-datepicker-input {
+      background: #334155;
+      border-color: #475569;
+      color: #f1f5f9;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .type-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
+    }
+
     @media (max-width: 768px) {
-      .appointment-form-container {
-        padding: 16px;
+      .appointment-form {
+        padding: 1rem;
         padding-bottom: 100px;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .header-actions {
         display: none;
       }
 
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .datetime-row {
-        flex-direction: column;
-      }
-
-      .billing-row {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .recurrence-options {
-        flex-direction: column;
-      }
-
-      .type-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
       .bottom-actions {
         display: flex;
+      }
+
+      .datetime-row,
+      .billing-row,
+      .recurrence-options {
+        grid-template-columns: 1fr;
       }
     }
   `]
 })
 export class AppointmentFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
-  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
   private readonly appointmentService = inject(AppointmentService);
+  private readonly messageService = inject(MessageService);
+  readonly themeService = inject(ThemeService);
 
-  // Form
   form: FormGroup;
-  patientSearchControl = this.fb.control('');
+  patientSearchControl = new FormControl('');
 
-  // State
+  // Signals
   isEditMode = signal(false);
   appointmentId = signal<string | null>(null);
   saving = signal(false);
   loadingSlots = signal(false);
-
-  // Selections
   selectedPatient = signal<PatientOption | null>(null);
   selectedSlot = signal<AppointmentSlot | null>(null);
-  availableSlots = signal<AppointmentSlot[]>([]);
   filteredPatients = signal<PatientOption[]>([]);
+  availableSlots = signal<AppointmentSlot[]>([]);
 
-  // Static data
+  // Static Data
   appointmentTypes = APPOINTMENT_TYPE_CONFIG;
-  durations = [15, 20, 30, 45, 60, 90, 120];
   minDate = new Date();
 
-  // Mock data for demo
+  durationOptions: DurationOption[] = [
+    { label: '15 minutes', value: 15 },
+    { label: '20 minutes', value: 20 },
+    { label: '30 minutes', value: 30 },
+    { label: '45 minutes', value: 45 },
+    { label: '60 minutes', value: 60 },
+    { label: '90 minutes', value: 90 },
+  ];
+
+  recurrenceOptions: RecurrenceOption[] = [
+    { label: 'Daily', value: 'daily' },
+    { label: 'Weekly', value: 'weekly' },
+    { label: 'Bi-weekly', value: 'biweekly' },
+    { label: 'Monthly', value: 'monthly' },
+  ];
+
   providers: ProviderOption[] = [
-    { id: 'prov-1', name: 'Dr. Sarah Johnson', specialty: 'Family Medicine' },
-    { id: 'prov-2', name: 'Dr. Michael Chen', specialty: 'Internal Medicine' },
-    { id: 'prov-3', name: 'Dr. Emily Williams', specialty: 'Pediatrics' },
-    { id: 'prov-4', name: 'Dr. James Wilson', specialty: 'Cardiology' },
+    { id: 'prov-001', name: 'Dr. Emily Chen', specialty: 'Family Medicine' },
+    { id: 'prov-002', name: 'Dr. James Wilson', specialty: 'Internal Medicine' },
+    { id: 'prov-003', name: 'Dr. Maria Garcia', specialty: 'Pediatrics' },
   ];
 
   facilities: FacilityOption[] = [
-    { 
-      id: 'fac-1', 
-      name: 'Main Clinic',
-      rooms: [
-        { id: 'room-1', name: 'Exam Room 1' },
-        { id: 'room-2', name: 'Exam Room 2' },
-        { id: 'room-3', name: 'Exam Room 3' },
-        { id: 'room-4', name: 'Procedure Room' },
-      ]
-    },
-    { 
-      id: 'fac-2', 
-      name: 'Downtown Office',
-      rooms: [
-        { id: 'room-5', name: 'Exam Room A' },
-        { id: 'room-6', name: 'Exam Room B' },
-      ]
-    },
-    { id: 'fac-3', name: 'Telehealth' },
+    { id: 'fac-001', name: 'Main Clinic', rooms: [
+      { id: 'room-1', name: 'Exam Room 1' },
+      { id: 'room-2', name: 'Exam Room 2' },
+      { id: 'room-3', name: 'Exam Room 3' },
+    ]},
+    { id: 'fac-002', name: 'Downtown Office', rooms: [
+      { id: 'room-4', name: 'Suite A' },
+      { id: 'room-5', name: 'Suite B' },
+    ]},
   ];
 
   mockPatients: PatientOption[] = [
-    { id: 'pat-1', name: 'John Smith', dob: '1985-03-15', mrn: 'MRN-001', photo: '' },
-    { id: 'pat-2', name: 'Maria Garcia', dob: '1990-07-22', mrn: 'MRN-002', photo: '' },
-    { id: 'pat-3', name: 'Robert Johnson', dob: '1978-11-08', mrn: 'MRN-003', photo: '' },
-    { id: 'pat-4', name: 'Sarah Williams', dob: '1995-01-30', mrn: 'MRN-004', photo: '' },
-    { id: 'pat-5', name: 'Michael Brown', dob: '1982-09-12', mrn: 'MRN-005', photo: '' },
-    { id: 'pat-6', name: 'Jennifer Davis', dob: '1988-05-25', mrn: 'MRN-006', photo: '' },
+    { id: 'pat-001', name: 'John Smith', dob: '1985-03-15', mrn: 'MRN-001' },
+    { id: 'pat-002', name: 'Sarah Johnson', dob: '1990-07-22', mrn: 'MRN-002' },
+    { id: 'pat-003', name: 'Michael Brown', dob: '1978-11-08', mrn: 'MRN-003' },
+    { id: 'pat-004', name: 'Emily Davis', dob: '1995-01-30', mrn: 'MRN-004' },
+    { id: 'pat-005', name: 'Robert Wilson', dob: '1982-09-12', mrn: 'MRN-005' },
   ];
 
-  breadcrumbs = computed(() => [
-    { label: 'Appointments', route: '/appointments' },
-    { label: this.isEditMode() ? 'Edit' : 'New Appointment' }
-  ]);
-
   selectedFacility = computed(() => {
-    const facilityId = this.form.get('facilityId')?.value;
+    const facilityId = this.form?.get('facilityId')?.value;
     return this.facilities.find(f => f.id === facilityId) || null;
   });
 
@@ -884,24 +1169,12 @@ export class AppointmentFormComponent implements OnInit {
       recurrenceEndDate: [null],
     });
 
-    // Setup patient search
-    this.patientSearchControl.valueChanges.pipe(
-      debounceTime(300),
-      distinctUntilChanged()
-    ).subscribe(value => {
-      if (typeof value === 'string' && value.length > 1) {
-        this.searchPatients(value);
-      } else {
-        this.filteredPatients.set([]);
-      }
-    });
-
     // Load slots when date, provider, or duration changes
     effect(() => {
       const date = this.form.get('date')?.value;
       const providerId = this.form.get('providerId')?.value;
       const duration = this.form.get('duration')?.value;
-      
+
       if (date && providerId) {
         this.loadAvailableSlots(date, providerId, duration);
       }
@@ -917,7 +1190,6 @@ export class AppointmentFormComponent implements OnInit {
       this.appointmentId.set(id);
       this.loadAppointment(id);
     } else if (patientId) {
-      // Pre-fill patient if provided
       const patient = this.mockPatients.find(p => p.id === patientId);
       if (patient) {
         this.selectedPatient.set(patient);
@@ -930,11 +1202,11 @@ export class AppointmentFormComponent implements OnInit {
     this.appointmentService.getAppointment(id).subscribe({
       next: (appt) => {
         this.form.patchValue({
-          patientId: appt.patient?.id || appt.patientId,
-          type: appt.type || appt.appointmentType,
+          patientId: appt.patientId,
+          type: appt.appointmentType,
           date: new Date(appt.start),
           duration: appt.duration,
-          providerId: appt.provider?.id || appt.providerId,
+          providerId: appt.providerId,
           facilityId: appt.facilityId,
           roomId: appt.roomId,
           isTelehealth: appt.isTelehealth,
@@ -950,38 +1222,31 @@ export class AppointmentFormComponent implements OnInit {
         });
 
         this.selectedPatient.set({
-          id: appt.patient?.id || appt.patientId,
-          name: appt.patient?.name || appt.patientName,
-          photo: appt.patient?.photo || appt.patientPhoto,
+          id: appt.patientId,
+          name: appt.patientName,
+          photo: appt.patientPhoto,
         });
 
-        const endTime = appt.end ? new Date(appt.end) : new Date(new Date(appt.start).getTime() + appt.duration * 60000);
         this.selectedSlot.set({
           start: new Date(appt.start),
-          end: endTime,
+          end: new Date(appt.end),
           duration: appt.duration,
-          providerId: appt.provider?.id || appt.providerId,
-          providerName: appt.provider?.name || appt.providerName,
+          providerId: appt.providerId,
+          providerName: appt.providerName,
           facilityId: appt.facilityId || '',
           roomId: appt.roomId,
           isAvailable: true,
-          available: true,
         });
       },
       error: () => {
-        this.snackBar.open('Failed to load appointment', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load appointment'
+        });
         this.router.navigate(['/appointments']);
       }
     });
-  }
-
-  private searchPatients(query: string): void {
-    // Simulate API search
-    const filtered = this.mockPatients.filter(p => 
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.mrn?.toLowerCase().includes(query.toLowerCase())
-    );
-    this.filteredPatients.set(filtered);
   }
 
   private loadAvailableSlots(date: Date, providerId: string, duration: number): void {
@@ -998,8 +1263,17 @@ export class AppointmentFormComponent implements OnInit {
     });
   }
 
-  onPatientSelected(event: any): void {
-    const patient = event.option.value as PatientOption;
+  searchPatients(event: AutoCompleteCompleteEvent): void {
+    const query = event.query.toLowerCase();
+    const filtered = this.mockPatients.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.mrn?.toLowerCase().includes(query)
+    );
+    this.filteredPatients.set(filtered);
+  }
+
+  onPatientSelected(event: AutoCompleteSelectEvent): void {
+    const patient = event.value as PatientOption;
     this.selectedPatient.set(patient);
     this.form.patchValue({ patientId: patient.id });
     this.patientSearchControl.setValue('');
@@ -1012,29 +1286,61 @@ export class AppointmentFormComponent implements OnInit {
 
   selectType(type: AppointmentType): void {
     this.form.patchValue({ type });
-    
-    // Update duration to default for this type
+
     const typeConfig = APPOINTMENT_TYPE_CONFIG.find(t => t.type === type);
     if (typeConfig) {
-      this.form.patchValue({ duration: typeConfig.defaultDuration });
+      this.form.patchValue({ duration: typeConfig.duration });
     }
   }
 
   selectSlot(slot: AppointmentSlot): void {
-    if (slot.available) {
+    if (slot.isAvailable) {
       this.selectedSlot.set(slot);
     }
   }
 
+  isSlotSelected(slot: AppointmentSlot): boolean {
+    const selected = this.selectedSlot();
+    if (!selected) return false;
+    return new Date(selected.start).getTime() === new Date(slot.start).getTime();
+  }
+
+  getPatientInitials(patient: PatientOption): string {
+    return patient.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  getProviderInitials(provider: ProviderOption): string {
+    return provider.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  getTypeIcon(type: string): string {
+    const icons: Record<string, string> = {
+      'new-patient': 'pi-user-plus',
+      'routine': 'pi-calendar',
+      'followup': 'pi-replay',
+      'physical': 'pi-heart',
+      'wellness': 'pi-sun',
+      'urgent': 'pi-exclamation-triangle',
+      'procedure': 'pi-wrench',
+      'telehealth': 'pi-video',
+      'lab-review': 'pi-chart-bar',
+      'consultation': 'pi-comments',
+    };
+    return icons[type] || 'pi-calendar';
+  }
+
   onSubmit(): void {
     if (!this.form.valid || !this.selectedSlot()) {
-      // Mark all fields as touched to show errors
       Object.keys(this.form.controls).forEach(key => {
         this.form.get(key)?.markAsTouched();
       });
 
       if (!this.selectedSlot()) {
-        this.snackBar.open('Please select a time slot', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Required',
+          detail: 'Please select a time slot'
+        });
       }
       return;
     }
@@ -1048,7 +1354,6 @@ export class AppointmentFormComponent implements OnInit {
       providerId: formValue.providerId,
       facilityId: formValue.facilityId || '',
       appointmentType: formValue.type,
-      type: formValue.type,
       start: slot.start,
       duration: formValue.duration,
       reasonDescription: formValue.reasonDescription || '',
@@ -1061,23 +1366,27 @@ export class AppointmentFormComponent implements OnInit {
       recurrenceEndDate: formValue.isRecurring ? formValue.recurrenceEndDate : undefined,
     };
 
-    const operation = this.isEditMode() 
+    const operation = this.isEditMode()
       ? this.appointmentService.updateAppointment(this.appointmentId()!, appointmentData)
       : this.appointmentService.createAppointment(appointmentData);
 
     operation.subscribe({
       next: (appt) => {
         this.saving.set(false);
-        this.snackBar.open(
-          this.isEditMode() ? 'Appointment updated successfully' : 'Appointment scheduled successfully',
-          'Close',
-          { duration: 3000 }
-        );
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: this.isEditMode() ? 'Appointment updated successfully' : 'Appointment scheduled successfully'
+        });
         this.router.navigate(['/appointments', appt.id]);
       },
       error: () => {
         this.saving.set(false);
-        this.snackBar.open('Failed to save appointment', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to save appointment'
+        });
       }
     });
   }

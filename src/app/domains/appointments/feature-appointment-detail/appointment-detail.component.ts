@@ -1,23 +1,34 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
-import { StatusBadgeComponent, getStatusVariant } from '../../../shared/ui/status-badge/status-badge.component';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
-import { ConfirmDialogComponent } from '../../../shared/ui/confirm-dialog/confirm-dialog.component';
-import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+// PrimeNG Imports
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { TagModule } from 'primeng/tag';
+import { ChipModule } from 'primeng/chip';
+import { AvatarModule } from 'primeng/avatar';
+import { MenuModule } from 'primeng/menu';
+import { TooltipModule } from 'primeng/tooltip';
+import { DividerModule } from 'primeng/divider';
+import { SkeletonModule } from 'primeng/skeleton';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ToastModule } from 'primeng/toast';
+import { TimelineModule } from 'primeng/timeline';
+import { PanelModule } from 'primeng/panel';
+import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
+
 import { AppointmentService } from '../data-access/services/appointment.service';
-import { Appointment, APPOINTMENT_TYPE_CONFIG } from '../data-access/models/appointment.model';
+import { Appointment, APPOINTMENT_TYPE_CONFIG, AppointmentType } from '../data-access/models/appointment.model';
+import { ThemeService } from '../../../core/services/theme.service';
+
+interface StatusHistoryItem {
+  status: string;
+  date: Date;
+  user?: string;
+  icon: string;
+  color: string;
+}
 
 @Component({
   selector: 'app-appointment-detail',
@@ -25,888 +36,921 @@ import { Appointment, APPOINTMENT_TYPE_CONFIG } from '../data-access/models/appo
   imports: [
     CommonModule,
     RouterLink,
-    MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatMenuModule,
-    MatDividerModule,
-    MatChipsModule,
-    MatDialogModule,
-    MatTooltipModule,
-    MatSnackBarModule,
-    PageHeaderComponent,
-    StatusBadgeComponent,
-    AvatarComponent,
-    SkeletonComponent,
+    // PrimeNG
+    CardModule,
+    ButtonModule,
+    TagModule,
+    ChipModule,
+    AvatarModule,
+    MenuModule,
+    TooltipModule,
+    DividerModule,
+    SkeletonModule,
+    ConfirmDialogModule,
+    ToastModule,
+    TimelineModule,
+    PanelModule,
   ],
+  providers: [MessageService, ConfirmationService],
   template: `
-    <div class="appointment-detail-container">
-      <!-- Header -->
-      <app-page-header
-        [title]="appointment()?.patient?.name || 'Appointment Details'"
-        [subtitle]="appointment() ? getFormattedDateTime() : ''"
-        icon="event"
-        [breadcrumbs]="breadcrumbs"
-        [showDivider]="false"
-      >
-        <div class="header-actions" actions>
-          @if (appointment(); as appt) {
-            @if (canEdit()) {
-              <button mat-stroked-button [routerLink]="['/appointments', appt.id, 'edit']">
-                <mat-icon>edit</mat-icon>
-                Edit
-              </button>
-            }
-            
-            <button mat-flat-button color="primary" [matMenuTriggerFor]="actionsMenu">
-              <mat-icon>more_vert</mat-icon>
-              Actions
-            </button>
-            
-            <mat-menu #actionsMenu="matMenu">
-              @if (appt.status === 'booked') {
-                <button mat-menu-item (click)="checkIn()">
-                  <mat-icon>how_to_reg</mat-icon>
-                  <span>Check In Patient</span>
-                </button>
-              }
-              @if (appt.status === 'checked-in') {
-                <button mat-menu-item (click)="startEncounter()">
-                  <mat-icon>play_arrow</mat-icon>
-                  <span>Start Encounter</span>
-                </button>
-              }
-              @if (appt.status === 'in-progress') {
-                <button mat-menu-item (click)="completeAppointment()">
-                  <mat-icon>check_circle</mat-icon>
-                  <span>Complete Appointment</span>
-                </button>
-              }
-              @if (!['fulfilled', 'cancelled', 'noshow'].includes(appt.status)) {
-                <button mat-menu-item (click)="sendReminder()">
-                  <mat-icon>notifications</mat-icon>
-                  <span>Send Reminder</span>
-                </button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item (click)="reschedule()">
-                  <mat-icon>update</mat-icon>
-                  <span>Reschedule</span>
-                </button>
-                <button mat-menu-item (click)="markNoShow()" class="warning-item">
-                  <mat-icon>person_off</mat-icon>
-                  <span>Mark as No-Show</span>
-                </button>
-                <button mat-menu-item (click)="cancelAppointment()" class="danger-item">
-                  <mat-icon>cancel</mat-icon>
-                  <span>Cancel Appointment</span>
-                </button>
-              }
-            </mat-menu>
-          }
-        </div>
-      </app-page-header>
+    <div class="appointment-detail" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
+      <p-confirmDialog />
 
       @if (loading()) {
-        <div class="loading-skeleton">
-          <app-skeleton type="card"></app-skeleton>
-          <app-skeleton type="card"></app-skeleton>
+        <!-- Loading State -->
+        <div class="loading-state">
+          <div class="header-skeleton">
+            <p-skeleton width="300px" height="32px" />
+            <p-skeleton width="200px" height="20px" />
+          </div>
+          <div class="content-skeleton">
+            <p-skeleton width="100%" height="300px" borderRadius="16px" />
+            <p-skeleton width="100%" height="200px" borderRadius="16px" />
+          </div>
         </div>
-      } @else {
-        @if (appointment(); as appt) {
-          <div class="detail-grid">
-            <!-- Main Info Card -->
-            <mat-card class="info-card main-card">
-              <mat-card-content>
-                <!-- Status Banner -->
-                <div class="status-banner" [class]="'status-' + appt.status">
-                <div class="status-info">
-                  <app-status-badge 
-                    [status]="appt.status" 
-                    [variant]="getStatusVariant(appt.status)"
-                    size="large"
-                  />
-                  <span class="status-label">{{ getStatusLabel(appt.status) }}</span>
+      } @else if (appointment()) {
+        <!-- Header -->
+        <header class="page-header">
+          <div class="header-content">
+            <div class="breadcrumb">
+              <a routerLink="/appointments" class="breadcrumb-link">
+                <i class="pi pi-calendar"></i>
+                Appointments
+              </a>
+              <i class="pi pi-chevron-right"></i>
+              <span>Details</span>
+            </div>
+            <div class="title-section">
+              <h1>{{ appointment()!.patientName }}</h1>
+              <p class="subtitle">{{ getFormattedDateTime() }}</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            @if (canEdit()) {
+              <p-button
+                label="Edit"
+                icon="pi pi-pencil"
+                [outlined]="true"
+                [routerLink]="['/appointments', appointment()!.id, 'edit']"
+              />
+            }
+            <p-button
+              label="Actions"
+              icon="pi pi-ellipsis-v"
+              (onClick)="actionsMenu.toggle($event)"
+            />
+            <p-menu #actionsMenu [model]="actionMenuItems" [popup]="true" />
+          </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="detail-grid">
+          <!-- Main Info Card -->
+          <p-card styleClass="main-card">
+            <!-- Status Banner -->
+            <div class="status-banner" [class]="'status-' + appointment()!.status">
+              <div class="status-info">
+                <p-tag
+                  [value]="getStatusLabel(appointment()!.status)"
+                  [severity]="getStatusSeverity(appointment()!.status)"
+                  [rounded]="true"
+                  class="status-tag"
+                />
+                <span class="status-text">{{ getStatusDescription(appointment()!.status) }}</span>
+              </div>
+              @if (appointment()!.cancelledAt) {
+                <span class="cancelled-info">
+                  <i class="pi pi-info-circle"></i>
+                  Cancelled {{ appointment()!.cancelledAt | date:'short' }}
+                  @if (appointment()!.cancellationReason) {
+                    - {{ appointment()!.cancellationReason }}
+                  }
+                </span>
+              }
+            </div>
+
+            <!-- Appointment Type -->
+            <div class="type-section">
+              <div class="type-badge" [style.background]="getTypeColor() + '20'" [style.color]="getTypeColor()">
+                <i [class]="'pi ' + getTypeIcon()"></i>
+                <span>{{ getTypeLabel() }}</span>
+              </div>
+              @if (appointment()!.isTelehealth) {
+                <p-chip
+                  label="Telehealth Visit"
+                  icon="pi pi-video"
+                  styleClass="telehealth-chip"
+                />
+              }
+            </div>
+
+            <p-divider />
+
+            <!-- Date/Time Info -->
+            <div class="datetime-section">
+              <div class="datetime-item">
+                <div class="datetime-icon">
+                  <i class="pi pi-calendar"></i>
                 </div>
-                @if (appt.cancelledAt) {
-                  <span class="cancelled-info">
-                    Cancelled {{ appt.cancelledAt | date:'short' }}
-                    @if (appt.cancellationReason) {
-                      - {{ appt.cancellationReason }}
-                    }
-                  </span>
+                <div class="datetime-content">
+                  <span class="label">Date</span>
+                  <span class="value">{{ appointment()!.start | date:'EEEE, MMMM d, y' }}</span>
+                </div>
+              </div>
+              <div class="datetime-item">
+                <div class="datetime-icon">
+                  <i class="pi pi-clock"></i>
+                </div>
+                <div class="datetime-content">
+                  <span class="label">Time</span>
+                  <span class="value">{{ appointment()!.start | date:'h:mm a' }} - {{ appointment()!.end | date:'h:mm a' }}</span>
+                </div>
+              </div>
+              <div class="datetime-item">
+                <div class="datetime-icon">
+                  <i class="pi pi-stopwatch"></i>
+                </div>
+                <div class="datetime-content">
+                  <span class="label">Duration</span>
+                  <span class="value">{{ appointment()!.duration }} minutes</span>
+                </div>
+              </div>
+            </div>
+
+            @if (appointment()!.reasonDescription || appointment()!.chiefComplaint) {
+              <p-divider />
+              <div class="reason-section">
+                <h4>
+                  <i class="pi pi-info-circle"></i>
+                  Reason for Visit
+                </h4>
+                @if (appointment()!.reasonDescription) {
+                  <p class="reason-text">{{ appointment()!.reasonDescription }}</p>
+                }
+                @if (appointment()!.chiefComplaint) {
+                  <div class="chief-complaint">
+                    <span class="label">Chief Complaint:</span>
+                    <span>{{ appointment()!.chiefComplaint }}</span>
+                  </div>
                 }
               </div>
+            }
 
-              <!-- Appointment Type -->
-              <div class="appointment-type-section">
-                <div class="type-badge" [style.background-color]="getTypeColor() + '20'" [style.color]="getTypeColor()">
-                  <mat-icon>{{ getTypeIcon() }}</mat-icon>
-                  <span>{{ getTypeLabel() }}</span>
-                </div>
-                @if (appt.isTelehealth) {
-                  <mat-chip class="telehealth-chip">
-                    <mat-icon>videocam</mat-icon>
-                    Telehealth Visit
-                  </mat-chip>
-                }
+            @if (appointment()!.notes) {
+              <p-divider />
+              <div class="notes-section">
+                <h4>
+                  <i class="pi pi-file-edit"></i>
+                  Notes
+                </h4>
+                <p>{{ appointment()!.notes }}</p>
               </div>
-
-              <!-- Date/Time Info -->
-              <div class="datetime-section">
-                <div class="datetime-item">
-                  <mat-icon>calendar_today</mat-icon>
-                  <div class="datetime-content">
-                    <span class="label">Date</span>
-                    <span class="value">{{ appt.start | date:'EEEE, MMMM d, y' }}</span>
-                  </div>
-                </div>
-                <div class="datetime-item">
-                  <mat-icon>schedule</mat-icon>
-                  <div class="datetime-content">
-                    <span class="label">Time</span>
-                    <span class="value">{{ appt.start | date:'h:mm a' }} - {{ appt.end | date:'h:mm a' }}</span>
-                  </div>
-                </div>
-                <div class="datetime-item">
-                  <mat-icon>timelapse</mat-icon>
-                  <div class="datetime-content">
-                    <span class="label">Duration</span>
-                    <span class="value">{{ appt.duration }} minutes</span>
-                  </div>
-                </div>
-              </div>
-
-              @if (appt.reasonDescription || appt.chiefComplaint) {
-                <mat-divider></mat-divider>
-                <div class="reason-section">
-                  <h4>Reason for Visit</h4>
-                  @if (appt.reasonDescription) {
-                    <p class="reason-text">{{ appt.reasonDescription }}</p>
-                  }
-                  @if (appt.chiefComplaint) {
-                    <div class="chief-complaint">
-                      <span class="label">Chief Complaint:</span>
-                      <span>{{ appt.chiefComplaint }}</span>
-                    </div>
-                  }
-                </div>
-              }
-
-              @if (appt.notes) {
-                <mat-divider></mat-divider>
-                <div class="notes-section">
-                  <h4>Notes</h4>
-                  <p>{{ appt.notes }}</p>
-                </div>
-              }
-            </mat-card-content>
-          </mat-card>
+            }
+          </p-card>
 
           <!-- Patient Card -->
-          <mat-card class="info-card patient-card">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>person</mat-icon>
-                Patient Information
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="patient-info">
-                <app-avatar
-                  [name]="appt.patient?.name || ''"
-                  [imageUrl]="appt.patient?.photo || ''"
-                  size="lg"
-                ></app-avatar>
-                <div class="patient-details">
-                  <h3>{{ appt.patient?.name }}</h3>
-                  <a [routerLink]="['/patients', appt.patient?.id]" class="view-patient-link">
-                    View Patient Record
-                    <mat-icon>arrow_forward</mat-icon>
-                  </a>
-                </div>
+          <p-card styleClass="patient-card">
+            <ng-template pTemplate="header">
+              <div class="card-header">
+                <i class="pi pi-user"></i>
+                <h3>Patient Information</h3>
               </div>
+            </ng-template>
 
-              <div class="contact-info">
-                @if (appt.patient?.phone) {
-                  <div class="contact-item">
-                    <mat-icon>phone</mat-icon>
-                    <a [href]="'tel:' + appt.patient?.phone">{{ appt.patient?.phone }}</a>
-                  </div>
+            <div class="patient-info">
+              <p-avatar
+                [label]="getPatientInitials()"
+                [image]="appointment()!.patientPhoto || ''"
+                [style]="{ 'background-color': '#3b82f6', 'color': 'white', 'font-size': '1.25rem' }"
+                size="xlarge"
+                shape="circle"
+              />
+              <div class="patient-details">
+                <h3>{{ appointment()!.patientName }}</h3>
+                <a [routerLink]="['/patients', appointment()!.patientId]" class="view-link">
+                  View Patient Record
+                  <i class="pi pi-arrow-right"></i>
+                </a>
+              </div>
+            </div>
+
+            <p-divider />
+
+            <div class="contact-info">
+              @if (appointment()!.patientPhone) {
+                <div class="contact-item">
+                  <i class="pi pi-phone"></i>
+                  <span>{{ appointment()!.patientPhone }}</span>
+                  <p-button
+                    icon="pi pi-phone"
+                    [rounded]="true"
+                    [text]="true"
+                    severity="success"
+                    pTooltip="Call"
+                    tooltipPosition="top"
+                  />
+                </div>
+              }
+              @if (appointment()!.patientEmail) {
+                <div class="contact-item">
+                  <i class="pi pi-envelope"></i>
+                  <span>{{ appointment()!.patientEmail }}</span>
+                  <p-button
+                    icon="pi pi-envelope"
+                    [rounded]="true"
+                    [text]="true"
+                    pTooltip="Email"
+                    tooltipPosition="top"
+                  />
+                </div>
+              }
+            </div>
+          </p-card>
+
+          <!-- Provider Card -->
+          <p-card styleClass="provider-card">
+            <ng-template pTemplate="header">
+              <div class="card-header">
+                <i class="pi pi-id-card"></i>
+                <h3>Provider Information</h3>
+              </div>
+            </ng-template>
+
+            <div class="provider-info">
+              <p-avatar
+                [label]="getProviderInitials()"
+                [style]="{ 'background-color': '#10b981', 'color': 'white' }"
+                size="large"
+                shape="circle"
+              />
+              <div class="provider-details">
+                <h4>{{ appointment()!.providerName }}</h4>
+                <span class="facility">{{ appointment()!.facilityName }}</span>
+                @if (appointment()!.roomName) {
+                  <span class="room">Room: {{ appointment()!.roomName }}</span>
                 }
-                @if (appt.patient?.email) {
-                  <div class="contact-item">
-                    <mat-icon>email</mat-icon>
-                    <a [href]="'mailto:' + appt.patient?.email">{{ appt.patient?.email }}</a>
-                  </div>
-                }
               </div>
+            </div>
+          </p-card>
 
-              <mat-divider></mat-divider>
-
-              <div class="quick-actions">
-                <button mat-stroked-button [routerLink]="['/patients', appt.patient?.id]">
-                  <mat-icon>folder_open</mat-icon>
-                  Chart
-                </button>
-                <button mat-stroked-button [routerLink]="['/encounters', 'new']" [queryParams]="{patientId: appt.patient?.id}">
-                  <mat-icon>note_add</mat-icon>
-                  New Note
-                </button>
-                <button mat-stroked-button [routerLink]="['/messages', 'compose']" [queryParams]="{patientId: appt.patient?.id}">
-                  <mat-icon>message</mat-icon>
-                  Message
-                </button>
+          <!-- Status History -->
+          <p-card styleClass="history-card">
+            <ng-template pTemplate="header">
+              <div class="card-header">
+                <i class="pi pi-history"></i>
+                <h3>Status History</h3>
               </div>
-            </mat-card-content>
-          </mat-card>
+            </ng-template>
 
-          <!-- Provider & Location Card -->
-          <mat-card class="info-card location-card">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>location_on</mat-icon>
-                Provider & Location
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="info-row">
-                <div class="info-label">Provider</div>
-                <div class="info-value provider-value">
-                  <app-avatar [name]="appt.provider?.name || ''" size="sm"></app-avatar>
-                  <span>{{ appt.provider?.name }}</span>
-                </div>
-              </div>
-              
-              @if (appt.facilityName) {
-                <div class="info-row">
-                  <div class="info-label">Facility</div>
-                  <div class="info-value">{{ appt.facilityName }}</div>
-                </div>
-              }
-              
-              @if (appt.roomName) {
-                <div class="info-row">
-                  <div class="info-label">Room</div>
-                  <div class="info-value">{{ appt.roomName }}</div>
-                </div>
-              }
-
-              @if (appt.isTelehealth && appt.telehealthLink) {
-                <mat-divider></mat-divider>
-                <div class="telehealth-section">
-                  <h4>Telehealth</h4>
-                  <a [href]="appt.telehealthLink" target="_blank" mat-flat-button color="primary">
-                    <mat-icon>videocam</mat-icon>
-                    Join Video Call
-                  </a>
-                </div>
-              }
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Billing Card -->
-          <mat-card class="info-card billing-card">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>payments</mat-icon>
-                Billing Information
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="info-row">
-                <div class="info-label">Insurance Verified</div>
-                <div class="info-value">
-                  @if (appt.insuranceVerified) {
-                    <mat-icon class="verified-icon">check_circle</mat-icon>
-                    <span class="verified-text">Verified</span>
-                  } @else {
-                    <mat-icon class="unverified-icon">warning</mat-icon>
-                    <span class="unverified-text">Not Verified</span>
+            <p-timeline [value]="statusHistory" styleClass="status-timeline">
+              <ng-template pTemplate="marker" let-item>
+                <span class="history-marker" [style.background]="item.color">
+                  <i [class]="'pi ' + item.icon"></i>
+                </span>
+              </ng-template>
+              <ng-template pTemplate="content" let-item>
+                <div class="history-content">
+                  <span class="history-status">{{ item.status }}</span>
+                  <span class="history-date">{{ item.date | date:'medium' }}</span>
+                  @if (item.user) {
+                    <span class="history-user">by {{ item.user }}</span>
                   }
                 </div>
-              </div>
+              </ng-template>
+            </p-timeline>
+          </p-card>
 
-              @if (appt.copayAmount !== undefined) {
-                <div class="info-row">
-                  <div class="info-label">Copay Amount</div>
-                  <div class="info-value">{{ appt.copayAmount | currency }}</div>
+          <!-- Billing Card -->
+          @if (appointment()!.copayAmount !== undefined) {
+            <p-card styleClass="billing-card">
+              <ng-template pTemplate="header">
+                <div class="card-header">
+                  <i class="pi pi-credit-card"></i>
+                  <h3>Billing Information</h3>
                 </div>
-              }
+              </ng-template>
 
-              @if (appt.copayAmount !== undefined) {
-                <div class="info-row">
-                  <div class="info-label">Copay Collected</div>
-                  <div class="info-value">
-                    @if (appt.copayCollected) {
-                      <mat-icon class="verified-icon">check_circle</mat-icon>
-                      <span class="verified-text">Collected</span>
-                    } @else {
-                      <mat-icon class="pending-icon">pending</mat-icon>
-                      <span class="pending-text">Pending</span>
-                    }
-                  </div>
+              <div class="billing-info">
+                <div class="billing-row">
+                  <span class="label">Insurance Verified</span>
+                  <p-tag
+                    [value]="appointment()!.insuranceVerified ? 'Verified' : 'Not Verified'"
+                    [severity]="appointment()!.insuranceVerified ? 'success' : 'warn'"
+                    [rounded]="true"
+                  />
                 </div>
-              }
-
-              @if (appt.serviceType) {
-                <div class="info-row">
-                  <div class="info-label">Service Type</div>
-                  <div class="info-value">{{ appt.serviceType }}</div>
+                <div class="billing-row">
+                  <span class="label">Copay Amount</span>
+                  <span class="value">\${{ appointment()!.copayAmount?.toFixed(2) }}</span>
                 </div>
-              }
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Check-in & Reminders Card -->
-          <mat-card class="info-card checkin-card">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>how_to_reg</mat-icon>
-                Check-in & Reminders
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="timeline">
-                <div class="timeline-item" [class.completed]="appt.confirmationSent">
-                  <div class="timeline-marker">
-                    <mat-icon>{{ appt.confirmationSent ? 'check' : 'radio_button_unchecked' }}</mat-icon>
-                  </div>
-                  <div class="timeline-content">
-                    <span class="timeline-label">Confirmation Sent</span>
-                    @if (appt.confirmedAt) {
-                      <span class="timeline-date">Confirmed {{ appt.confirmedAt | date:'short' }}</span>
-                    }
-                  </div>
-                </div>
-
-                <div class="timeline-item" [class.completed]="appt.reminderSent">
-                  <div class="timeline-marker">
-                    <mat-icon>{{ appt.reminderSent ? 'check' : 'radio_button_unchecked' }}</mat-icon>
-                  </div>
-                  <div class="timeline-content">
-                    <span class="timeline-label">Reminder Sent</span>
-                  </div>
-                </div>
-
-                <div class="timeline-item" [class.completed]="appt.arrivedAt">
-                  <div class="timeline-marker">
-                    <mat-icon>{{ appt.arrivedAt ? 'check' : 'radio_button_unchecked' }}</mat-icon>
-                  </div>
-                  <div class="timeline-content">
-                    <span class="timeline-label">Patient Arrived</span>
-                    @if (appt.arrivedAt) {
-                      <span class="timeline-date">{{ appt.arrivedAt | date:'shortTime' }}</span>
-                    }
-                  </div>
-                </div>
-
-                <div class="timeline-item" [class.completed]="appt.checkedInAt">
-                  <div class="timeline-marker">
-                    <mat-icon>{{ appt.checkedInAt ? 'check' : 'radio_button_unchecked' }}</mat-icon>
-                  </div>
-                  <div class="timeline-content">
-                    <span class="timeline-label">Checked In</span>
-                    @if (appt.checkedInAt) {
-                      <span class="timeline-date">{{ appt.checkedInAt | date:'shortTime' }}</span>
-                      @if (appt.checkedInBy) {
-                        <span class="timeline-by">by {{ appt.checkedInBy }}</span>
-                      }
-                    }
-                  </div>
+                <div class="billing-row">
+                  <span class="label">Copay Collected</span>
+                  <p-tag
+                    [value]="appointment()!.copayCollected ? 'Collected' : 'Pending'"
+                    [severity]="appointment()!.copayCollected ? 'success' : 'warn'"
+                    [rounded]="true"
+                  />
                 </div>
               </div>
-            </mat-card-content>
-          </mat-card>
-
-          <!-- Recurrence Card (if recurring) -->
-          @if (appt.isRecurring) {
-            <mat-card class="info-card recurrence-card">
-              <mat-card-header>
-                <mat-card-title>
-                  <mat-icon>repeat</mat-icon>
-                  Recurring Appointment
-                </mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                <div class="info-row">
-                  <div class="info-label">Pattern</div>
-                  <div class="info-value">{{ appt.recurrencePattern | titlecase }}</div>
-                </div>
-                @if (appt.recurrenceEndDate) {
-                  <div class="info-row">
-                    <div class="info-label">Ends</div>
-                    <div class="info-value">{{ appt.recurrenceEndDate | date:'mediumDate' }}</div>
-                  </div>
-                }
-              </mat-card-content>
-            </mat-card>
+            </p-card>
           }
         </div>
-        } @else {
-          <div class="not-found">
-            <mat-icon>event_busy</mat-icon>
-            <h2>Appointment Not Found</h2>
-            <p>The appointment you're looking for doesn't exist or has been removed.</p>
-            <button mat-flat-button color="primary" routerLink="/appointments">
-              Back to Appointments
-            </button>
-          </div>
-        }
+      } @else {
+        <!-- Error State -->
+        <div class="error-state">
+          <i class="pi pi-exclamation-triangle"></i>
+          <h3>Appointment not found</h3>
+          <p>The requested appointment could not be loaded.</p>
+          <p-button
+            label="Back to Appointments"
+            icon="pi pi-arrow-left"
+            routerLink="/appointments"
+          />
+        </div>
       }
     </div>
   `,
   styles: [`
-    .appointment-detail-container {
-      padding: 24px;
+    .appointment-detail {
+      padding: 1.5rem;
       max-width: 1400px;
       margin: 0 auto;
     }
 
+    /* Loading State */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .header-skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .content-skeleton {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+    }
+
+    /* Error State */
+    .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      text-align: center;
+    }
+
+    .error-state i {
+      font-size: 4rem;
+      color: #f59e0b;
+      margin-bottom: 1rem;
+    }
+
+    .error-state h3 {
+      color: #1e293b;
+      margin: 0 0 0.5rem;
+    }
+
+    .dark .error-state h3 {
+      color: #f1f5f9;
+    }
+
+    .error-state p {
+      color: #64748b;
+      margin: 0 0 1.5rem;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .breadcrumb-link {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb .pi-chevron-right {
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    .breadcrumb span {
+      color: #64748b;
+    }
+
+    .dark .breadcrumb span {
+      color: #94a3b8;
+    }
+
+    .title-section h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .dark .title-section h1 {
+      color: #f1f5f9;
+    }
+
+    .subtitle {
+      color: #64748b;
+      margin: 0.25rem 0 0;
+    }
+
+    .dark .subtitle {
+      color: #94a3b8;
+    }
+
     .header-actions {
       display: flex;
-      gap: 12px;
+      gap: 0.5rem;
     }
 
-    .loading-skeleton {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-    }
-
+    /* Detail Grid */
     .detail-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
     }
 
-    .info-card {
-      border-radius: 12px;
+    :host ::ng-deep .main-card,
+    :host ::ng-deep .patient-card,
+    :host ::ng-deep .provider-card,
+    :host ::ng-deep .history-card,
+    :host ::ng-deep .billing-card {
+      border-radius: 1rem;
+    }
 
-      mat-card-header {
-        padding: 16px 20px;
-        border-bottom: 1px solid #e5e7eb;
-
-        mat-card-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 16px;
-          font-weight: 600;
-          color: #111827;
-
-          mat-icon {
-            color: #6b7280;
-          }
-        }
-      }
-
-      mat-card-content {
-        padding: 20px;
-      }
+    .dark :host ::ng-deep .p-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .main-card {
-      grid-column: span 2;
+      grid-row: span 2;
     }
 
-    .status-banner {
+    /* Card Headers */
+    .card-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 16px;
-      border-radius: 8px;
-      background: #f3f4f6;
-      margin-bottom: 20px;
-
-      &.status-fulfilled {
-        background: #d1fae5;
-      }
-      &.status-in-progress {
-        background: #dbeafe;
-      }
-      &.status-checked-in {
-        background: #fef3c7;
-      }
-      &.status-cancelled {
-        background: #fee2e2;
-      }
-      &.status-noshow {
-        background: #fecaca;
-      }
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
     }
+
+    .dark .card-header {
+      border-bottom-color: #334155;
+    }
+
+    .card-header i {
+      font-size: 1.125rem;
+      color: #3b82f6;
+    }
+
+    .card-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .card-header h3 {
+      color: #f1f5f9;
+    }
+
+    /* Status Banner */
+    .status-banner {
+      padding: 1rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .status-banner.status-booked { background: #dbeafe; }
+    .status-banner.status-confirmed { background: #dbeafe; }
+    .status-banner.status-arrived { background: #d1fae5; }
+    .status-banner.status-checked-in { background: #d1fae5; }
+    .status-banner.status-in-progress { background: #fef3c7; }
+    .status-banner.status-fulfilled { background: #f1f5f9; }
+    .status-banner.status-cancelled { background: #fee2e2; }
+    .status-banner.status-noshow { background: #fee2e2; }
+
+    .dark .status-banner.status-booked,
+    .dark .status-banner.status-confirmed { background: #1e3a8a; }
+    .dark .status-banner.status-arrived,
+    .dark .status-banner.status-checked-in { background: #064e3b; }
+    .dark .status-banner.status-in-progress { background: #78350f; }
+    .dark .status-banner.status-fulfilled { background: #334155; }
+    .dark .status-banner.status-cancelled,
+    .dark .status-banner.status-noshow { background: #7f1d1d; }
 
     .status-info {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 0.75rem;
     }
 
-    .status-label {
+    :host ::ng-deep .status-tag .p-tag {
+      font-size: 0.875rem;
+      padding: 0.375rem 0.75rem;
+    }
+
+    .status-text {
       font-weight: 500;
       color: #374151;
     }
 
-    .cancelled-info {
-      font-size: 14px;
-      color: #6b7280;
+    .dark .status-text {
+      color: #e2e8f0;
     }
 
-    .appointment-type-section {
+    .cancelled-info {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      color: #dc2626;
+    }
+
+    /* Type Section */
+    .type-section {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
     }
 
     .type-badge {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 20px;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
       font-weight: 500;
-
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
     }
 
-    .telehealth-chip {
-      mat-icon {
-        font-size: 18px;
-      }
+    :host ::ng-deep .telehealth-chip {
+      background: #ede9fe;
+      color: #7c3aed;
     }
 
+    .dark :host ::ng-deep .telehealth-chip {
+      background: #4c1d95;
+      color: #c4b5fd;
+    }
+
+    /* DateTime Section */
     .datetime-section {
       display: flex;
-      gap: 32px;
       flex-wrap: wrap;
+      gap: 1.5rem;
     }
 
     .datetime-item {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
+      gap: 0.75rem;
+    }
 
-      mat-icon {
-        color: #6b7280;
-        margin-top: 2px;
-      }
+    .datetime-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .dark .datetime-icon {
+      background: #334155;
+    }
+
+    .datetime-icon i {
+      color: #3b82f6;
     }
 
     .datetime-content {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-
-      .label {
-        font-size: 12px;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      .value {
-        font-size: 15px;
-        font-weight: 500;
-        color: #111827;
-      }
     }
 
-    .reason-section, .notes-section {
-      padding-top: 16px;
+    .datetime-content .label {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
 
-      h4 {
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-        margin: 0 0 8px;
-      }
+    .dark .datetime-content .label {
+      color: #94a3b8;
+    }
 
-      p {
-        margin: 0;
-        color: #4b5563;
-        line-height: 1.6;
-      }
+    .datetime-content .value {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .dark .datetime-content .value {
+      color: #f1f5f9;
+    }
+
+    /* Reason Section */
+    .reason-section h4,
+    .notes-section h4 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 0.75rem;
+      font-size: 0.9375rem;
+      color: #374151;
+    }
+
+    .dark .reason-section h4,
+    .dark .notes-section h4 {
+      color: #e2e8f0;
+    }
+
+    .reason-section h4 i,
+    .notes-section h4 i {
+      color: #64748b;
+    }
+
+    .reason-text {
+      margin: 0;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    .dark .reason-text {
+      color: #e2e8f0;
     }
 
     .chief-complaint {
-      margin-top: 8px;
-      font-size: 14px;
-
-      .label {
-        font-weight: 500;
-        color: #374151;
-      }
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #f8fafc;
+      border-radius: 0.5rem;
     }
 
+    .dark .chief-complaint {
+      background: #334155;
+    }
+
+    .chief-complaint .label {
+      font-weight: 500;
+      margin-right: 0.5rem;
+      color: #64748b;
+    }
+
+    .notes-section p {
+      margin: 0;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .dark .notes-section p {
+      color: #94a3b8;
+    }
+
+    /* Patient Info */
     .patient-info {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 1rem;
+      padding: 1rem;
     }
 
-    .patient-details {
-      h3 {
-        margin: 0 0 4px;
-        font-size: 18px;
-        font-weight: 600;
-        color: #111827;
-      }
+    .patient-details h3 {
+      margin: 0 0 0.25rem;
+      font-size: 1.125rem;
+      color: #1e293b;
     }
 
-    .view-patient-link {
+    .dark .patient-details h3 {
+      color: #f1f5f9;
+    }
+
+    .view-link {
       display: flex;
       align-items: center;
-      gap: 4px;
-      color: #2563eb;
+      gap: 0.375rem;
+      color: #3b82f6;
       text-decoration: none;
-      font-size: 14px;
+      font-size: 0.875rem;
+    }
 
-      mat-icon {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-      }
-
-      &:hover {
-        text-decoration: underline;
-      }
+    .view-link:hover {
+      text-decoration: underline;
     }
 
     .contact-info {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
+      padding: 0 1rem 1rem;
     }
 
     .contact-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-
-      mat-icon {
-        color: #6b7280;
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
-
-      a {
-        color: #2563eb;
-        text-decoration: none;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
+      gap: 0.75rem;
+      padding: 0.5rem 0;
     }
 
-    .quick-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 16px;
-      flex-wrap: wrap;
-
-      button {
-        flex: 1;
-        min-width: 100px;
-      }
+    .contact-item i {
+      color: #64748b;
     }
 
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #f3f4f6;
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-
-    .info-label {
-      color: #6b7280;
-      font-size: 14px;
-    }
-
-    .info-value {
-      font-weight: 500;
-      color: #111827;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .provider-value {
-      app-avatar {
-        margin-right: 4px;
-      }
-    }
-
-    .verified-icon {
-      color: #10b981;
-      font-size: 20px;
-    }
-
-    .verified-text {
-      color: #10b981;
-    }
-
-    .unverified-icon {
-      color: #f59e0b;
-      font-size: 20px;
-    }
-
-    .unverified-text {
-      color: #f59e0b;
-    }
-
-    .pending-icon {
-      color: #6b7280;
-      font-size: 20px;
-    }
-
-    .pending-text {
-      color: #6b7280;
-    }
-
-    .telehealth-section {
-      padding-top: 16px;
-
-      h4 {
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-        margin: 0 0 12px;
-      }
-    }
-
-    .timeline {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .timeline-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 12px 0;
-      position: relative;
-
-      &:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        left: 11px;
-        top: 36px;
-        bottom: 0;
-        width: 2px;
-        background: #e5e7eb;
-      }
-
-      &.completed {
-        .timeline-marker mat-icon {
-          color: #10b981;
-        }
-
-        &::after {
-          background: #10b981;
-        }
-      }
-    }
-
-    .timeline-marker {
-      mat-icon {
-        color: #d1d5db;
-        font-size: 24px;
-      }
-    }
-
-    .timeline-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .timeline-label {
-      font-weight: 500;
+    .contact-item span {
+      flex: 1;
       color: #374151;
     }
 
-    .timeline-date, .timeline-by {
-      font-size: 13px;
-      color: #6b7280;
+    .dark .contact-item span {
+      color: #e2e8f0;
     }
 
-    .not-found {
+    /* Provider Info */
+    .provider-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .provider-details {
       display: flex;
       flex-direction: column;
+    }
+
+    .provider-details h4 {
+      margin: 0 0 0.25rem;
+      font-size: 1rem;
+      color: #1e293b;
+    }
+
+    .dark .provider-details h4 {
+      color: #f1f5f9;
+    }
+
+    .provider-details .facility,
+    .provider-details .room {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    .dark .provider-details .facility,
+    .dark .provider-details .room {
+      color: #94a3b8;
+    }
+
+    /* Status History */
+    .history-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
       align-items: center;
       justify-content: center;
-      padding: 80px 24px;
-      text-align: center;
-
-      mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        color: #d1d5db;
-        margin-bottom: 16px;
-      }
-
-      h2 {
-        margin: 0 0 8px;
-        color: #374151;
-      }
-
-      p {
-        color: #6b7280;
-        margin: 0 0 24px;
-      }
     }
 
-    .warning-item {
-      color: #f59e0b !important;
+    .history-marker i {
+      font-size: 0.875rem;
+      color: white;
     }
 
-    .danger-item {
-      color: #ef4444 !important;
+    .history-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
     }
 
-    @media (max-width: 768px) {
-      .appointment-detail-container {
-        padding: 16px;
-      }
+    .history-status {
+      font-weight: 500;
+      color: #1e293b;
+    }
 
+    .dark .history-status {
+      color: #f1f5f9;
+    }
+
+    .history-date {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .history-date {
+      color: #94a3b8;
+    }
+
+    .history-user {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    /* Billing */
+    .billing-info {
+      padding: 1rem;
+    }
+
+    .billing-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .dark .billing-row {
+      border-bottom-color: #334155;
+    }
+
+    .billing-row:last-child {
+      border-bottom: none;
+    }
+
+    .billing-row .label {
+      color: #64748b;
+    }
+
+    .dark .billing-row .label {
+      color: #94a3b8;
+    }
+
+    .billing-row .value {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .billing-row .value {
+      color: #f1f5f9;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
       .detail-grid {
         grid-template-columns: 1fr;
       }
 
       .main-card {
-        grid-column: span 1;
+        grid-row: auto;
+      }
+
+      .content-skeleton {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .appointment-detail {
+        padding: 1rem;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .header-actions {
-        flex-direction: column;
+        justify-content: flex-end;
       }
 
       .datetime-section {
         flex-direction: column;
-        gap: 16px;
-      }
-
-      .quick-actions {
-        flex-direction: column;
-
-        button {
-          width: 100%;
-        }
+        gap: 1rem;
       }
     }
   `]
@@ -914,19 +958,17 @@ import { Appointment, APPOINTMENT_TYPE_CONFIG } from '../data-access/models/appo
 export class AppointmentDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
   private readonly appointmentService = inject(AppointmentService);
+  private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
+  readonly themeService = inject(ThemeService);
 
   appointment = signal<Appointment | null>(null);
   loading = signal(true);
 
-  breadcrumbs = [
-    { label: 'Appointments', route: '/appointments' },
-    { label: 'Details' }
-  ];
+  actionMenuItems: MenuItem[] = [];
 
-  protected readonly getStatusVariant = getStatusVariant;
+  statusHistory: StatusHistoryItem[] = [];
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -941,21 +983,9 @@ export class AppointmentDetailComponent implements OnInit {
     this.loading.set(true);
     this.appointmentService.getAppointment(id).subscribe({
       next: (appt) => {
-        // Normalize data to ensure patient/provider objects always exist
-        this.appointment.set({
-          ...appt,
-          patient: appt.patient ?? {
-            id: appt.patientId,
-            name: appt.patientName,
-            phone: appt.patientPhone,
-            email: appt.patientEmail,
-            photo: appt.patientPhoto
-          },
-          provider: appt.provider ?? {
-            id: appt.providerId,
-            name: appt.providerName
-          }
-        });
+        this.appointment.set(appt);
+        this.buildActionMenu(appt);
+        this.buildStatusHistory(appt);
         this.loading.set(false);
       },
       error: () => {
@@ -965,14 +995,116 @@ export class AppointmentDetailComponent implements OnInit {
     });
   }
 
+  private buildActionMenu(appt: Appointment): void {
+    const items: MenuItem[] = [];
+
+    if (appt.status === 'booked') {
+      items.push({
+        label: 'Check In Patient',
+        icon: 'pi pi-check',
+        command: () => this.checkIn()
+      });
+    }
+
+    if (appt.status === 'checked-in') {
+      items.push({
+        label: 'Start Encounter',
+        icon: 'pi pi-play',
+        command: () => this.startEncounter()
+      });
+    }
+
+    if (appt.status === 'in-progress') {
+      items.push({
+        label: 'Complete Appointment',
+        icon: 'pi pi-check-circle',
+        command: () => this.completeAppointment()
+      });
+    }
+
+    if (!['fulfilled', 'cancelled', 'noshow'].includes(appt.status)) {
+      items.push(
+        {
+          label: 'Send Reminder',
+          icon: 'pi pi-bell',
+          command: () => this.sendReminder()
+        },
+        { separator: true },
+        {
+          label: 'Reschedule',
+          icon: 'pi pi-calendar-plus',
+          command: () => this.reschedule()
+        },
+        {
+          label: 'Mark as No-Show',
+          icon: 'pi pi-user-minus',
+          styleClass: 'text-orange-500',
+          command: () => this.markNoShow()
+        },
+        {
+          label: 'Cancel Appointment',
+          icon: 'pi pi-times',
+          styleClass: 'text-red-500',
+          command: () => this.cancelAppointment()
+        }
+      );
+    }
+
+    this.actionMenuItems = items;
+  }
+
+  private buildStatusHistory(appt: Appointment): void {
+    const history: StatusHistoryItem[] = [
+      {
+        status: 'Created',
+        date: appt.createdAt,
+        user: appt.createdBy,
+        icon: 'pi-plus',
+        color: '#3b82f6'
+      }
+    ];
+
+    if (appt.confirmedAt) {
+      history.push({
+        status: 'Confirmed',
+        date: appt.confirmedAt,
+        user: appt.confirmedBy,
+        icon: 'pi-check',
+        color: '#10b981'
+      });
+    }
+
+    if (appt.checkedInAt) {
+      history.push({
+        status: 'Checked In',
+        date: appt.checkedInAt,
+        user: appt.checkedInBy,
+        icon: 'pi-sign-in',
+        color: '#10b981'
+      });
+    }
+
+    if (appt.cancelledAt) {
+      history.push({
+        status: 'Cancelled',
+        date: appt.cancelledAt,
+        user: appt.cancelledBy,
+        icon: 'pi-times',
+        color: '#ef4444'
+      });
+    }
+
+    this.statusHistory = history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
   getFormattedDateTime(): string {
     const appt = this.appointment();
     if (!appt) return '';
     const date = new Date(appt.start);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
@@ -981,7 +1113,7 @@ export class AppointmentDetailComponent implements OnInit {
 
   getTypeConfig() {
     const appt = this.appointment();
-    return APPOINTMENT_TYPE_CONFIG.find(t => t.type === appt?.type);
+    return APPOINTMENT_TYPE_CONFIG.find(t => t.type === appt?.appointmentType);
   }
 
   getTypeLabel(): string {
@@ -989,19 +1121,32 @@ export class AppointmentDetailComponent implements OnInit {
   }
 
   getTypeColor(): string {
-    return this.getTypeConfig()?.color || '#6b7280';
+    return this.getTypeConfig()?.color || '#64748b';
   }
 
   getTypeIcon(): string {
-    return this.getTypeConfig()?.icon || 'event';
+    const icons: Record<string, string> = {
+      'new-patient': 'pi-user-plus',
+      'routine': 'pi-calendar',
+      'followup': 'pi-replay',
+      'physical': 'pi-heart',
+      'wellness': 'pi-sun',
+      'urgent': 'pi-exclamation-triangle',
+      'procedure': 'pi-wrench',
+      'telehealth': 'pi-video',
+      'lab-review': 'pi-chart-bar',
+      'consultation': 'pi-comments',
+    };
+    const type = this.appointment()?.appointmentType;
+    return icons[type || ''] || 'pi-calendar';
   }
 
   getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
       'proposed': 'Proposed',
-      'pending': 'Pending Confirmation',
+      'pending': 'Pending',
       'booked': 'Confirmed',
-      'arrived': 'Patient Arrived',
+      'arrived': 'Arrived',
       'fulfilled': 'Completed',
       'cancelled': 'Cancelled',
       'noshow': 'No Show',
@@ -1009,6 +1154,42 @@ export class AppointmentDetailComponent implements OnInit {
       'in-progress': 'In Progress'
     };
     return labels[status] || status;
+  }
+
+  getStatusDescription(status: string): string {
+    const descriptions: Record<string, string> = {
+      'booked': 'Appointment is confirmed and scheduled',
+      'checked-in': 'Patient has arrived and checked in',
+      'in-progress': 'Appointment is currently in progress',
+      'fulfilled': 'Appointment has been completed',
+      'cancelled': 'Appointment was cancelled',
+      'noshow': 'Patient did not show up'
+    };
+    return descriptions[status] || '';
+  }
+
+  getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
+    const severities: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+      booked: 'info',
+      confirmed: 'info',
+      arrived: 'success',
+      'checked-in': 'success',
+      'in-progress': 'warn',
+      fulfilled: 'secondary',
+      cancelled: 'danger',
+      noshow: 'danger',
+    };
+    return severities[status] || 'secondary';
+  }
+
+  getPatientInitials(): string {
+    const name = this.appointment()?.patientName || '';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  getProviderInitials(): string {
+    const name = this.appointment()?.providerName || '';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   }
 
   canEdit(): boolean {
@@ -1023,10 +1204,20 @@ export class AppointmentDetailComponent implements OnInit {
     this.appointmentService.checkIn(appt.id).subscribe({
       next: (updated) => {
         this.appointment.set(updated);
-        this.snackBar.open('Patient checked in successfully', 'Close', { duration: 3000 });
+        this.buildActionMenu(updated);
+        this.buildStatusHistory(updated);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Patient checked in successfully'
+        });
       },
       error: () => {
-        this.snackBar.open('Failed to check in patient', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to check in patient'
+        });
       }
     });
   }
@@ -1038,12 +1229,16 @@ export class AppointmentDetailComponent implements OnInit {
     this.appointmentService.startEncounter(appt.id).subscribe({
       next: (updated) => {
         this.appointment.set(updated);
-        this.router.navigate(['/encounters', 'new'], { 
-          queryParams: { appointmentId: appt.id, patientId: appt.patient?.id || appt.patientId }
+        this.router.navigate(['/encounters', 'new'], {
+          queryParams: { appointmentId: appt.id, patientId: appt.patientId }
         });
       },
       error: () => {
-        this.snackBar.open('Failed to start encounter', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to start encounter'
+        });
       }
     });
   }
@@ -1055,10 +1250,20 @@ export class AppointmentDetailComponent implements OnInit {
     this.appointmentService.completeAppointment(appt.id).subscribe({
       next: (updated) => {
         this.appointment.set(updated);
-        this.snackBar.open('Appointment completed', 'Close', { duration: 3000 });
+        this.buildActionMenu(updated);
+        this.buildStatusHistory(updated);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Appointment completed'
+        });
       },
       error: () => {
-        this.snackBar.open('Failed to complete appointment', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to complete appointment'
+        });
       }
     });
   }
@@ -1069,16 +1274,23 @@ export class AppointmentDetailComponent implements OnInit {
 
     this.appointmentService.sendReminder(appt.id).subscribe({
       next: () => {
-        // Update local state since service returns void
         this.appointment.set({
           ...appt,
           reminderSent: true,
           reminderSentAt: new Date()
         });
-        this.snackBar.open('Reminder sent successfully', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Reminder sent successfully'
+        });
       },
       error: () => {
-        this.snackBar.open('Failed to send reminder', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to send reminder'
+        });
       }
     });
   }
@@ -1086,35 +1298,41 @@ export class AppointmentDetailComponent implements OnInit {
   reschedule(): void {
     const appt = this.appointment();
     if (appt) {
-      this.router.navigate(['/appointments', appt.id, 'edit'], { 
+      this.router.navigate(['/appointments', appt.id, 'edit'], {
         queryParams: { reschedule: true }
       });
     }
   }
 
   markNoShow(): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        title: 'Mark as No-Show',
-        message: 'Are you sure you want to mark this patient as a no-show? This action will be recorded in their history.',
-        confirmText: 'Mark No-Show',
-        cancelText: 'Cancel',
-        type: 'warning'
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to mark this patient as a no-show? This action will be recorded in their history.',
+      header: 'Mark as No-Show',
+      icon: 'pi pi-user-minus',
+      acceptLabel: 'Mark No-Show',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
         const appt = this.appointment();
         if (!appt) return;
 
         this.appointmentService.markNoShow(appt.id).subscribe({
           next: (updated) => {
             this.appointment.set(updated);
-            this.snackBar.open('Appointment marked as no-show', 'Close', { duration: 3000 });
+            this.buildActionMenu(updated);
+            this.buildStatusHistory(updated);
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Success',
+              detail: 'Appointment marked as no-show'
+            });
           },
           error: () => {
-            this.snackBar.open('Failed to update appointment', 'Close', { duration: 3000 });
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Failed to update appointment'
+            });
           }
         });
       }
@@ -1122,28 +1340,34 @@ export class AppointmentDetailComponent implements OnInit {
   }
 
   cancelAppointment(): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        title: 'Cancel Appointment',
-        message: 'Are you sure you want to cancel this appointment? The patient will be notified.',
-        confirmText: 'Cancel Appointment',
-        cancelText: 'Keep Appointment',
-        type: 'danger'
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to cancel this appointment? The patient will be notified.',
+      header: 'Cancel Appointment',
+      icon: 'pi pi-times-circle',
+      acceptLabel: 'Cancel Appointment',
+      rejectLabel: 'Keep Appointment',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
         const appt = this.appointment();
         if (!appt) return;
 
         this.appointmentService.cancelAppointment(appt.id, 'Cancelled by staff').subscribe({
           next: (updated) => {
             this.appointment.set(updated);
-            this.snackBar.open('Appointment cancelled', 'Close', { duration: 3000 });
+            this.buildActionMenu(updated);
+            this.buildStatusHistory(updated);
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Success',
+              detail: 'Appointment cancelled'
+            });
           },
           error: () => {
-            this.snackBar.open('Failed to cancel appointment', 'Close', { duration: 3000 });
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Failed to cancel appointment'
+            });
           }
         });
       }
