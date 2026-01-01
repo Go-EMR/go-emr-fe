@@ -1,9 +1,7 @@
 /* GoEMR Global Styles */
 
 /* Tailwind CSS */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Custom base layer overrides */
 @layer base {
