@@ -923,3 +923,600 @@ a:hover {
     max-width: 95vw !important;
   }
 }
+
+/* ========================================
+   Dark Mode Styles for GoEMR
+   Add this to your styles.scss file
+   ======================================== */
+
+/* Dark Mode CSS Variables */
+.dark-mode,
+[data-theme="dark"] {
+  /* Background colors */
+  --surface-ground: #0f172a;
+  --surface-section: #1e293b;
+  --surface-card: #1e293b;
+  --surface-overlay: #1e293b;
+  --surface-border: #334155;
+  --surface-hover: #334155;
+  
+  /* Text colors */
+  --text-color: #f1f5f9;
+  --text-color-secondary: #94a3b8;
+  --text-color-muted: #64748b;
+  
+  /* Primary colors - keep blue consistent */
+  --primary-color: #3b82f6;
+  --primary-color-hover: #60a5fa;
+  
+  /* Semantic colors for dark mode */
+  --color-success: #22c55e;
+  --color-success-bg: #064e3b;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #78350f;
+  --color-danger: #ef4444;
+  --color-danger-bg: #7f1d1d;
+  --color-info: #3b82f6;
+  --color-info-bg: #1e3a8a;
+  
+  color-scheme: dark;
+}
+
+/* Global dark mode styles */
+.dark-mode body,
+[data-theme="dark"] body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Links */
+.dark-mode a,
+[data-theme="dark"] a {
+  color: #60a5fa;
+}
+
+.dark-mode a:hover,
+[data-theme="dark"] a:hover {
+  color: #93c5fd;
+}
+
+/* Scrollbar - Dark Mode */
+.dark-mode ::-webkit-scrollbar-track,
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb,
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Selection */
+.dark-mode ::selection,
+[data-theme="dark"] ::selection {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Focus visible */
+.dark-mode :focus-visible,
+[data-theme="dark"] :focus-visible {
+  outline-color: #3b82f6;
+}
+
+/* Cards */
+.dark-mode .card,
+[data-theme="dark"] .card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+/* Buttons */
+.dark-mode .btn-secondary,
+[data-theme="dark"] .btn-secondary {
+  background: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark-mode .btn-secondary:hover,
+[data-theme="dark"] .btn-secondary:hover {
+  background: #475569;
+}
+
+/* Form inputs */
+.dark-mode .input,
+[data-theme="dark"] .input,
+.dark-mode input,
+.dark-mode textarea,
+.dark-mode select,
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .input::placeholder,
+[data-theme="dark"] .input::placeholder,
+.dark-mode input::placeholder,
+[data-theme="dark"] input::placeholder {
+  color: #64748b;
+}
+
+.dark-mode .input:focus,
+[data-theme="dark"] .input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Labels */
+.dark-mode .label,
+[data-theme="dark"] .label,
+.dark-mode label,
+[data-theme="dark"] label {
+  color: #e2e8f0;
+}
+
+/* Tables */
+.dark-mode .table,
+[data-theme="dark"] .table {
+  color: #f1f5f9;
+}
+
+.dark-mode .table thead,
+[data-theme="dark"] .table thead {
+  background: #334155;
+  border-color: #475569;
+}
+
+.dark-mode .table th,
+[data-theme="dark"] .table th {
+  color: #94a3b8;
+  border-color: #475569;
+}
+
+.dark-mode .table td,
+[data-theme="dark"] .table td {
+  border-color: #334155;
+}
+
+.dark-mode .table tbody tr:hover,
+[data-theme="dark"] .table tbody tr:hover {
+  background: #334155;
+}
+
+/* Badges */
+.dark-mode .badge-primary,
+[data-theme="dark"] .badge-primary {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+.dark-mode .badge-success,
+[data-theme="dark"] .badge-success {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.dark-mode .badge-warning,
+[data-theme="dark"] .badge-warning {
+  background: #78350f;
+  color: #fcd34d;
+}
+
+.dark-mode .badge-danger,
+[data-theme="dark"] .badge-danger {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Toast notifications */
+.dark-mode .toast,
+[data-theme="dark"] .toast {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .toast.success,
+[data-theme="dark"] .toast.success {
+  border-left-color: #22c55e;
+}
+
+.dark-mode .toast.error,
+[data-theme="dark"] .toast.error {
+  border-left-color: #ef4444;
+}
+
+.dark-mode .toast.warning,
+[data-theme="dark"] .toast.warning {
+  border-left-color: #f59e0b;
+}
+
+.dark-mode .toast.info,
+[data-theme="dark"] .toast.info {
+  border-left-color: #3b82f6;
+}
+
+/* Page titles */
+.dark-mode .page-title,
+[data-theme="dark"] .page-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .page-subtitle,
+[data-theme="dark"] .page-subtitle {
+  color: #94a3b8;
+}
+
+/* Dividers */
+.dark-mode hr,
+.dark-mode .divider,
+[data-theme="dark"] hr,
+[data-theme="dark"] .divider {
+  border-color: #334155;
+}
+
+/* ========================================
+   PrimeNG Dark Mode Overrides
+   ======================================== */
+
+/* Surface colors */
+.dark-mode .p-component,
+[data-theme="dark"] .p-component {
+  color: #f1f5f9;
+}
+
+/* Inputs */
+.dark-mode .p-inputtext,
+[data-theme="dark"] .p-inputtext {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-inputtext:enabled:hover,
+[data-theme="dark"] .p-inputtext:enabled:hover {
+  border-color: #60a5fa;
+}
+
+.dark-mode .p-inputtext:enabled:focus,
+[data-theme="dark"] .p-inputtext:enabled:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.dark-mode .p-inputtext::placeholder,
+[data-theme="dark"] .p-inputtext::placeholder {
+  color: #64748b;
+}
+
+/* Password */
+.dark-mode .p-password-input,
+[data-theme="dark"] .p-password-input {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+/* Dropdown */
+.dark-mode .p-dropdown,
+[data-theme="dark"] .p-dropdown {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-dropdown-panel,
+[data-theme="dark"] .p-dropdown-panel {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .p-dropdown-item:hover,
+[data-theme="dark"] .p-dropdown-item:hover {
+  background: #334155;
+}
+
+.dark-mode .p-dropdown-item.p-highlight,
+[data-theme="dark"] .p-dropdown-item.p-highlight {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+/* Buttons */
+.dark-mode .p-button-secondary,
+[data-theme="dark"] .p-button-secondary {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-button-secondary:hover,
+[data-theme="dark"] .p-button-secondary:hover {
+  background: #475569;
+  border-color: #64748b;
+}
+
+.dark-mode .p-button-text,
+[data-theme="dark"] .p-button-text {
+  color: #94a3b8;
+}
+
+.dark-mode .p-button-text:hover,
+[data-theme="dark"] .p-button-text:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-button-outlined.p-button-secondary,
+[data-theme="dark"] .p-button-outlined.p-button-secondary {
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .p-button-outlined.p-button-secondary:hover,
+[data-theme="dark"] .p-button-outlined.p-button-secondary:hover {
+  background: #334155;
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+/* Cards */
+.dark-mode .p-card,
+[data-theme="dark"] .p-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-card .p-card-title,
+[data-theme="dark"] .p-card .p-card-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .p-card .p-card-subtitle,
+[data-theme="dark"] .p-card .p-card-subtitle {
+  color: #94a3b8;
+}
+
+/* Tables */
+.dark-mode .p-datatable,
+[data-theme="dark"] .p-datatable {
+  color: #f1f5f9;
+}
+
+.dark-mode .p-datatable .p-datatable-header,
+[data-theme="dark"] .p-datatable .p-datatable-header {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .p-datatable .p-datatable-thead > tr > th,
+[data-theme="dark"] .p-datatable .p-datatable-thead > tr > th {
+  background: #334155;
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr,
+[data-theme="dark"] .p-datatable .p-datatable-tbody > tr {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr > td,
+[data-theme="dark"] .p-datatable .p-datatable-tbody > tr > td {
+  border-color: #334155;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr:hover,
+[data-theme="dark"] .p-datatable .p-datatable-tbody > tr:hover {
+  background: #334155;
+}
+
+.dark-mode .p-datatable .p-datatable-tbody > tr.p-highlight,
+[data-theme="dark"] .p-datatable .p-datatable-tbody > tr.p-highlight {
+  background: #1e3a8a;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-paginator,
+[data-theme="dark"] .p-paginator {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+/* Dialog */
+.dark-mode .p-dialog,
+[data-theme="dark"] .p-dialog {
+  background: #1e293b;
+}
+
+.dark-mode .p-dialog .p-dialog-header,
+[data-theme="dark"] .p-dialog .p-dialog-header {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-dialog .p-dialog-content,
+[data-theme="dark"] .p-dialog .p-dialog-content {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-dialog .p-dialog-footer,
+[data-theme="dark"] .p-dialog .p-dialog-footer {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+/* Overlay Panel */
+.dark-mode .p-overlaypanel,
+[data-theme="dark"] .p-overlaypanel {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-overlaypanel::before,
+.dark-mode .p-overlaypanel::after,
+[data-theme="dark"] .p-overlaypanel::before,
+[data-theme="dark"] .p-overlaypanel::after {
+  border-bottom-color: #1e293b;
+}
+
+/* Sidebar */
+.dark-mode .p-sidebar,
+[data-theme="dark"] .p-sidebar {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+/* Divider */
+.dark-mode .p-divider,
+[data-theme="dark"] .p-divider {
+  border-color: #334155;
+}
+
+.dark-mode .p-divider::before,
+[data-theme="dark"] .p-divider::before {
+  border-color: #334155;
+}
+
+/* Toast */
+.dark-mode .p-toast .p-toast-message,
+[data-theme="dark"] .p-toast .p-toast-message {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .p-toast .p-toast-message.p-toast-message-success,
+[data-theme="dark"] .p-toast .p-toast-message.p-toast-message-success {
+  background: #064e3b;
+  border-color: #065f46;
+  color: #d1fae5;
+}
+
+.dark-mode .p-toast .p-toast-message.p-toast-message-info,
+[data-theme="dark"] .p-toast .p-toast-message.p-toast-message-info {
+  background: #1e3a8a;
+  border-color: #1e40af;
+  color: #dbeafe;
+}
+
+.dark-mode .p-toast .p-toast-message.p-toast-message-warn,
+[data-theme="dark"] .p-toast .p-toast-message.p-toast-message-warn {
+  background: #78350f;
+  border-color: #92400e;
+  color: #fef3c7;
+}
+
+.dark-mode .p-toast .p-toast-message.p-toast-message-error,
+[data-theme="dark"] .p-toast .p-toast-message.p-toast-message-error {
+  background: #7f1d1d;
+  border-color: #991b1b;
+  color: #fee2e2;
+}
+
+/* Menu */
+.dark-mode .p-menu,
+[data-theme="dark"] .p-menu {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .p-menu .p-menuitem-link:hover,
+[data-theme="dark"] .p-menu .p-menuitem-link:hover {
+  background: #334155;
+}
+
+/* Checkbox */
+.dark-mode .p-checkbox .p-checkbox-box,
+[data-theme="dark"] .p-checkbox .p-checkbox-box {
+  background: #334155;
+  border-color: #475569;
+}
+
+.dark-mode .p-checkbox .p-checkbox-box.p-highlight,
+[data-theme="dark"] .p-checkbox .p-checkbox-box.p-highlight {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Tooltip */
+.dark-mode .p-tooltip .p-tooltip-text,
+[data-theme="dark"] .p-tooltip .p-tooltip-text {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+/* Avatar */
+.dark-mode .p-avatar,
+[data-theme="dark"] .p-avatar {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+/* Calendar/DatePicker */
+.dark-mode .p-datepicker,
+[data-theme="dark"] .p-datepicker {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-datepicker .p-datepicker-header,
+[data-theme="dark"] .p-datepicker .p-datepicker-header {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .p-datepicker table td > span:hover,
+[data-theme="dark"] .p-datepicker table td > span:hover {
+  background: #334155;
+}
+
+.dark-mode .p-datepicker table td > span.p-highlight,
+[data-theme="dark"] .p-datepicker table td > span.p-highlight {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Icon colors */
+.dark-mode .p-icon-field-left > .p-inputicon,
+[data-theme="dark"] .p-icon-field-left > .p-inputicon {
+  color: #64748b;
+}
+
+/* Transitions for smooth theme switching */
+body,
+.p-component,
+.p-inputtext,
+.p-button,
+.p-card,
+.p-dialog,
+.p-overlaypanel,
+.p-sidebar,
+.p-datatable,
+.p-menu,
+input,
+textarea,
+select,
+a {
+  transition: background-color 0.3s ease, 
+              border-color 0.3s ease, 
+              color 0.3s ease,
+              box-shadow 0.3s ease;
+}

@@ -2,6 +2,9 @@ import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter, withComponentInputBinding, withViewTransitions, withRouterConfig } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { providePrimeNG } from 'primeng/config';
+import Aura from '@primeng/themes/aura';
+import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -27,6 +30,23 @@ export const appConfig: ApplicationConfig = {
     
     // Async animations for better performance
     provideAnimationsAsync(),
+    
+    // PrimeNG v19 configuration with Aura theme
+    providePrimeNG({
+      theme: {
+        preset: Aura,
+        options: {
+          prefix: 'p',
+          darkModeSelector: '.dark-mode',
+          cssLayer: false
+        }
+      },
+      ripple: true,
+    }),
+    
+    // PrimeNG services (for toast, confirm dialogs)
+    MessageService,
+    ConfirmationService,
     
     // HTTP client with security interceptors
     provideHttpClient(

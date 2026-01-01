@@ -1,21 +1,28 @@
-import { Component, inject, signal, computed, ViewChild } from '@angular/core';
+import { Component, inject, signal, computed, ViewChild, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { MatSidenavModule, MatSidenav } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatListModule } from '@angular/material/list';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDividerModule } from '@angular/material/divider';
 import { trigger, transition, style, animate, state } from '@angular/animations';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 
+// PrimeNG imports
+import { SidebarModule, Sidebar } from 'primeng/sidebar';
+import { ButtonModule } from 'primeng/button';
+import { AvatarModule } from 'primeng/avatar';
+import { MenuModule } from 'primeng/menu';
+import { BadgeModule } from 'primeng/badge';
+import { TooltipModule } from 'primeng/tooltip';
+import { DividerModule } from 'primeng/divider';
+import { RippleModule } from 'primeng/ripple';
+import { InputTextModule } from 'primeng/inputtext';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { OverlayPanelModule, OverlayPanel } from 'primeng/overlaypanel';
+import { MenuItem } from 'primeng/api';
+
 import { AuthService } from '../../core/auth/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { NotificationService } from '../../core/services/notification.service';
 
 interface NavItem {
@@ -23,6 +30,7 @@ interface NavItem {
   icon: string;
   route: string;
   badge?: number;
+  badgeSeverity?: 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
   requiredPermissions?: string[];
   children?: NavItem[];
 }
@@ -35,15 +43,19 @@ interface NavItem {
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
-    MatSidenavModule,
-    MatToolbarModule,
-    MatIconModule,
-    MatButtonModule,
-    MatListModule,
-    MatMenuModule,
-    MatBadgeModule,
-    MatTooltipModule,
-    MatDividerModule,
+    // PrimeNG
+    SidebarModule,
+    ButtonModule,
+    AvatarModule,
+    MenuModule,
+    BadgeModule,
+    TooltipModule,
+    DividerModule,
+    RippleModule,
+    InputTextModule,
+    IconFieldModule,
+    InputIconModule,
+    OverlayPanelModule,
   ],
   animations: [
     trigger('fadeIn', [
@@ -52,7 +64,7 @@ interface NavItem {
         animate('200ms ease-out', style({ opacity: 1 })),
       ]),
     ]),
-    trigger('slideInLeft', [
+    trigger('slideIn', [
       transition(':enter', [
         style({ transform: 'translateX(-20px)', opacity: 0 }),
         animate('300ms ease-out', style({ transform: 'translateX(0)', opacity: 1 })),
@@ -65,776 +77,881 @@ interface NavItem {
     ]),
   ],
   template: `
-    <mat-sidenav-container class="shell-container">
-      <!-- Sidenav -->
-      <mat-sidenav 
-        #sidenav
-        [mode]="isMobile() ? 'over' : 'side'"
-        [opened]="!isMobile()"
-        class="sidenav"
-        [class.collapsed]="isCollapsed()">
-        
-        <!-- Logo Section -->
-        <div class="sidenav-header" [@slideInLeft]>
-          <div class="logo-wrapper" [routerLink]="['/dashboard']">
-            <img src="assets/logo.svg" alt="GoEMR Logo" class="logo-img">
-            @if (!isCollapsed()) {
-              <span class="logo-text">GoEMR</span>
-            }
-          </div>
-          @if (!isMobile()) {
-            <button 
-              mat-icon-button 
-              (click)="toggleCollapse()"
+    <div class="shell-container" [class.dark]="themeService.isDarkMode()" [class.sidebar-collapsed]="isCollapsed()">
+      <!-- Desktop Sidebar -->
+      @if (!isMobile()) {
+        <aside class="sidebar" [class.collapsed]="isCollapsed()" [@slideIn]>
+          <!-- Logo -->
+          <div class="sidebar-header">
+            <a [routerLink]="['/dashboard']" class="logo-link">
+              <img src="assets/logo.svg" alt="GoEMR" class="logo-img" />
+              @if (!isCollapsed()) {
+                <span class="logo-text">GoEMR</span>
+              }
+            </a>
+            <p-button 
+              [icon]="isCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'"
+              [rounded]="true"
+              [text]="true"
+              severity="secondary"
+              (onClick)="toggleCollapse()"
+              [pTooltip]="isCollapsed() ? 'Expand' : 'Collapse'"
+              tooltipPosition="right"
               class="collapse-btn"
-              [matTooltip]="isCollapsed() ? 'Expand' : 'Collapse'">
-              <mat-icon>{{ isCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+            />
+          </div>
+          
+          <!-- Navigation -->
+          <nav class="sidebar-nav">
+            @for (item of filteredNavItems(); track item.route) {
+              @if (item.children) {
+                <!-- Parent with children -->
+                <div class="nav-group">
+                  <button 
+                    class="nav-item parent"
+                    [class.expanded]="expandedItems().includes(item.route)"
+                    (click)="toggleExpanded(item.route)"
+                    pRipple>
+                    <i [class]="'pi ' + item.icon"></i>
+                    @if (!isCollapsed()) {
+                      <span class="nav-label">{{ item.label }}</span>
+                      <i class="pi expand-icon" [class.pi-angle-down]="!expandedItems().includes(item.route)" [class.pi-angle-up]="expandedItems().includes(item.route)"></i>
+                    }
+                  </button>
+                  
+                  @if (!isCollapsed()) {
+                    <div 
+                      class="nav-children"
+                      [@expandCollapse]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'">
+                      @for (child of item.children; track child.route) {
+                        <a 
+                          [routerLink]="child.route"
+                          routerLinkActive="active"
+                          class="nav-item child"
+                          pRipple>
+                          <i [class]="'pi ' + child.icon"></i>
+                          <span class="nav-label">{{ child.label }}</span>
+                          @if (child.badge) {
+                            <p-badge [value]="child.badge.toString()" [severity]="child.badgeSeverity || 'danger'" />
+                          }
+                        </a>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                <!-- Single item -->
+                <a 
+                  [routerLink]="item.route"
+                  routerLinkActive="active"
+                  class="nav-item"
+                  [pTooltip]="isCollapsed() ? item.label : ''"
+                  tooltipPosition="right"
+                  pRipple>
+                  <i [class]="'pi ' + item.icon"></i>
+                  @if (!isCollapsed()) {
+                    <span class="nav-label">{{ item.label }}</span>
+                  }
+                  @if (item.badge && !isCollapsed()) {
+                    <p-badge [value]="item.badge.toString()" [severity]="item.badgeSeverity || 'danger'" />
+                  }
+                  @if (item.badge && isCollapsed()) {
+                    <span class="badge-dot"></span>
+                  }
+                </a>
+              }
+            }
+          </nav>
+          
+          <!-- User Section -->
+          <div class="sidebar-footer">
+            <p-divider />
+            <button class="user-button" (click)="userMenu.toggle($event)" pRipple>
+              <p-avatar 
+                [label]="userInitials()" 
+                [style]="{ 'background-color': '#3b82f6', 'color': 'white' }"
+                shape="circle"
+              />
+              @if (!isCollapsed()) {
+                <div class="user-info">
+                  <span class="user-name">{{ userName() }}</span>
+                  <span class="user-role">{{ userRoleDisplay() }}</span>
+                </div>
+                <i class="pi pi-ellipsis-v"></i>
+              }
             </button>
-          }
-        </div>
+          </div>
+        </aside>
+      }
+      
+      <!-- Mobile Sidebar -->
+      <p-sidebar 
+        [(visible)]="mobileMenuVisible" 
+        [modal]="true"
+        [showCloseIcon]="false"
+        styleClass="mobile-sidebar">
+        <ng-template pTemplate="header">
+          <div class="mobile-sidebar-header">
+            <img src="assets/logo.svg" alt="GoEMR" class="logo-img" />
+            <span class="logo-text">GoEMR</span>
+          </div>
+        </ng-template>
         
-        <!-- Navigation -->
-        <mat-nav-list class="nav-list">
+        <nav class="sidebar-nav mobile">
           @for (item of filteredNavItems(); track item.route) {
             @if (item.children) {
-              <!-- Parent with children -->
               <div class="nav-group">
                 <button 
-                  mat-list-item 
-                  (click)="toggleExpanded(item.route)"
                   class="nav-item parent"
-                  [class.expanded]="expandedItems().includes(item.route)">
-                  <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-                  @if (!isCollapsed()) {
-                    <span matListItemTitle>{{ item.label }}</span>
-                    <mat-icon class="expand-icon">
-                      {{ expandedItems().includes(item.route) ? 'expand_less' : 'expand_more' }}
-                    </mat-icon>
-                  }
+                  [class.expanded]="expandedItems().includes(item.route)"
+                  (click)="toggleExpanded(item.route)"
+                  pRipple>
+                  <i [class]="'pi ' + item.icon"></i>
+                  <span class="nav-label">{{ item.label }}</span>
+                  <i class="pi expand-icon" [class.pi-angle-down]="!expandedItems().includes(item.route)" [class.pi-angle-up]="expandedItems().includes(item.route)"></i>
                 </button>
                 
-                @if (!isCollapsed()) {
-                  <div 
-                    class="nav-children"
-                    [@expandCollapse]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'">
-                    @for (child of item.children; track child.route) {
-                      <a 
-                        mat-list-item 
-                        [routerLink]="child.route"
-                        routerLinkActive="active"
-                        class="nav-item child"
-                        (click)="onNavClick()">
-                        <mat-icon matListItemIcon>{{ child.icon }}</mat-icon>
-                        <span matListItemTitle>{{ child.label }}</span>
-                        @if (child.badge) {
-                          <span matBadge="{{ child.badge }}" matBadgeColor="warn" matBadgeSize="small"></span>
-                        }
-                      </a>
-                    }
-                  </div>
-                }
+                <div 
+                  class="nav-children"
+                  [@expandCollapse]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'">
+                  @for (child of item.children; track child.route) {
+                    <a 
+                      [routerLink]="child.route"
+                      routerLinkActive="active"
+                      class="nav-item child"
+                      (click)="mobileMenuVisible = false"
+                      pRipple>
+                      <i [class]="'pi ' + child.icon"></i>
+                      <span class="nav-label">{{ child.label }}</span>
+                    </a>
+                  }
+                </div>
               </div>
             } @else {
-              <!-- Single item -->
               <a 
-                mat-list-item 
                 [routerLink]="item.route"
                 routerLinkActive="active"
                 class="nav-item"
-                [matTooltip]="isCollapsed() ? item.label : ''"
-                matTooltipPosition="right"
-                (click)="onNavClick()">
-                <mat-icon matListItemIcon [matBadge]="item.badge || null" matBadgeColor="warn" matBadgeSize="small">
-                  {{ item.icon }}
-                </mat-icon>
-                @if (!isCollapsed()) {
-                  <span matListItemTitle>{{ item.label }}</span>
+                (click)="mobileMenuVisible = false"
+                pRipple>
+                <i [class]="'pi ' + item.icon"></i>
+                <span class="nav-label">{{ item.label }}</span>
+                @if (item.badge) {
+                  <p-badge [value]="item.badge.toString()" [severity]="item.badgeSeverity || 'danger'" />
                 }
               </a>
             }
           }
-        </mat-nav-list>
+        </nav>
         
-        <!-- User Section -->
-        <div class="sidenav-footer">
-          <button 
-            mat-list-item 
-            [matMenuTriggerFor]="userMenu"
-            class="user-item">
-            <div class="user-avatar" matListItemIcon>
-              {{ userInitials() }}
+        <ng-template pTemplate="footer">
+          <div class="mobile-user-section">
+            <p-avatar 
+              [label]="userInitials()" 
+              [style]="{ 'background-color': '#3b82f6', 'color': 'white' }"
+              shape="circle"
+              size="large"
+            />
+            <div class="user-info">
+              <span class="user-name">{{ userName() }}</span>
+              <span class="user-email">{{ userEmail() }}</span>
             </div>
-            @if (!isCollapsed()) {
-              <div matListItemTitle class="user-info">
-                <span class="user-name">{{ userName() }}</span>
-                <span class="user-role">{{ userRole() }}</span>
-              </div>
-              <mat-icon class="menu-icon">more_vert</mat-icon>
-            }
-          </button>
-        </div>
-      </mat-sidenav>
+          </div>
+          <div class="mobile-footer-actions">
+            <p-button label="Profile" icon="pi pi-user" [text]="true" (onClick)="navigateTo('/profile')" />
+            <p-button label="Settings" icon="pi pi-cog" [text]="true" (onClick)="navigateTo('/settings')" />
+            <p-button label="Logout" icon="pi pi-sign-out" severity="danger" [text]="true" (onClick)="logout()" />
+          </div>
+        </ng-template>
+      </p-sidebar>
       
-      <!-- Main Content -->
-      <mat-sidenav-content class="main-content">
-        <!-- Toolbar -->
-        <mat-toolbar class="toolbar" [@fadeIn]>
-          @if (isMobile()) {
-            <button mat-icon-button (click)="sidenav.toggle()">
-              <mat-icon>menu</mat-icon>
-            </button>
-          }
-          
-          <!-- Breadcrumb or Search -->
-          <div class="toolbar-center">
-            <div class="search-box">
-              <mat-icon>search</mat-icon>
-              <input 
-                type="text" 
-                placeholder="Search patients, appointments..." 
-                (focus)="onSearchFocus()"
-                aria-label="Global search">
+      <!-- Main Content Area -->
+      <div class="main-wrapper">
+        <!-- Header/Toolbar -->
+        <header class="toolbar" [@fadeIn]>
+          <div class="toolbar-left">
+            @if (isMobile()) {
+              <p-button 
+                icon="pi pi-bars" 
+                [rounded]="true" 
+                [text]="true"
+                (onClick)="mobileMenuVisible = true"
+              />
+            }
+            
+            <!-- Search -->
+            <div class="search-wrapper">
+              <p-iconfield>
+                <p-inputicon styleClass="pi pi-search" />
+                <input 
+                  pInputText 
+                  type="text" 
+                  placeholder="Search patients, appointments..."
+                  class="search-input"
+                />
+              </p-iconfield>
             </div>
           </div>
           
-          <div class="toolbar-actions">
+          <div class="toolbar-right">
             <!-- Quick Actions -->
-            <button mat-icon-button matTooltip="New Patient" [routerLink]="['/patients/new']">
-              <mat-icon>person_add</mat-icon>
-            </button>
-            
-            <button mat-icon-button matTooltip="New Appointment" [routerLink]="['/appointments/new']">
-              <mat-icon>event_available</mat-icon>
-            </button>
+            <p-button 
+              icon="pi pi-user-plus" 
+              [rounded]="true" 
+              [text]="true"
+              pTooltip="New Patient"
+              tooltipPosition="bottom"
+              (onClick)="navigateTo('/patients/new')"
+            />
+            <p-button 
+              icon="pi pi-calendar-plus" 
+              [rounded]="true" 
+              [text]="true"
+              pTooltip="New Appointment"
+              tooltipPosition="bottom"
+              (onClick)="navigateTo('/appointments/new')"
+            />
             
             <!-- Notifications -->
-            <button 
-              mat-icon-button 
-              matTooltip="Notifications"
-              [matMenuTriggerFor]="notificationMenu"
-              [matBadge]="unreadNotifications()"
-              matBadgeColor="warn"
-              matBadgeSize="small"
-              [matBadgeHidden]="unreadNotifications() === 0">
-              <mat-icon>notifications</mat-icon>
-            </button>
+            <p-button 
+              icon="pi pi-bell" 
+              [rounded]="true" 
+              [text]="true"
+              [badge]="unreadNotifications().toString()"
+              badgeSeverity="danger"
+              pTooltip="Notifications"
+              tooltipPosition="bottom"
+              (onClick)="notificationPanel.toggle($event)"
+            />
+            
+            <!-- Theme Toggle -->
+            <p-button 
+              [icon]="themeService.isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'" 
+              [rounded]="true" 
+              [text]="true"
+              [pTooltip]="themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode'"
+              tooltipPosition="bottom"
+              (onClick)="themeService.toggleTheme()"
+            />
             
             <!-- Help -->
-            <button mat-icon-button matTooltip="Help">
-              <mat-icon>help_outline</mat-icon>
-            </button>
+            <p-button 
+              icon="pi pi-question-circle" 
+              [rounded]="true" 
+              [text]="true"
+              pTooltip="Help"
+              tooltipPosition="bottom"
+            />
           </div>
-        </mat-toolbar>
+        </header>
         
         <!-- Page Content -->
         <main class="page-content">
-          <ng-content></ng-content>
+          <router-outlet />
         </main>
-      </mat-sidenav-content>
-    </mat-sidenav-container>
-    
-    <!-- User Menu -->
-    <mat-menu #userMenu="matMenu" class="user-menu-panel">
-      <div class="user-menu-header">
-        <div class="user-menu-avatar">{{ userInitials() }}</div>
-        <div class="user-menu-details">
-          <span class="user-menu-name">{{ userName() }}</span>
-          <span class="user-menu-email">{{ userEmail() }}</span>
-        </div>
       </div>
-      <mat-divider></mat-divider>
-      <button mat-menu-item [routerLink]="['/profile']">
-        <mat-icon>person</mat-icon>
-        <span>Profile</span>
-      </button>
-      <button mat-menu-item [routerLink]="['/settings']">
-        <mat-icon>settings</mat-icon>
-        <span>Settings</span>
-      </button>
-      <mat-divider></mat-divider>
-      <button mat-menu-item (click)="logout()" class="logout-item">
-        <mat-icon>logout</mat-icon>
-        <span>Sign Out</span>
-      </button>
-    </mat-menu>
-    
-    <!-- Notification Menu -->
-    <mat-menu #notificationMenu="matMenu" class="notification-menu">
-      <div class="notification-header">
-        <span>Notifications</span>
-        <button mat-button color="primary">Mark all read</button>
-      </div>
-      <mat-divider></mat-divider>
-      @for (notification of notifications().slice(0, 5); track notification.id) {
-        <button mat-menu-item class="notification-item">
-          <mat-icon [class]="notification.type">{{ getNotificationIcon(notification.type) }}</mat-icon>
-          <div class="notification-content">
-            <span class="notification-title">{{ notification.title }}</span>
-            <span class="notification-time">{{ notification.time }}</span>
+      
+      <!-- User Menu Overlay -->
+      <p-overlayPanel #userMenu styleClass="user-menu-panel">
+        <div class="user-menu-header">
+          <p-avatar 
+            [label]="userInitials()" 
+            [style]="{ 'background-color': '#3b82f6', 'color': 'white' }"
+            shape="circle"
+            size="large"
+          />
+          <div class="user-menu-info">
+            <span class="user-menu-name">{{ userName() }}</span>
+            <span class="user-menu-email">{{ userEmail() }}</span>
           </div>
-        </button>
-      }
-      <mat-divider></mat-divider>
-      <button mat-menu-item [routerLink]="['/notifications']" class="view-all">
-        <span>View All Notifications</span>
-        <mat-icon>arrow_forward</mat-icon>
-      </button>
-    </mat-menu>
+        </div>
+        <p-divider />
+        <div class="user-menu-items">
+          <button class="user-menu-item" (click)="navigateTo('/profile'); userMenu.hide()">
+            <i class="pi pi-user"></i>
+            <span>Profile</span>
+          </button>
+          <button class="user-menu-item" (click)="navigateTo('/settings'); userMenu.hide()">
+            <i class="pi pi-cog"></i>
+            <span>Settings</span>
+          </button>
+          <button class="user-menu-item" (click)="navigateTo('/admin'); userMenu.hide()">
+            <i class="pi pi-shield"></i>
+            <span>Admin Panel</span>
+          </button>
+          <p-divider />
+          <button class="user-menu-item logout" (click)="logout(); userMenu.hide()">
+            <i class="pi pi-sign-out"></i>
+            <span>Logout</span>
+          </button>
+        </div>
+      </p-overlayPanel>
+      
+      <!-- Notifications Panel -->
+      <p-overlayPanel #notificationPanel styleClass="notification-panel">
+        <div class="notification-header">
+          <span class="notification-title">Notifications</span>
+          <p-button label="Mark all read" [text]="true" size="small" />
+        </div>
+        <p-divider />
+        <div class="notification-list">
+          @for (notification of notifications(); track notification.id) {
+            <div class="notification-item" [class]="notification.type">
+              <i [class]="'pi ' + getNotificationIcon(notification.type)"></i>
+              <div class="notification-content">
+                <span class="notification-text">{{ notification.title }}</span>
+                <span class="notification-time">{{ notification.time }}</span>
+              </div>
+            </div>
+          }
+        </div>
+        <p-divider />
+        <div class="notification-footer">
+          <p-button label="View All Notifications" [text]="true" icon="pi pi-arrow-right" iconPos="right" (onClick)="navigateTo('/messages/notifications')" />
+        </div>
+      </p-overlayPanel>
+    </div>
   `,
   styles: [`
+    /* Shell Container */
     .shell-container {
-      height: 100vh;
+      display: flex;
+      min-height: 100vh;
+      background: var(--surface-ground, #f8fafc);
+      transition: background 0.3s ease;
     }
     
-    .sidenav {
+    .shell-container.dark {
+      background: #0f172a;
+    }
+    
+    /* Sidebar */
+    .sidebar {
       width: 260px;
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-      border-right: 1px solid rgba(255,255,255,0.05);
-      transition: width 0.3s ease;
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      background: white;
+      border-right: 1px solid #e2e8f0;
       display: flex;
       flex-direction: column;
-      
-      &.collapsed {
-        width: 72px;
-      }
+      transition: all 0.3s ease;
+      z-index: 100;
     }
     
-    .sidenav-header {
+    .dark .sidebar {
+      background: #1e293b;
+      border-right-color: #334155;
+    }
+    
+    .sidebar.collapsed {
+      width: 72px;
+    }
+    
+    /* Sidebar Header */
+    .sidebar-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 16px;
-      min-height: 72px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 1rem;
+      border-bottom: 1px solid #e2e8f0;
     }
     
-    .logo-wrapper {
+    .dark .sidebar-header {
+      border-bottom-color: #334155;
+    }
+    
+    .logo-link {
       display: flex;
       align-items: center;
-      gap: 12px;
-      cursor: pointer;
+      gap: 0.75rem;
       text-decoration: none;
     }
     
     .logo-img {
-      width: 36px;
-      height: 36px;
-      object-fit: contain;
+      width: 40px;
+      height: 40px;
     }
     
     .logo-text {
-      font-size: 20px;
+      font-size: 1.5rem;
       font-weight: 700;
-      color: white;
-      letter-spacing: -0.5px;
+      color: #1e293b;
     }
     
-    .collapse-btn {
-      color: rgba(255,255,255,0.5);
-      width: 28px;
-      height: 28px;
-      line-height: 28px;
-      
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
-      
-      &:hover {
-        color: white;
-        background: rgba(255,255,255,0.1);
-      }
+    .dark .logo-text {
+      color: #f1f5f9;
     }
     
-    .nav-list {
-      padding: 12px;
+    .collapsed .logo-link {
+      justify-content: center;
+    }
+    
+    .collapsed .collapse-btn {
+      display: none;
+    }
+    
+    .collapsed:hover .collapse-btn {
+      display: flex;
+    }
+    
+    /* Navigation */
+    .sidebar-nav {
       flex: 1;
       overflow-y: auto;
-      
-      // Remove focus rings and borders from all nav items
-      .mat-mdc-list-item {
-        &:focus, &:active {
-          outline: none !important;
-        }
-        
-        .mat-mdc-focus-indicator::before {
-          border: none !important;
-          display: none !important;
-        }
-        
-        .mdc-list-item__ripple::before {
-          background-color: rgba(255,255,255,0.1);
-        }
-      }
+      padding: 0.5rem;
     }
     
     .nav-item {
-      border-radius: 10px !important;
-      margin-bottom: 2px;
-      color: rgba(255,255,255,0.8) !important;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      color: #64748b;
+      text-decoration: none;
+      cursor: pointer;
       transition: all 0.2s ease;
-      height: 44px !important;
-      border: none !important;
-      outline: none !important;
-      
-      &:hover {
-        background: rgba(255,255,255,0.08) !important;
-        color: white !important;
-      }
-      
-      &:focus, &:focus-visible {
-        outline: none !important;
-        border: none !important;
-      }
-      
-      &.active {
-        background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%) !important;
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
-        
-        mat-icon {
-          color: white !important;
-        }
-      }
-      
-      mat-icon {
-        color: rgba(255,255,255,0.7);
-        margin-right: 12px !important;
-      }
-      
-      &.parent {
-        color: rgba(255,255,255,0.5) !important;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-        height: 36px !important;
-        margin-top: 16px;
-        margin-bottom: 4px;
-        background: transparent !important;
-        border: none !important;
-        outline: none !important;
-        box-shadow: none !important;
-        
-        &:hover {
-          background: rgba(255,255,255,0.05) !important;
-          color: rgba(255,255,255,0.7) !important;
-        }
-        
-        &:focus, &:active {
-          background: transparent !important;
-          outline: none !important;
-          border: none !important;
-        }
-        
-        mat-icon:first-of-type {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-          color: rgba(255,255,255,0.4);
-        }
-        
-        .expand-icon {
-          color: rgba(255,255,255,0.3);
-        }
-      }
-      
-      &.child {
-        padding-left: 20px !important;
-        font-size: 14px;
-        height: 42px !important;
-        margin-left: 8px;
-        border-left: 2px solid rgba(255,255,255,0.1);
-        border-radius: 0 10px 10px 0 !important;
-        
-        &:hover {
-          border-left-color: rgba(255,255,255,0.3);
-        }
-        
-        &.active {
-          border-left-color: #0ea5e9;
-        }
-        
-        mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-        }
-      }
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-size: 0.9375rem;
     }
     
-    .nav-group {
-      .expand-icon {
-        margin-left: auto;
-        transition: transform 0.2s ease;
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        color: rgba(255,255,255,0.4);
-      }
-      
-      &.expanded .expand-icon {
-        transform: rotate(180deg);
-      }
+    .dark .nav-item {
+      color: #94a3b8;
+    }
+    
+    .nav-item:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+    
+    .dark .nav-item:hover {
+      background: #334155;
+      color: #f1f5f9;
+    }
+    
+    .nav-item.active {
+      background: #eff6ff;
+      color: #3b82f6;
+      font-weight: 500;
+    }
+    
+    .dark .nav-item.active {
+      background: #1e3a8a;
+      color: #60a5fa;
+    }
+    
+    .nav-item i {
+      font-size: 1.25rem;
+      width: 1.5rem;
+      text-align: center;
+    }
+    
+    .nav-label {
+      flex: 1;
+      text-align: left;
+    }
+    
+    .expand-icon {
+      font-size: 0.875rem;
     }
     
     .nav-children {
-      overflow: hidden;
-      padding-bottom: 4px;
+      margin-left: 1rem;
+      border-left: 2px solid #e2e8f0;
+      padding-left: 0.5rem;
     }
     
-    .sidenav-footer {
+    .dark .nav-children {
+      border-left-color: #334155;
+    }
+    
+    .nav-item.child {
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+    }
+    
+    .collapsed .nav-item {
+      justify-content: center;
+      padding: 0.75rem;
+    }
+    
+    .collapsed .nav-label,
+    .collapsed .expand-icon {
+      display: none;
+    }
+    
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+    }
+    
+    /* Sidebar Footer */
+    .sidebar-footer {
+      padding: 0.5rem;
       margin-top: auto;
-      padding: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
     }
     
-    .user-item {
-      border-radius: 10px !important;
-      color: white !important;
-      padding: 8px 12px !important;
-      background: rgba(255,255,255,0.05) !important;
-      height: auto !important;
-      min-height: 56px !important;
-      
-      &:hover {
-        background: rgba(255,255,255,0.1) !important;
-      }
-      
-      .mdc-list-item__content {
-        display: flex !important;
-        align-items: center !important;
-        width: 100% !important;
-      }
-    }
-    
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      min-width: 40px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
+    .user-button {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-      color: white;
-      margin-right: 12px !important;
-      flex-shrink: 0;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    
+    .user-button:hover {
+      background: #f1f5f9;
+    }
+    
+    .dark .user-button:hover {
+      background: #334155;
     }
     
     .user-info {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      flex: 1;
+      align-items: flex-start;
       overflow: hidden;
-      min-width: 0;
-      
-      .user-name {
-        font-weight: 600;
-        font-size: 14px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: white;
-        line-height: 1.3;
-      }
-      
-      .user-role {
-        font-size: 11px;
-        color: rgba(255,255,255,0.5);
-        text-transform: capitalize;
-        line-height: 1.3;
-      }
     }
     
-    .menu-icon {
-      color: rgba(255,255,255,0.4);
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      margin-left: auto;
-      flex-shrink: 0;
+    .user-name {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     
-    // User Menu Panel Styles (using ::ng-deep for mat-menu)
-    :host ::ng-deep .user-menu-panel {
-      min-width: 240px !important;
-      
-      .mat-mdc-menu-content {
-        padding: 0;
-      }
-      
-      .user-menu-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      }
-      
-      .user-menu-avatar {
-        width: 44px;
-        height: 44px;
-        min-width: 44px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 16px;
-        color: white;
-      }
-      
-      .user-menu-details {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      
-      .user-menu-name {
-        font-weight: 600;
-        font-size: 14px;
-        color: #1e293b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      
-      .user-menu-email {
-        font-size: 12px;
-        color: #64748b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      
-      .mat-mdc-menu-item {
-        height: 44px;
-        
-        mat-icon {
-          color: #64748b;
-          margin-right: 12px;
-        }
-        
-        span {
-          color: #334155;
-          font-size: 14px;
-        }
-        
-        &:hover {
-          background: #f1f5f9;
-        }
-      }
-      
-      .logout-item {
-        mat-icon {
-          color: #ef4444;
-        }
-        
-        span {
-          color: #ef4444;
-        }
-        
-        &:hover {
-          background: #fef2f2;
-        }
-      }
+    .dark .user-name {
+      color: #f1f5f9;
     }
     
-    .menu-icon {
-      margin-left: auto;
-      color: rgba(255,255,255,0.5);
+    .user-role,
+    .user-email {
+      font-size: 0.75rem;
+      color: #64748b;
     }
     
-    .main-content {
-      background: #f5f7fa;
+    .dark .user-role,
+    .dark .user-email {
+      color: #94a3b8;
     }
     
+    .collapsed .user-info,
+    .collapsed .user-button i.pi-ellipsis-v {
+      display: none;
+    }
+    
+    /* Main Content Wrapper */
+    .main-wrapper {
+      flex: 1;
+      margin-left: 260px;
+      display: flex;
+      flex-direction: column;
+      transition: margin-left 0.3s ease;
+    }
+    
+    .sidebar-collapsed .main-wrapper {
+      margin-left: 72px;
+    }
+    
+    /* Toolbar */
     .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.5rem;
       background: white;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid #e2e8f0;
       position: sticky;
       top: 0;
-      z-index: 100;
-      padding: 0 16px;
+      z-index: 50;
     }
     
-    .toolbar-center {
+    .dark .toolbar {
+      background: #1e293b;
+      border-bottom-color: #334155;
+    }
+    
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
       flex: 1;
-      display: flex;
-      justify-content: center;
-      padding: 0 24px;
     }
     
-    .search-box {
+    .toolbar-right {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: #f5f7fa;
-      border-radius: 8px;
-      padding: 8px 16px;
+      gap: 0.5rem;
+    }
+    
+    .search-wrapper {
+      max-width: 400px;
+      flex: 1;
+    }
+    
+    .search-input {
       width: 100%;
-      max-width: 500px;
-      
-      mat-icon {
-        color: #666;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
-      
-      input {
-        border: none;
-        background: transparent;
-        outline: none;
-        width: 100%;
-        font-size: 14px;
-        
-        &::placeholder {
-          color: #999;
-        }
-      }
     }
     
-    .toolbar-actions {
+    /* Page Content */
+    .page-content {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+    
+    /* User Menu Panel */
+    :host ::ng-deep .user-menu-panel {
+      width: 280px !important;
+    }
+    
+    .user-menu-header {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 1rem;
+      padding: 0.5rem;
     }
     
-    .page-content {
-      padding: 24px;
-      min-height: calc(100vh - 64px);
+    .user-menu-info {
+      display: flex;
+      flex-direction: column;
     }
     
-    // Notification menu styles
+    .user-menu-name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    
+    .dark .user-menu-name {
+      color: #f1f5f9;
+    }
+    
+    .user-menu-email {
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+    
+    .user-menu-items {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .user-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: #475569;
+      font-size: 0.9375rem;
+      transition: background 0.2s;
+      width: 100%;
+      text-align: left;
+    }
+    
+    .user-menu-item:hover {
+      background: #f1f5f9;
+    }
+    
+    .user-menu-item.logout {
+      color: #ef4444;
+    }
+    
+    .user-menu-item.logout:hover {
+      background: #fef2f2;
+    }
+    
+    /* Notification Panel */
+    :host ::ng-deep .notification-panel {
+      width: 360px !important;
+    }
+    
     .notification-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px;
-      font-weight: 500;
+    }
+    
+    .notification-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    
+    .notification-list {
+      max-height: 300px;
+      overflow-y: auto;
     }
     
     .notification-item {
-      height: auto !important;
-      padding: 12px 16px !important;
-      
-      .notification-content {
-        display: flex;
-        flex-direction: column;
-        margin-left: 8px;
-        
-        .notification-title {
-          font-size: 14px;
-        }
-        
-        .notification-time {
-          font-size: 12px;
-          color: #666;
-        }
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .notification-item:hover {
+      background: #f1f5f9;
+    }
+    
+    .notification-item i {
+      font-size: 1.25rem;
+      margin-top: 0.125rem;
+    }
+    
+    .notification-item.info i { color: #3b82f6; }
+    .notification-item.success i { color: #16a34a; }
+    .notification-item.warning i { color: #d97706; }
+    .notification-item.error i { color: #dc2626; }
+    
+    .notification-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .notification-text {
+      font-size: 0.875rem;
+      color: #1e293b;
+    }
+    
+    .notification-time {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    
+    .notification-footer {
+      display: flex;
+      justify-content: center;
+    }
+    
+    /* Mobile Sidebar */
+    :host ::ng-deep .mobile-sidebar {
+      width: 280px !important;
+    }
+    
+    .mobile-sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .mobile-user-section {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 0;
+    }
+    
+    .mobile-footer-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    /* Dark mode PrimeNG overrides */
+    :host ::ng-deep {
+      .dark .p-inputtext {
+        background: #334155;
+        border-color: #475569;
+        color: #f1f5f9;
       }
       
-      mat-icon {
-        &.info { color: #2196f3; }
-        &.success { color: #4caf50; }
-        &.warning { color: #ff9800; }
-        &.error { color: #f44336; }
+      .dark .p-inputtext::placeholder {
+        color: #94a3b8;
+      }
+      
+      .dark .p-overlaypanel {
+        background: #1e293b;
+        border-color: #334155;
+      }
+      
+      .dark .p-overlaypanel .p-overlaypanel-content {
+        color: #f1f5f9;
+      }
+      
+      .dark .p-divider {
+        border-color: #334155;
+      }
+      
+      .dark .p-button-text {
+        color: #94a3b8;
+      }
+      
+      .dark .p-button-text:hover {
+        background: #334155;
+        color: #f1f5f9;
+      }
+      
+      .dark .p-sidebar {
+        background: #1e293b;
+        border-color: #334155;
       }
     }
     
-    .view-all {
-      justify-content: space-between;
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .main-wrapper {
+        margin-left: 0 !important;
+      }
+      
+      .sidebar {
+        display: none;
+      }
+      
+      .search-wrapper {
+        display: none;
+      }
     }
     
-    // Responsive
     @media (max-width: 768px) {
-      .toolbar-center {
-        padding: 0 8px;
+      .toolbar {
+        padding: 0.75rem 1rem;
       }
       
       .page-content {
-        padding: 16px;
+        padding: 1rem;
       }
     }
-    
-    // Global overrides for Material focus indicators
-    :host ::ng-deep {
-      .sidenav .mat-mdc-list-item {
-        &.nav-item {
-          .mat-mdc-focus-indicator::before,
-          .mdc-list-item__ripple::before {
-            border: none !important;
-          }
-        }
-        
-        &.nav-item.parent {
-          background: transparent !important;
-          
-          &:focus,
-          &:active,
-          &.cdk-keyboard-focused,
-          &.cdk-program-focused,
-          &.mat-mdc-list-item-interactive:focus::before {
-            opacity: 0 !important;
-            background: transparent !important;
-          }
-          
-          .mat-mdc-focus-indicator::before {
-            display: none !important;
-            border: none !important;
-          }
-        }
-        
-        &.user-item {
-          .mdc-list-item__content {
-            display: flex !important;
-            align-items: center !important;
-            width: 100% !important;
-          }
-          
-          .mat-mdc-list-item-unscoped-content {
-            display: flex !important;
-            align-items: center !important;
-            width: 100% !important;
-          }
-        }
-      }
-      
-      // Remove focus ring from all nav buttons
-      .nav-list button:focus,
-      .nav-list button:focus-visible {
-        outline: none !important;
-      }
-      
-      // User item layout fix
-      .sidenav-footer .user-item {
-        .mdc-list-item__primary-text {
-          display: flex !important;
-          align-items: center !important;
-          width: 100% !important;
-        }
-      }
-    }
-  `],
+  `]
 })
-export class ShellComponent {
-  @ViewChild('sidenav') sidenav!: MatSidenav;
+export class ShellComponent implements OnInit {
+  @ViewChild('notificationPanel') notificationPanel!: OverlayPanel;
   
   private readonly authService = inject(AuthService);
+  readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly breakpointObserver = inject(BreakpointObserver);
   
   protected readonly isCollapsed = signal(false);
   protected readonly expandedItems = signal<string[]>(['/clinical']);
+  protected mobileMenuVisible = false;
   
   // Responsive check
   protected readonly isMobile = toSignal(
-    this.breakpointObserver.observe([Breakpoints.Handset]).pipe(
+    this.breakpointObserver.observe(['(max-width: 1024px)']).pipe(
       map(result => result.matches)
     ),
     { initialValue: false }
@@ -852,7 +969,7 @@ export class ShellComponent {
     return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
   });
   
-  protected readonly userRole = computed(() => {
+  protected readonly userRoleDisplay = computed(() => {
     const role = this.authService.userRole();
     if (!role) return '';
     return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -874,24 +991,24 @@ export class ShellComponent {
   
   // Navigation items
   private readonly navItems: NavItem[] = [
-    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
-    { label: 'Patients', icon: 'people', route: '/patients', requiredPermissions: ['patients:read'] },
-    { label: 'Appointments', icon: 'event', route: '/appointments', requiredPermissions: ['appointments:read'] },
+    { label: 'Dashboard', icon: 'pi-home', route: '/dashboard' },
+    { label: 'Patients', icon: 'pi-users', route: '/patients', requiredPermissions: ['patients:read'] },
+    { label: 'Appointments', icon: 'pi-calendar', route: '/appointments', requiredPermissions: ['appointments:read'] },
     { 
       label: 'Clinical', 
-      icon: 'medical_services', 
+      icon: 'pi-heart', 
       route: '/clinical',
       children: [
-        { label: 'Encounters', icon: 'assignment', route: '/encounters' },
-        { label: 'Prescriptions', icon: 'medication', route: '/prescriptions' },
-        { label: 'Labs', icon: 'science', route: '/labs' },
-        { label: 'Imaging', icon: 'image', route: '/imaging' },
+        { label: 'Encounters', icon: 'pi-file-edit', route: '/encounters' },
+        { label: 'Prescriptions', icon: 'pi-box', route: '/prescriptions' },
+        { label: 'Labs', icon: 'pi-chart-bar', route: '/labs' },
+        { label: 'Imaging', icon: 'pi-image', route: '/imaging' },
       ]
     },
-    { label: 'Billing', icon: 'receipt_long', route: '/billing', requiredPermissions: ['billing:read'] },
-    { label: 'Messages', icon: 'mail', route: '/messages', badge: 3 },
-    { label: 'Reports', icon: 'analytics', route: '/reports', requiredPermissions: ['reports:read'] },
-    { label: 'Admin', icon: 'settings', route: '/admin', requiredPermissions: ['admin:read'] },
+    { label: 'Billing', icon: 'pi-credit-card', route: '/billing', requiredPermissions: ['billing:read'] },
+    { label: 'Messages', icon: 'pi-envelope', route: '/messages', badge: 3, badgeSeverity: 'danger' },
+    { label: 'Reports', icon: 'pi-chart-line', route: '/reports', requiredPermissions: ['reports:read'] },
+    { label: 'Admin', icon: 'pi-cog', route: '/admin', requiredPermissions: ['admin:read'] },
   ];
   
   protected readonly filteredNavItems = computed(() => {
@@ -901,8 +1018,17 @@ export class ShellComponent {
     });
   });
   
+  ngOnInit(): void {
+    // Load collapsed state from localStorage
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved === 'true') {
+      this.isCollapsed.set(true);
+    }
+  }
+  
   toggleCollapse(): void {
     this.isCollapsed.update(v => !v);
+    localStorage.setItem('sidebar-collapsed', this.isCollapsed().toString());
   }
   
   toggleExpanded(route: string): void {
@@ -914,24 +1040,19 @@ export class ShellComponent {
     });
   }
   
-  onNavClick(): void {
-    if (this.isMobile()) {
-      this.sidenav.close();
-    }
-  }
-  
-  onSearchFocus(): void {
-    // Could open a search modal/overlay
+  navigateTo(route: string): void {
+    this.router.navigate([route]);
+    this.mobileMenuVisible = false;
   }
   
   getNotificationIcon(type: string): string {
     const icons: Record<string, string> = {
-      info: 'info',
-      success: 'check_circle',
-      warning: 'warning',
-      error: 'error',
+      info: 'pi-info-circle',
+      success: 'pi-check-circle',
+      warning: 'pi-exclamation-triangle',
+      error: 'pi-times-circle',
     };
-    return icons[type] || 'notifications';
+    return icons[type] || 'pi-bell';
   }
   
   logout(): void {

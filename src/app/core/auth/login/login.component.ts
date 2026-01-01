@@ -1,206 +1,181 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { trigger, transition, style, animate, keyframes } from '@angular/animations';
+import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 
-import { AuthService } from '../auth.service';
+// PrimeNG v19 imports
+import { InputTextModule } from 'primeng/inputtext';
+import { PasswordModule } from 'primeng/password';
+import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
+import { CardModule } from 'primeng/card';
+import { DividerModule } from 'primeng/divider';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
+import { RippleModule } from 'primeng/ripple';
+import { TooltipModule } from 'primeng/tooltip';
+
+import { AuthService, LoginCredentials } from '../auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
-  selector: 'emr-login',
+  selector: 'app-login',
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
+    FormsModule,
     RouterLink,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatCheckboxModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatSnackBarModule,
+    // PrimeNG modules
+    InputTextModule,
+    PasswordModule,
+    ButtonModule,
+    CheckboxModule,
+    CardModule,
+    DividerModule,
+    IconFieldModule,
+    InputIconModule,
+    ToastModule,
+    RippleModule,
+    TooltipModule,
   ],
-  animations: [
-    trigger('fadeInUp', [
-      transition(':enter', [
-        style({ opacity: 0, transform: 'translateY(30px)' }),
-        animate('600ms cubic-bezier(0.35, 0, 0.25, 1)', 
-          style({ opacity: 1, transform: 'translateY(0)' }))
-      ])
-    ]),
-    trigger('fadeIn', [
-      transition(':enter', [
-        style({ opacity: 0 }),
-        animate('400ms 200ms ease-out', style({ opacity: 1 }))
-      ])
-    ]),
-    trigger('shake', [
-      transition('* => error', [
-        animate('400ms', keyframes([
-          style({ transform: 'translateX(0)' }),
-          style({ transform: 'translateX(-10px)' }),
-          style({ transform: 'translateX(10px)' }),
-          style({ transform: 'translateX(-10px)' }),
-          style({ transform: 'translateX(10px)' }),
-          style({ transform: 'translateX(0)' }),
-        ]))
-      ])
-    ]),
-    trigger('pulse', [
-      transition(':enter', [
-        animate('1s ease-in-out', keyframes([
-          style({ transform: 'scale(1)', offset: 0 }),
-          style({ transform: 'scale(1.05)', offset: 0.5 }),
-          style({ transform: 'scale(1)', offset: 1 }),
-        ]))
-      ])
-    ])
-  ],
+  providers: [MessageService],
   template: `
-    <div class="login-container">
-      <!-- Background with gradient -->
-      <div class="background-layer">
-        <div class="gradient-overlay"></div>
-        <div class="pattern-overlay"></div>
-      </div>
+    <div class="login-container" [class.dark]="themeService.isDarkMode()">
+      <p-toast position="top-right" />
       
-      <!-- Login Card -->
-      <mat-card class="login-card" [@fadeInUp]>
-        <!-- Logo Section -->
-        <div class="logo-section" [@pulse]>
+      <!-- Theme Toggle -->
+      <button 
+        class="theme-toggle"
+        (click)="themeService.toggleTheme()"
+        [pTooltip]="themeService.isDarkMode() ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        tooltipPosition="left">
+        <i [class]="themeService.isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"></i>
+      </button>
+      
+      <div class="login-card">
+        <!-- Logo and Header -->
+        <div class="login-header">
           <div class="logo-container">
-            <img src="assets/logo.svg" alt="GoEMR Logo" class="logo-img">
+            <img src="assets/logo.svg" alt="GoEMR Logo" class="logo" />
           </div>
           <h1 class="app-title">GoEMR</h1>
           <p class="app-subtitle">Modern Electronic Health Records</p>
         </div>
-        
+
         <!-- Login Form -->
-        <form 
-          [formGroup]="loginForm" 
-          (ngSubmit)="onSubmit()"
-          class="login-form"
-          [@shake]="animationState()">
-          
+        <form (ngSubmit)="onSubmit()" class="login-form">
           <!-- Email Field -->
-          <mat-form-field appearance="outline" class="full-width" [@fadeIn]>
-            <mat-label>Email Address</mat-label>
-            <input 
-              matInput 
-              type="email" 
-              formControlName="email"
-              placeholder="Enter your email"
-              autocomplete="email">
-            <mat-icon matPrefix>email</mat-icon>
-            @if (loginForm.get('email')?.hasError('required') && loginForm.get('email')?.touched) {
-              <mat-error>Email is required</mat-error>
+          <div class="field">
+            <label for="email" class="field-label">Email Address*</label>
+            <p-iconfield>
+              <p-inputicon styleClass="pi pi-envelope" />
+              <input 
+                pInputText 
+                id="email"
+                type="email"
+                [(ngModel)]="email"
+                name="email"
+                placeholder="Enter your email"
+                class="w-full"
+                [class.ng-invalid]="emailError()"
+                required
+              />
+            </p-iconfield>
+            @if (emailError()) {
+              <small class="field-error">{{ emailError() }}</small>
             }
-            @if (loginForm.get('email')?.hasError('email') && loginForm.get('email')?.touched) {
-              <mat-error>Please enter a valid email</mat-error>
-            }
-          </mat-form-field>
-          
+          </div>
+
           <!-- Password Field -->
-          <mat-form-field appearance="outline" class="full-width" [@fadeIn]>
-            <mat-label>Password</mat-label>
-            <input 
-              matInput 
-              [type]="hidePassword() ? 'password' : 'text'"
-              formControlName="password"
+          <div class="field">
+            <label for="password" class="field-label">Password*</label>
+            <p-password 
+              id="password"
+              [(ngModel)]="password"
+              name="password"
               placeholder="Enter your password"
-              autocomplete="current-password">
-            <mat-icon matPrefix>lock</mat-icon>
-            <button 
-              mat-icon-button 
-              matSuffix 
-              type="button"
-              (click)="togglePasswordVisibility()"
-              [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'">
-              <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
-            </button>
-            @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
-              <mat-error>Password is required</mat-error>
+              [toggleMask]="true"
+              [feedback]="false"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+              [class.ng-invalid]="passwordError()"
+              required
+            />
+            @if (passwordError()) {
+              <small class="field-error">{{ passwordError() }}</small>
             }
-            @if (loginForm.get('password')?.hasError('minlength') && loginForm.get('password')?.touched) {
-              <mat-error>Password must be at least 8 characters</mat-error>
-            }
-          </mat-form-field>
-          
+          </div>
+
           <!-- Remember Me & Forgot Password -->
-          <div class="form-options" [@fadeIn]>
-            <mat-checkbox formControlName="rememberMe" color="primary">
-              Remember me
-            </mat-checkbox>
-            <a routerLink="/auth/forgot-password" class="forgot-link">
-              Forgot password?
-            </a>
+          <div class="form-options">
+            <div class="remember-me">
+              <p-checkbox 
+                [(ngModel)]="rememberMe" 
+                name="rememberMe"
+                [binary]="true" 
+                inputId="rememberMe"
+              />
+              <label for="rememberMe" class="remember-label">Remember me</label>
+            </div>
+            <a routerLink="/auth/forgot-password" class="forgot-link">Forgot password?</a>
           </div>
-          
+
           <!-- Submit Button -->
-          <button 
-            mat-raised-button 
-            color="primary" 
+          <p-button 
             type="submit"
-            class="submit-button"
-            [disabled]="loginForm.invalid || authService.isLoading()"
-            [@fadeIn]>
-            @if (authService.isLoading()) {
-              <mat-spinner diameter="20" class="button-spinner"></mat-spinner>
-              <span>Signing in...</span>
-            } @else {
-              <mat-icon>login</mat-icon>
-              <span>Sign In</span>
-            }
-          </button>
+            label="Sign In"
+            icon="pi pi-sign-in"
+            styleClass="w-full"
+            [loading]="isLoading()"
+            [disabled]="isLoading()"
+          />
         </form>
-        
-        <!-- Security Notice -->
-        <div class="security-notice" [@fadeIn]>
-          <mat-icon>security</mat-icon>
-          <span>This is a HIPAA-compliant secure system. Unauthorized access is prohibited.</span>
+
+        <!-- HIPAA Notice -->
+        <div class="hipaa-notice">
+          <i class="pi pi-shield"></i>
+          <div>
+            <span>This is a HIPAA-compliant secure system.</span>
+            <span>Unauthorized access is prohibited.</span>
+          </div>
         </div>
-        
+
+        <p-divider />
+
         <!-- Demo Credentials -->
-        <div class="demo-credentials" [@fadeIn]>
+        <div class="demo-section">
           <p class="demo-title">Demo Credentials:</p>
-          <div class="demo-accounts">
-            <button type="button" mat-stroked-button (click)="fillDemoCredentials('admin')" class="demo-btn">
-              <mat-icon>admin_panel_settings</mat-icon>
-              <span>Admin</span>
-            </button>
-            <button type="button" mat-stroked-button (click)="fillDemoCredentials('doctor')" class="demo-btn">
-              <mat-icon>medical_services</mat-icon>
-              <span>Doctor</span>
-            </button>
-            <button type="button" mat-stroked-button (click)="fillDemoCredentials('nurse')" class="demo-btn">
-              <mat-icon>healing</mat-icon>
-              <span>Nurse</span>
-            </button>
+          <div class="demo-buttons">
+            <p-button 
+              label="Admin" 
+              icon="pi pi-user" 
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="fillDemoCredentials('admin')"
+            />
+            <p-button 
+              label="Doctor" 
+              icon="pi pi-id-card" 
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="fillDemoCredentials('doctor')"
+            />
+            <p-button 
+              label="Nurse" 
+              icon="pi pi-heart" 
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              (onClick)="fillDemoCredentials('nurse')"
+            />
           </div>
         </div>
-        
-        <!-- Footer -->
-        <div class="card-footer" [@fadeIn]>
-          <p>© 2025 GoEMR. All rights reserved.</p>
-          <div class="footer-links">
-            <a href="#">Privacy Policy</a>
-            <span class="divider">|</span>
-            <a href="#">Terms of Service</a>
-            <span class="divider">|</span>
-            <a href="#">Contact Support</a>
-          </div>
-        </div>
-      </mat-card>
+      </div>
     </div>
   `,
   styles: [`
@@ -209,310 +184,430 @@ import { AuthService } from '../auth.service';
       display: flex;
       align-items: center;
       justify-content: center;
+      background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #1e40af 100%);
+      padding: 1rem;
       position: relative;
-      padding: 24px;
+      transition: background 0.3s ease;
     }
     
-    .background-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: -1;
+    .login-container.dark {
+      background: linear-gradient(135deg, #0c4a6e 0%, #1e3a8a 50%, #0f172a 100%);
     }
-    
-    .gradient-overlay {
+
+    .theme-toggle {
       position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, 
-        var(--primary-color, #1976d2) 0%, 
-        var(--primary-dark, #0d47a1) 50%,
-        var(--accent-color, #00acc1) 100%);
-    }
-    
-    .pattern-overlay {
-      position: absolute;
-      inset: 0;
-      opacity: 0.1;
-      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    }
-    
-    .login-card {
-      width: 100%;
-      max-width: 440px;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      background: rgba(255, 255, 255, 0.98);
+      top: 1.5rem;
+      right: 1.5rem;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.2);
       backdrop-filter: blur(10px);
-    }
-    
-    .logo-section {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    
-    .logo-container {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 16px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+      color: white;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 20px rgba(14, 165, 233, 0.2);
+      transition: all 0.3s ease;
+      font-size: 1.25rem;
     }
     
-    .logo-img {
-      width: 56px;
-      height: 56px;
-      object-fit: contain;
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+
+    .login-card {
+      background: white;
+      border-radius: 1.5rem;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      transition: all 0.3s ease;
     }
     
+    .dark .login-card {
+      background: #1e293b;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+    }
+
     .app-title {
-      font-size: 28px;
+      font-size: 2rem;
       font-weight: 700;
-      color: #1a1a2e;
-      margin: 0 0 4px;
-      letter-spacing: -0.5px;
-    }
-    
-    .app-subtitle {
-      font-size: 14px;
-      color: #666;
+      color: #1e293b;
       margin: 0;
+      transition: color 0.3s ease;
     }
     
+    .dark .app-title {
+      color: #f1f5f9;
+    }
+
+    .app-subtitle {
+      color: #64748b;
+      margin: 0.25rem 0 0;
+      font-size: 0.95rem;
+      transition: color 0.3s ease;
+    }
+    
+    .dark .app-subtitle {
+      color: #94a3b8;
+    }
+
     .login-form {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 1.25rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .field-label {
+      font-weight: 500;
+      color: #374151;
+      font-size: 0.875rem;
+      transition: color 0.3s ease;
     }
     
-    .full-width {
-      width: 100%;
+    .dark .field-label {
+      color: #e2e8f0;
+    }
+
+    .field-error {
+      color: #dc2626;
+      font-size: 0.75rem;
     }
     
+    .dark .field-error {
+      color: #f87171;
+    }
+
     .form-options {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 8px 0 16px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .remember-label {
+      font-size: 0.875rem;
+      color: #4b5563;
+      cursor: pointer;
+      transition: color 0.3s ease;
     }
     
+    .dark .remember-label {
+      color: #cbd5e1;
+    }
+
     .forgot-link {
-      color: #1976d2;
+      font-size: 0.875rem;
+      color: #3b82f6;
       text-decoration: none;
-      font-size: 14px;
       font-weight: 500;
-      transition: color 0.2s ease;
-      
-      &:hover {
-        color: #0d47a1;
-        text-decoration: underline;
-      }
+    }
+
+    .forgot-link:hover {
+      text-decoration: underline;
     }
     
-    .submit-button {
-      height: 52px;
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      border-radius: 8px;
-      margin-top: 8px;
+    .dark .forgot-link {
+      color: #60a5fa;
+    }
+
+    .hipaa-notice {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 0.75rem;
+      padding: 0.875rem 1rem;
+      margin-top: 1.5rem;
+      transition: all 0.3s ease;
     }
     
-    .button-spinner {
-      margin-right: 8px;
+    .dark .hipaa-notice {
+      background: #064e3b;
+      border-color: #065f46;
+    }
+
+    .hipaa-notice i {
+      color: #16a34a;
+      font-size: 1.25rem;
+      margin-top: 0.125rem;
     }
     
-    .security-notice {
+    .dark .hipaa-notice i {
+      color: #34d399;
+    }
+
+    .hipaa-notice div {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 24px;
-      padding: 12px;
-      background: #f5f5f5;
-      border-radius: 8px;
-      font-size: 12px;
-      color: #666;
-      
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        color: #4caf50;
-      }
+      flex-direction: column;
+      font-size: 0.8125rem;
+      color: #166534;
+      line-height: 1.4;
     }
     
-    .demo-credentials {
-      margin-top: 20px;
-      padding: 16px;
-      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-      border-radius: 8px;
-      border: 1px solid #90caf9;
-      
-      .demo-title {
-        font-size: 12px;
-        font-weight: 600;
-        color: #1565c0;
-        margin: 0 0 12px;
-        text-align: center;
-      }
-      
-      .demo-accounts {
-        display: flex;
-        justify-content: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      
-      .demo-btn {
-        font-size: 11px;
-        padding: 4px 12px;
-        min-width: 80px;
-        
-        mat-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
-          margin-right: 4px;
-        }
-      }
+    .dark .hipaa-notice div {
+      color: #a7f3d0;
     }
-    
-    .card-footer {
+
+    .demo-section {
       text-align: center;
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #e0e0e0;
-      
-      p {
-        font-size: 12px;
-        color: #999;
-        margin: 0 0 8px;
-      }
+    }
+
+    .demo-title {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 0.75rem;
+      transition: color 0.3s ease;
     }
     
-    .footer-links {
+    .dark .demo-title {
+      color: #9ca3af;
+    }
+
+    .demo-buttons {
       display: flex;
+      gap: 0.5rem;
       justify-content: center;
-      align-items: center;
-      gap: 8px;
       flex-wrap: wrap;
-      
-      a {
-        font-size: 12px;
-        color: #666;
-        text-decoration: none;
-        
-        &:hover {
-          color: #1976d2;
-        }
+    }
+
+    /* PrimeNG overrides */
+    :host ::ng-deep {
+      .p-password {
+        width: 100%;
       }
       
-      .divider {
-        color: #ccc;
+      .p-password input {
+        width: 100%;
+      }
+
+      .p-iconfield {
+        width: 100%;
+      }
+
+      .p-inputtext {
+        width: 100%;
+      }
+
+      .p-button.w-full {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .p-divider {
+        margin: 1.5rem 0;
+      }
+
+      .p-checkbox {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      
+      /* Dark mode input overrides */
+      .dark .p-inputtext {
+        background: #334155;
+        border-color: #475569;
+        color: #f1f5f9;
+      }
+      
+      .dark .p-inputtext::placeholder {
+        color: #94a3b8;
+      }
+      
+      .dark .p-inputtext:enabled:hover {
+        border-color: #60a5fa;
+      }
+      
+      .dark .p-inputtext:enabled:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 1px #3b82f6;
+      }
+      
+      .dark .p-password-input {
+        background: #334155;
+        border-color: #475569;
+        color: #f1f5f9;
+      }
+      
+      .dark .p-icon-field-left > .p-inputicon {
+        color: #94a3b8;
+      }
+      
+      .dark .p-divider::before {
+        border-color: #475569;
+      }
+      
+      .dark .p-button-secondary.p-button-outlined {
+        border-color: #475569;
+        color: #e2e8f0;
+      }
+      
+      .dark .p-button-secondary.p-button-outlined:hover {
+        background: #334155;
+        border-color: #60a5fa;
+        color: #60a5fa;
       }
     }
-    
-    // Responsive
+
+    /* Responsive */
     @media (max-width: 480px) {
       .login-card {
-        padding: 24px;
-        border-radius: 12px;
+        padding: 1.5rem;
+        border-radius: 1rem;
       }
-      
-      .logo-container {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        
-        .logo-img {
-          width: 44px;
-          height: 44px;
-        }
-      }
-      
-      .app-title {
-        font-size: 24px;
-      }
-      
-      .form-options {
+
+      .demo-buttons {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+      }
+
+      .demo-buttons .p-button {
+        width: 100%;
+      }
+      
+      .theme-toggle {
+        top: 1rem;
+        right: 1rem;
+        width: 40px;
+        height: 40px;
       }
     }
-  `],
+  `]
 })
-export class LoginComponent {
-  protected readonly authService = inject(AuthService);
-  private readonly fb = inject(FormBuilder);
-  private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+export class LoginComponent implements OnDestroy {
+  private authService = inject(AuthService);
+  private router = inject(Router);
+  private messageService = inject(MessageService);
+  readonly themeService = inject(ThemeService);
   
-  protected readonly hidePassword = signal(true);
-  protected readonly animationState = signal<string>('');
-  
-  protected loginForm: FormGroup = this.fb.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
-    rememberMe: [false],
-  });
-  
-  togglePasswordVisibility(): void {
-    this.hidePassword.update(v => !v);
+  private loginSubscription?: Subscription;
+
+  // Form fields
+  email = '';
+  password = '';
+  rememberMe = false;
+
+  // State signals
+  isLoading = signal(false);
+  emailError = signal<string | null>(null);
+  passwordError = signal<string | null>(null);
+
+  ngOnDestroy(): void {
+    this.loginSubscription?.unsubscribe();
   }
-  
+
   fillDemoCredentials(role: 'admin' | 'doctor' | 'nurse'): void {
-    const credentials = {
+    const credentials: Record<string, { email: string; password: string }> = {
       admin: { email: 'admin@goemr.com', password: 'admin123' },
       doctor: { email: 'doctor@goemr.com', password: 'doctor123' },
       nurse: { email: 'nurse@goemr.com', password: 'nurse123' },
     };
+
+    const cred = credentials[role];
+    this.email = cred.email;
+    this.password = cred.password;
     
-    this.loginForm.patchValue(credentials[role]);
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Demo Credentials',
+      detail: `Filled ${role} credentials`,
+      life: 2000
+    });
   }
-  
+
   onSubmit(): void {
-    if (this.loginForm.invalid) {
-      this.loginForm.markAllAsTouched();
-      this.animationState.set('error');
-      setTimeout(() => this.animationState.set(''), 400);
+    // Reset errors
+    this.emailError.set(null);
+    this.passwordError.set(null);
+
+    // Validate
+    if (!this.email) {
+      this.emailError.set('Email is required');
       return;
     }
-    
-    this.authService.login(this.loginForm.value).subscribe({
+
+    if (!this.email.includes('@')) {
+      this.emailError.set('Please enter a valid email address');
+      return;
+    }
+
+    if (!this.password) {
+      this.passwordError.set('Password is required');
+      return;
+    }
+
+    if (this.password.length < 6) {
+      this.passwordError.set('Password must be at least 6 characters');
+      return;
+    }
+
+    this.isLoading.set(true);
+
+    // Create credentials object matching AuthService interface
+    const credentials: LoginCredentials = {
+      email: this.email,
+      password: this.password,
+      rememberMe: this.rememberMe
+    };
+
+    // Subscribe to login Observable
+    this.loginSubscription = this.authService.login(credentials).subscribe({
       next: (response) => {
-        if (response.mfaRequired) {
-          this.router.navigate(['/auth/mfa']);
-        } else {
-          this.snackBar.open('Welcome back!', 'Close', { duration: 3000 });
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Welcome!',
+          detail: `Welcome back, ${response.user.firstName}!`,
+          life: 2000
+        });
+        
+        // Navigate to dashboard after brief delay
+        setTimeout(() => {
           this.router.navigate(['/dashboard']);
-        }
+        }, 500);
       },
       error: (error) => {
-        this.animationState.set('error');
-        setTimeout(() => this.animationState.set(''), 400);
-        this.snackBar.open(
-          error.error?.message || 'Login failed. Please try again.',
-          'Close',
-          { duration: 5000, panelClass: 'error-snackbar' }
-        );
+        this.isLoading.set(false);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Login Failed',
+          detail: error?.error?.message || 'Invalid email or password',
+          life: 4000
+        });
       },
+      complete: () => {
+        this.isLoading.set(false);
+      }
     });
   }
 }
