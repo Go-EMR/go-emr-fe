@@ -2,545 +2,501 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
+
+// PrimeNG Imports
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { DialogModule } from 'primeng/dialog';
+import { TagModule } from 'primeng/tag';
+import { AvatarModule } from 'primeng/avatar';
+import { TooltipModule } from 'primeng/tooltip';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { ChipModule } from 'primeng/chip';
+import { MenuModule } from 'primeng/menu';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { DividerModule } from 'primeng/divider';
+import { RippleModule } from 'primeng/ripple';
+import { ConfirmPopupModule } from 'primeng/confirmpopup';
+import { ToastModule } from 'primeng/toast';
+import { BadgeModule } from 'primeng/badge';
+import { MenuItem, MessageService, ConfirmationService } from 'primeng/api';
+
+import { ThemeService } from '../../../core/services/theme.service';
 import { AdminService } from '../data-access/services/admin.service';
 import { User, UserStatus, UserType } from '../data-access/models/admin.model';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    CommonModule, FormsModule, ReactiveFormsModule, RouterLink,
+    TableModule, ButtonModule, InputTextModule, SelectModule, DialogModule, TagModule,
+    AvatarModule, TooltipModule, CheckboxModule, ToggleSwitchModule, ChipModule, MenuModule,
+    IconFieldModule, InputIconModule, DividerModule, RippleModule, ConfirmPopupModule, 
+    ToastModule, BadgeModule,
+  ],
+  providers: [MessageService, ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('fadeSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('staggerCards', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(20px)' }),
+          stagger(80, [
+            animate('400ms cubic-bezier(0.35, 0, 0.25, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ]),
+    trigger('tableRow', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(-10px)' }),
+        animate('200ms ease-out', style({ opacity: 1, transform: 'translateX(0)' }))
+      ])
+    ])
+  ],
   template: `
-    <div class="users-container">
+    <div class="users-container" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
+
       <!-- Header -->
-      <header class="page-header">
+      <header class="page-header" @fadeSlide>
         <div class="header-content">
           <div class="title-section">
             <h1>User Management</h1>
             <p class="subtitle">Manage user accounts, roles, and permissions</p>
           </div>
           <div class="header-actions">
-            <button class="btn btn-secondary" (click)="exportUsers()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Export
-            </button>
-            <button class="btn btn-primary" (click)="openCreateModal()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add User
-            </button>
+            <p-button label="Export" icon="pi pi-download" [outlined]="true" severity="secondary" (onClick)="exportUsers()" />
+            <p-button label="Add User" icon="pi pi-plus" (onClick)="openCreateModal()" />
           </div>
         </div>
       </header>
 
       <!-- Stats Cards -->
-      <div class="stats-cards">
-        <div class="stat-card">
-          <div class="stat-icon total">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
+      <div class="stats-grid" @staggerCards>
+        <div class="stat-card" data-type="total" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-users"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.totalUsers() }}</span>
             <span class="stat-label">Total Users</span>
           </div>
+          <div class="stat-trend up">
+            <i class="pi pi-arrow-up"></i>
+            <span>12%</span>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon active">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
+
+        <div class="stat-card" data-type="active" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-check-circle"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.usersByStatus().active }}</span>
             <span class="stat-label">Active</span>
           </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon pending">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
+          <div class="stat-chart">
+            <svg viewBox="0 0 100 40" class="mini-chart">
+              <polyline fill="none" stroke="currentColor" stroke-width="2" points="0,35 20,28 40,32 60,20 80,25 100,15" />
             </svg>
+          </div>
+        </div>
+
+        <div class="stat-card" data-type="pending" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-clock"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.usersByStatus().pending }}</span>
             <span class="stat-label">Pending</span>
           </div>
+          <div class="stat-badge">
+            <p-badge value="Action" severity="warn" />
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon locked">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
+
+        <div class="stat-card" data-type="locked" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-lock"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.usersByStatus().locked }}</span>
             <span class="stat-label">Locked</span>
           </div>
+          @if (adminService.usersByStatus().locked > 0) {
+            <div class="stat-alert">
+              <i class="pi pi-exclamation-triangle"></i>
+            </div>
+          }
         </div>
       </div>
 
       <!-- Filters -->
-      <div class="filters-bar">
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input 
-            type="text" 
-            placeholder="Search users..."
-            [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
-          />
-        </div>
-        <div class="filter-group">
-          <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending">Pending</option>
-            <option value="locked">Locked</option>
-            <option value="suspended">Suspended</option>
-          </select>
-          <select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)">
-            <option value="all">All Types</option>
-            <option value="provider">Provider</option>
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-          </select>
-          <select [ngModel]="departmentFilter()" (ngModelChange)="departmentFilter.set($event)">
-            <option value="all">All Departments</option>
-            @for (dept of departments; track dept) {
-              <option [value]="dept">{{ dept }}</option>
-            }
-          </select>
+      <div class="filters-card" @fadeSlide>
+        <p-iconfield class="search-field">
+          <p-inputicon styleClass="pi pi-search" />
+          <input pInputText type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" placeholder="Search users by name, email..." class="search-input" />
+        </p-iconfield>
+        <div class="filter-controls">
+          <p-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" [options]="statusOptions" optionLabel="label" optionValue="value" placeholder="All Status" [showClear]="true" />
+          <p-select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)" [options]="typeOptions" optionLabel="label" optionValue="value" placeholder="All Types" [showClear]="true" />
+          <p-select [ngModel]="departmentFilter()" (ngModelChange)="departmentFilter.set($event)" [options]="departmentOptions" optionLabel="label" optionValue="value" placeholder="All Departments" [showClear]="true" />
         </div>
       </div>
 
       <!-- Users Table -->
-      <div class="users-table-container">
-        <table class="users-table">
-          <thead>
+      <div class="table-card">
+        <p-table 
+          [value]="filteredUsers()" 
+          [paginator]="true" 
+          [rows]="10" 
+          [showCurrentPageReport]="true"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          currentPageReportTemplate="Showing {first} to {last} of {totalRecords} users"
+          styleClass="p-datatable-striped"
+          [rowHover]="true"
+          [globalFilterFields]="['fullName', 'email', 'username']"
+        >
+          <ng-template pTemplate="header">
             <tr>
-              <th>User</th>
-              <th>Type</th>
-              <th>Department</th>
+              <th pSortableColumn="fullName">User <p-sortIcon field="fullName" /></th>
+              <th pSortableColumn="type">Type <p-sortIcon field="type" /></th>
+              <th pSortableColumn="department">Department <p-sortIcon field="department" /></th>
               <th>Roles</th>
-              <th>Status</th>
-              <th>Last Login</th>
+              <th pSortableColumn="status">Status <p-sortIcon field="status" /></th>
+              <th pSortableColumn="lastLogin">Last Login <p-sortIcon field="lastLogin" /></th>
               <th>MFA</th>
-              <th>Actions</th>
+              <th style="width: 140px">Actions</th>
             </tr>
-          </thead>
-          <tbody>
-            @for (user of filteredUsers(); track user.id) {
-              <tr [class.inactive]="user.status !== 'active'">
-                <td>
+          </ng-template>
+          <ng-template pTemplate="body" let-user>
+            <tr [class.inactive-row]="user.status !== 'active'" @tableRow>
+              <td>
+                <div class="user-cell">
+                  <p-avatar 
+                    [label]="getInitials(user.fullName)" 
+                    [style]="getAvatarStyle(user.type)"
+                    shape="circle" 
+                    size="normal"
+                    [class.inactive-avatar]="user.status !== 'active'"
+                  />
                   <div class="user-info">
-                    <div class="user-avatar" [class]="user.type">
-                      {{ getInitials(user.fullName) }}
-                    </div>
-                    <div class="user-details">
-                      <span class="user-name">{{ user.fullName }}</span>
-                      <span class="user-email">{{ user.email }}</span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="type-badge" [class]="user.type">
-                    {{ formatType(user.type) }}
-                  </span>
-                </td>
-                <td>{{ user.department || '—' }}</td>
-                <td>
-                  <div class="roles-list">
-                    @for (role of user.roles.slice(0, 2); track role) {
-                      <span class="role-chip">{{ formatRole(role) }}</span>
-                    }
-                    @if (user.roles.length > 2) {
-                      <span class="role-chip more">+{{ user.roles.length - 2 }}</span>
-                    }
-                  </div>
-                </td>
-                <td>
-                  <span class="status-badge" [class]="user.status">
-                    {{ formatStatus(user.status) }}
-                  </span>
-                </td>
-                <td>
-                  @if (user.lastLogin) {
-                    <span class="last-login">{{ formatDate(user.lastLogin) }}</span>
-                  } @else {
-                    <span class="never">Never</span>
-                  }
-                </td>
-                <td>
-                  @if (user.mfaEnabled) {
-                    <span class="mfa-badge enabled">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                      </svg>
-                      On
-                    </span>
-                  } @else {
-                    <span class="mfa-badge disabled">Off</span>
-                  }
-                </td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-icon" (click)="viewUser(user)" title="View">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </button>
-                    <button class="btn-icon" (click)="editUser(user)" title="Edit">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
-                    </button>
-                    @if (user.status === 'locked') {
-                      <button class="btn-icon unlock" (click)="unlockUser(user)" title="Unlock">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                          <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-                        </svg>
-                      </button>
-                    }
-                    <button class="btn-icon" (click)="resetPassword(user)" title="Reset Password">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                      </svg>
-                    </button>
-                    <button class="btn-icon danger" (click)="deleteUser(user)" title="Delete">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="8">
-                  <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <line x1="17" y1="11" x2="23" y2="11"/>
-                    </svg>
-                    <h3>No users found</h3>
-                    <p>Try adjusting your filters or add a new user</p>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div class="pagination">
-        <span class="page-info">Showing {{ filteredUsers().length }} of {{ adminService.totalUsers() }} users</span>
-      </div>
-
-      <!-- Create/Edit User Modal -->
-      @if (showUserModal()) {
-        <div class="modal-overlay" (click)="closeUserModal()">
-          <div class="modal user-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>{{ editingUser() ? 'Edit User' : 'Create User' }}</h2>
-              <button class="btn-close" (click)="closeUserModal()">×</button>
-            </div>
-            <div class="modal-body">
-              <form [formGroup]="userForm">
-                <div class="form-section">
-                  <h3>Basic Information</h3>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="firstName">First Name *</label>
-                      <input id="firstName" type="text" formControlName="firstName" />
-                    </div>
-                    <div class="form-group">
-                      <label for="lastName">Last Name *</label>
-                      <input id="lastName" type="text" formControlName="lastName" />
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="email">Email *</label>
-                      <input id="email" type="email" formControlName="email" />
-                    </div>
-                    <div class="form-group">
-                      <label for="username">Username *</label>
-                      <input id="username" type="text" formControlName="username" />
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="phone">Phone</label>
-                      <input id="phone" type="tel" formControlName="phone" />
-                    </div>
-                    <div class="form-group">
-                      <label for="title">Title</label>
-                      <input id="title" type="text" formControlName="title" />
-                    </div>
+                    <span class="user-name" [class.inactive-text]="user.status !== 'active'">{{ user.fullName }}</span>
+                    <span class="user-email">{{ user.email }}</span>
                   </div>
                 </div>
-
-                <div class="form-section">
-                  <h3>Role & Access</h3>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="type">User Type *</label>
-                      <select id="type" formControlName="type">
-                        <option value="provider">Provider</option>
-                        <option value="staff">Staff</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="department">Department</label>
-                      <select id="department" formControlName="department">
-                        <option value="">Select Department</option>
-                        @for (dept of departments; track dept) {
-                          <option [value]="dept">{{ dept }}</option>
-                        }
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label>Roles *</label>
-                    <div class="checkbox-group">
-                      @for (role of availableRoles; track role.id) {
-                        <label class="checkbox-item">
-                          <input 
-                            type="checkbox" 
-                            [checked]="selectedRoles().includes(role.id)"
-                            (change)="toggleRole(role.id)"
-                          />
-                          <span>{{ role.name }}</span>
-                        </label>
-                      }
-                    </div>
-                  </div>
+              </td>
+              <td>
+                <p-tag [value]="formatType(user.type)" [severity]="getTypeSeverity(user.type)" [rounded]="true" />
+              </td>
+              <td>
+                <span class="department-text" [class.inactive-text]="user.status !== 'active'">{{ user.department || '—' }}</span>
+              </td>
+              <td>
+                <div class="roles-cell">
+                  @for (role of user.roles.slice(0, 2); track role) {
+                    <p-chip [label]="formatRole(role)" styleClass="role-chip" />
+                  }
+                  @if (user.roles.length > 2) {
+                    <span class="roles-more">+{{ user.roles.length - 2 }}</span>
+                  }
                 </div>
-
-                @if (userForm.get('type')?.value === 'provider') {
-                  <div class="form-section">
-                    <h3>Provider Information</h3>
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label for="npi">NPI</label>
-                        <input id="npi" type="text" formControlName="npi" />
-                      </div>
-                      <div class="form-group">
-                        <label for="specialty">Specialty</label>
-                        <input id="specialty" type="text" formControlName="specialty" />
-                      </div>
-                    </div>
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label for="licenseNumber">License Number</label>
-                        <input id="licenseNumber" type="text" formControlName="licenseNumber" />
-                      </div>
-                      <div class="form-group">
-                        <label for="licenseState">License State</label>
-                        <input id="licenseState" type="text" formControlName="licenseState" maxlength="2" />
-                      </div>
-                    </div>
-                  </div>
+              </td>
+              <td>
+                <p-tag [value]="formatStatus(user.status)" [severity]="getStatusSeverity(user.status)" [rounded]="true" />
+              </td>
+              <td>
+                @if (user.lastLogin) {
+                  <span class="login-date" [class.inactive-text]="user.status !== 'active'">{{ formatDate(user.lastLogin) }}</span>
+                } @else {
+                  <span class="never-login">Never</span>
                 }
-
-                <div class="form-section">
-                  <h3>Security</h3>
-                  <div class="form-group">
-                    <label class="checkbox-item">
-                      <input type="checkbox" formControlName="mfaEnabled" />
-                      <span>Require Multi-Factor Authentication</span>
-                    </label>
+              </td>
+              <td>
+                @if (user.mfaEnabled) {
+                  <div class="mfa-enabled">
+                    <i class="pi pi-shield"></i>
+                    <span>On</span>
                   </div>
-                  @if (!editingUser()) {
-                    <div class="form-group">
-                      <label class="checkbox-item">
-                        <input type="checkbox" formControlName="sendWelcomeEmail" />
-                        <span>Send welcome email with login instructions</span>
-                      </label>
-                    </div>
+                } @else {
+                  <span class="mfa-disabled">Off</span>
+                }
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <p-button icon="pi pi-eye" [rounded]="true" [text]="true" severity="secondary" pTooltip="View" (onClick)="viewUser(user)" />
+                  <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="secondary" pTooltip="Edit" (onClick)="editUser(user)" />
+                  @if (user.status === 'locked') {
+                    <p-button icon="pi pi-lock-open" [rounded]="true" [text]="true" severity="success" pTooltip="Unlock" (onClick)="unlockUser(user)" />
                   }
+                  <p-button icon="pi pi-key" [rounded]="true" [text]="true" severity="secondary" pTooltip="Reset Password" (onClick)="resetPassword(user)" />
+                  <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" (onClick)="deleteUser(user)" />
                 </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" (click)="closeUserModal()">Cancel</button>
-              <button 
-                class="btn btn-primary" 
-                (click)="saveUser()"
-                [disabled]="userForm.invalid || selectedRoles().length === 0"
-              >
-                {{ editingUser() ? 'Update' : 'Create' }} User
-              </button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <i class="pi pi-users"></i>
+                  <h3>No users found</h3>
+                  <p>Try adjusting your filters or add a new user</p>
+                  <p-button label="Add User" icon="pi pi-plus" (onClick)="openCreateModal()" />
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <!-- Create/Edit User Dialog -->
+      <p-dialog 
+        [header]="editingUser() ? 'Edit User' : 'Create User'" 
+        [(visible)]="showUserModal" 
+        [modal]="true" 
+        [style]="{ width: '700px' }" 
+        [draggable]="false"
+        [closable]="true"
+      >
+        <div class="user-form" [formGroup]="userForm">
+          <div class="form-section">
+            <h4>Basic Information</h4>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>First Name *</label>
+                <input pInputText formControlName="firstName" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Last Name *</label>
+                <input pInputText formControlName="lastName" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Email *</label>
+                <input pInputText type="email" formControlName="email" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Username *</label>
+                <input pInputText formControlName="username" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Phone</label>
+                <input pInputText formControlName="phone" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Title</label>
+                <input pInputText formControlName="title" class="w-full" />
+              </div>
+              <div class="form-field">
+                <label>User Type *</label>
+                <p-select formControlName="type" [options]="typeOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+              <div class="form-field">
+                <label>Department</label>
+                <p-select formControlName="department" [options]="departmentOptions" optionLabel="label" optionValue="value" styleClass="w-full" [showClear]="true" />
+              </div>
             </div>
           </div>
-        </div>
-      }
 
-      <!-- View User Modal -->
-      @if (showViewModal()) {
-        <div class="modal-overlay" (click)="closeViewModal()">
-          <div class="modal view-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <div class="user-header-info">
-                <div class="user-avatar large" [class]="viewingUser()!.type">
-                  {{ getInitials(viewingUser()!.fullName) }}
+          @if (userForm.get('type')?.value === 'provider') {
+            <p-divider />
+            <div class="form-section">
+              <h4>Provider Information</h4>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label>NPI</label>
+                  <input pInputText formControlName="npi" class="w-full" />
                 </div>
-                <div>
-                  <h2>{{ viewingUser()!.fullName }}</h2>
-                  <p>{{ viewingUser()!.email }}</p>
+                <div class="form-field">
+                  <label>Specialty</label>
+                  <input pInputText formControlName="specialty" class="w-full" />
+                </div>
+                <div class="form-field">
+                  <label>License Number</label>
+                  <input pInputText formControlName="licenseNumber" class="w-full" />
+                </div>
+                <div class="form-field">
+                  <label>License State</label>
+                  <input pInputText formControlName="licenseState" class="w-full" maxlength="2" />
                 </div>
               </div>
-              <button class="btn-close" (click)="closeViewModal()">×</button>
             </div>
-            <div class="modal-body">
-              <div class="detail-grid">
-                <div class="detail-item">
-                  <label>Username</label>
-                  <span>{{ viewingUser()!.username }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>Type</label>
-                  <span class="type-badge" [class]="viewingUser()!.type">
-                    {{ formatType(viewingUser()!.type) }}
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <label>Status</label>
-                  <span class="status-badge" [class]="viewingUser()!.status">
-                    {{ formatStatus(viewingUser()!.status) }}
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <label>Department</label>
-                  <span>{{ viewingUser()!.department || '—' }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>Title</label>
-                  <span>{{ viewingUser()!.title || '—' }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>Phone</label>
-                  <span>{{ viewingUser()!.phone || '—' }}</span>
-                </div>
-                @if (viewingUser()!.type === 'provider') {
-                  <div class="detail-item">
-                    <label>NPI</label>
-                    <span>{{ viewingUser()!.npi || '—' }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <label>Specialty</label>
-                    <span>{{ viewingUser()!.specialty || '—' }}</span>
-                  </div>
-                }
-                <div class="detail-item">
-                  <label>Last Login</label>
-                  <span>{{ viewingUser()!.lastLogin ? formatDateTime(viewingUser()!.lastLogin!) : 'Never' }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>MFA</label>
-                  <span>{{ viewingUser()!.mfaEnabled ? 'Enabled (' + viewingUser()!.mfaMethod + ')' : 'Disabled' }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>Created</label>
-                  <span>{{ formatDateTime(viewingUser()!.createdAt) }}</span>
-                </div>
-                <div class="detail-item">
-                  <label>Last Updated</label>
-                  <span>{{ formatDateTime(viewingUser()!.updatedAt) }}</span>
-                </div>
-              </div>
+          }
 
-              <div class="detail-section">
-                <label>Roles</label>
-                <div class="roles-display">
-                  @for (role of viewingUser()!.roles; track role) {
-                    <span class="role-chip">{{ formatRole(role) }}</span>
-                  }
-                </div>
-              </div>
-
-              @if (viewingUser()!.credentials?.length) {
-                <div class="detail-section">
-                  <label>Credentials</label>
-                  <div class="credentials-display">
-                    @for (cred of viewingUser()!.credentials; track cred) {
-                      <span class="credential-badge">{{ cred }}</span>
-                    }
-                  </div>
+          <p-divider />
+          <div class="form-section">
+            <h4>Assign Roles *</h4>
+            <div class="roles-grid">
+              @for (role of availableRoles; track role.id) {
+                <div 
+                  class="role-option" 
+                  [class.selected]="selectedRoles().includes(role.id)"
+                  (click)="toggleRole(role.id)"
+                  pRipple
+                >
+                  <i class="pi" [class.pi-check-circle]="selectedRoles().includes(role.id)" [class.pi-circle]="!selectedRoles().includes(role.id)"></i>
+                  <span>{{ role.name }}</span>
                 </div>
               }
             </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" (click)="closeViewModal()">Close</button>
-              <button class="btn btn-primary" (click)="editUser(viewingUser()!)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-                Edit User
-              </button>
+          </div>
+
+          <p-divider />
+          <div class="form-section">
+            <h4>Security Options</h4>
+            <div class="options-list">
+              <div class="option-item">
+                <span>Require Multi-Factor Authentication</span>
+                <p-toggleSwitch formControlName="mfaEnabled" />
+              </div>
+              @if (!editingUser()) {
+                <div class="option-item">
+                  <span>Send Welcome Email</span>
+                  <p-toggleSwitch formControlName="sendWelcomeEmail" />
+                </div>
+              }
             </div>
           </div>
         </div>
-      }
+
+        <ng-template pTemplate="footer">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="closeUserModal()" />
+          <p-button [label]="editingUser() ? 'Update' : 'Create'" icon="pi pi-check" (onClick)="saveUser()" [disabled]="userForm.invalid || selectedRoles().length === 0" />
+        </ng-template>
+      </p-dialog>
+
+      <!-- View User Dialog -->
+      <p-dialog header="User Details" [(visible)]="showViewModal" [modal]="true" [style]="{ width: '600px' }" [draggable]="false">
+        @if (viewingUser(); as user) {
+          <div class="user-detail">
+            <div class="detail-header">
+              <p-avatar [label]="getInitials(user.fullName)" [style]="getAvatarStyle(user.type)" shape="circle" size="xlarge" />
+              <div class="detail-meta">
+                <h2>{{ user.fullName }}</h2>
+                <p>{{ user.email }}</p>
+                <p-tag [value]="formatStatus(user.status)" [severity]="getStatusSeverity(user.status)" [rounded]="true" />
+              </div>
+            </div>
+
+            <p-divider />
+
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="label">Username</span>
+                <span class="value">{{ user.username }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Type</span>
+                <span class="value">{{ formatType(user.type) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Department</span>
+                <span class="value">{{ user.department || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Phone</span>
+                <span class="value">{{ user.phone || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Title</span>
+                <span class="value">{{ user.title || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">MFA</span>
+                <span class="value">{{ user.mfaEnabled ? 'Enabled' : 'Disabled' }}</span>
+              </div>
+              @if (user.type === 'provider') {
+                <div class="detail-item">
+                  <span class="label">NPI</span>
+                  <span class="value">{{ user.npi || '—' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Specialty</span>
+                  <span class="value">{{ user.specialty || '—' }}</span>
+                </div>
+              }
+              <div class="detail-item">
+                <span class="label">Last Login</span>
+                <span class="value">{{ user.lastLogin ? formatDateTime(user.lastLogin) : 'Never' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Created</span>
+                <span class="value">{{ formatDateTime(user.createdAt) }}</span>
+              </div>
+            </div>
+
+            <p-divider />
+
+            <div class="detail-roles">
+              <span class="label">Assigned Roles</span>
+              <div class="roles-list">
+                @for (role of user.roles; track role) {
+                  <p-chip [label]="formatRole(role)" />
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+        <ng-template pTemplate="footer">
+          <p-button label="Close" [text]="true" severity="secondary" (onClick)="closeViewModal()" />
+          <p-button label="Edit User" icon="pi pi-pencil" (onClick)="editUser(viewingUser()!)" />
+        </ng-template>
+      </p-dialog>
     </div>
   `,
   styles: [`
     .users-container {
-      padding: 1.5rem;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .dark.users-container {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     }
 
     /* Header */
     .page-header {
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
     }
 
     .header-content {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 1rem;
     }
 
     .title-section h1 {
       margin: 0;
-      font-size: 1.75rem;
-      font-weight: 600;
-      color: #1e293b;
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .title-section h1 {
+      color: #f8fafc;
     }
 
     .subtitle {
-      margin: 0.25rem 0 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9375rem;
       color: #64748b;
-      font-size: 0.875rem;
+      font-weight: 400;
     }
 
     .header-actions {
@@ -548,89 +504,11 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
       gap: 0.75rem;
     }
 
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #2563eb;
-    }
-
-    .btn-primary:disabled {
-      background: #94a3b8;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-
-    .btn svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    .btn-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: #64748b;
-      border-radius: 0.375rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-      background: #f1f5f9;
-      color: #3b82f6;
-    }
-
-    .btn-icon.unlock:hover {
-      background: #dcfce7;
-      color: #16a34a;
-    }
-
-    .btn-icon.danger:hover {
-      background: #fef2f2;
-      color: #ef4444;
-    }
-
-    .btn-icon svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    /* Stats Cards */
-    .stats-cards {
+    /* Stats Grid */
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
       margin-bottom: 1.5rem;
     }
 
@@ -638,179 +516,231 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
       display: flex;
       align-items: center;
       gap: 1rem;
-      padding: 1rem;
+      padding: 1.25rem 1.5rem;
       background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-    }
-
-    .stat-icon {
-      width: 3rem;
-      height: 3rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 0.75rem;
-    }
-
-    .stat-icon svg {
-      width: 1.5rem;
-      height: 1.5rem;
-    }
-
-    .stat-icon.total { background: #dbeafe; color: #3b82f6; }
-    .stat-icon.active { background: #dcfce7; color: #16a34a; }
-    .stat-icon.pending { background: #fef3c7; color: #d97706; }
-    .stat-icon.locked { background: #fee2e2; color: #dc2626; }
-
-    .stat-content {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .stat-label {
-      font-size: 0.75rem;
-      color: #64748b;
-    }
-
-    /* Filters */
-    .filters-bar {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .search-box {
-      position: relative;
-      flex: 1;
-      min-width: 250px;
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 0.75rem;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 1rem;
-      height: 1rem;
-      color: #94a3b8;
-    }
-
-    .search-box input {
-      width: 100%;
-      padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-    }
-
-    .search-box input:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
-
-    .filter-group {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .filter-group select {
-      padding: 0.5rem 2rem 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      background: white;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+      border: 1px solid #f1f5f9;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
-    }
-
-    /* Table */
-    .users-table-container {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
+      position: relative;
       overflow: hidden;
     }
 
-    .users-table {
-      width: 100%;
-      border-collapse: collapse;
+    .dark .stat-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
-    .users-table th {
-      padding: 0.75rem 1rem;
-      text-align: left;
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .stat-card[data-type="total"]::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .stat-card[data-type="active"]::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .stat-card[data-type="pending"]::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .stat-card[data-type="locked"]::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+    .stat-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-icon-wrapper i {
+      font-size: 1.5rem;
+      color: white;
+    }
+
+    .stat-card[data-type="total"] .stat-icon-wrapper { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+    .stat-card[data-type="active"] .stat-icon-wrapper { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .stat-card[data-type="pending"] .stat-icon-wrapper { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .stat-card[data-type="locked"] .stat-icon-wrapper { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+    .stat-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .stat-value {
+      color: #f8fafc;
+    }
+
+    .stat-label {
+      font-size: 0.8125rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .stat-trend {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
       font-size: 0.75rem;
       font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
     }
 
-    .users-table td {
-      padding: 0.75rem 1rem;
-      font-size: 0.875rem;
-      color: #1e293b;
-      border-bottom: 1px solid #e2e8f0;
+    .stat-trend.up {
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
     }
 
-    .users-table tr:last-child td {
-      border-bottom: none;
+    .stat-trend.down {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
     }
 
-    .users-table tr.inactive {
+    .stat-chart {
+      width: 80px;
+      height: 40px;
+    }
+
+    .mini-chart {
+      width: 100%;
+      height: 100%;
+      color: #10b981;
+    }
+
+    .stat-badge {
+      display: flex;
+      align-items: center;
+    }
+
+    .stat-alert {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 8px;
+    }
+
+    .stat-alert i {
+      color: #ef4444;
+      font-size: 1rem;
+    }
+
+    /* Filters */
+    .filters-card {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      flex-wrap: wrap;
+      border: 1px solid #f1f5f9;
+    }
+
+    .dark .filters-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .search-field {
+      flex: 1;
+      min-width: 280px;
+      max-width: 400px;
+    }
+
+    .search-input {
+      width: 100%;
+      border-radius: 10px;
+    }
+
+    .filter-controls {
+      display: flex;
+      gap: 0.75rem;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    /* Table Card */
+    .table-card {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      border: 1px solid #f1f5f9;
+    }
+
+    .dark .table-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    /* Table Row Styles */
+    .inactive-row {
+      opacity: 0.55;
+      background: #f8fafc !important;
+    }
+
+    .dark .inactive-row {
+      background: #0f172a !important;
+    }
+
+    .inactive-row:hover {
       opacity: 0.7;
     }
 
-    .users-table tr:hover {
-      background: #f8fafc;
+    .inactive-avatar {
+      filter: grayscale(100%);
+    }
+
+    .inactive-text {
+      color: #94a3b8 !important;
+    }
+
+    /* User Cell */
+    .user-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
     }
 
     .user-info {
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .user-avatar {
-      width: 2.5rem;
-      height: 2.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: white;
-    }
-
-    .user-avatar.provider { background: #3b82f6; }
-    .user-avatar.staff { background: #8b5cf6; }
-    .user-avatar.admin { background: #dc2626; }
-    .user-avatar.patient { background: #16a34a; }
-
-    .user-avatar.large {
-      width: 4rem;
-      height: 4rem;
-      font-size: 1.25rem;
-    }
-
-    .user-details {
-      display: flex;
       flex-direction: column;
+      gap: 0.125rem;
     }
 
     .user-name {
-      font-weight: 500;
+      font-weight: 600;
+      color: #0f172a;
+      font-size: 0.9375rem;
+    }
+
+    .dark .user-name {
+      color: #f8fafc;
     }
 
     .user-email {
@@ -818,85 +748,76 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
       color: #64748b;
     }
 
-    .type-badge {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
+    .department-text {
+      color: #475569;
+      font-size: 0.875rem;
+    }
+
+    .dark .department-text {
+      color: #94a3b8;
+    }
+
+    /* Roles Cell */
+    .roles-cell {
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    :host ::ng-deep .role-chip {
+      font-size: 0.6875rem !important;
+      padding: 0.125rem 0.5rem !important;
+    }
+
+    .roles-more {
+      font-size: 0.6875rem;
+      color: #64748b;
+      background: #e2e8f0;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
       font-weight: 500;
     }
 
-    .type-badge.provider { background: #dbeafe; color: #1d4ed8; }
-    .type-badge.staff { background: #f3e8ff; color: #7c3aed; }
-    .type-badge.admin { background: #fee2e2; color: #dc2626; }
-
-    .roles-list {
-      display: flex;
-      gap: 0.25rem;
-      flex-wrap: wrap;
-    }
-
-    .role-chip {
-      padding: 0.125rem 0.375rem;
-      background: #f1f5f9;
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
+    /* Login Date */
+    .login-date {
+      font-size: 0.8125rem;
       color: #475569;
     }
 
-    .role-chip.more {
-      background: #e2e8f0;
+    .dark .login-date {
+      color: #94a3b8;
     }
 
-    .status-badge {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
-    .status-badge.active { background: #dcfce7; color: #16a34a; }
-    .status-badge.inactive { background: #f1f5f9; color: #64748b; }
-    .status-badge.pending { background: #fef3c7; color: #d97706; }
-    .status-badge.locked { background: #fee2e2; color: #dc2626; }
-    .status-badge.suspended { background: #fce7f3; color: #db2777; }
-
-    .last-login {
+    .never-login {
       font-size: 0.8125rem;
-      color: #64748b;
-    }
-
-    .never {
       color: #94a3b8;
       font-style: italic;
     }
 
-    .mfa-badge {
+    /* MFA Badge */
+    .mfa-enabled {
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      background: rgba(16, 185, 129, 0.1);
+      color: #10b981;
+      border-radius: 6px;
       font-size: 0.75rem;
-      font-weight: 500;
+      font-weight: 600;
     }
 
-    .mfa-badge svg {
-      width: 0.75rem;
-      height: 0.75rem;
+    .mfa-enabled i {
+      font-size: 0.75rem;
     }
 
-    .mfa-badge.enabled {
-      background: #dcfce7;
-      color: #16a34a;
-    }
-
-    .mfa-badge.disabled {
-      background: #f1f5f9;
+    .mfa-disabled {
+      font-size: 0.75rem;
       color: #94a3b8;
     }
 
+    /* Action Buttons */
     .action-buttons {
       display: flex;
       gap: 0.25rem;
@@ -907,215 +828,201 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 3rem 2rem;
-      text-align: center;
+      gap: 0.75rem;
+      padding: 4rem 2rem;
+      color: #64748b;
     }
 
-    .empty-state svg {
-      width: 3rem;
-      height: 3rem;
-      color: #94a3b8;
-      margin-bottom: 1rem;
+    .empty-state i {
+      font-size: 3rem;
+      opacity: 0.3;
     }
 
     .empty-state h3 {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
+      margin: 0;
+      font-size: 1.125rem;
       font-weight: 600;
-      color: #1e293b;
+      color: #334155;
+    }
+
+    .dark .empty-state h3 {
+      color: #e2e8f0;
     }
 
     .empty-state p {
       margin: 0;
       font-size: 0.875rem;
-      color: #64748b;
     }
 
-    /* Pagination */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      padding: 1rem;
-    }
-
-    .page-info {
-      font-size: 0.875rem;
-      color: #64748b;
-    }
-
-    /* Modals */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 1rem;
-    }
-
-    .modal {
-      background: white;
-      border-radius: 0.75rem;
-      width: 100%;
-      max-height: 90vh;
-      overflow: hidden;
+    /* User Form Dialog */
+    .user-form {
       display: flex;
       flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .user-modal {
-      max-width: 600px;
-    }
-
-    .view-modal {
-      max-width: 700px;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .modal-header h2 {
-      margin: 0;
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .user-header-info {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .user-header-info h2 {
-      margin: 0;
-    }
-
-    .user-header-info p {
-      margin: 0.25rem 0 0;
-      color: #64748b;
-      font-size: 0.875rem;
-    }
-
-    .btn-close {
-      width: 2rem;
-      height: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      font-size: 1.5rem;
-      color: #64748b;
-      cursor: pointer;
-      border-radius: 0.375rem;
-    }
-
-    .btn-close:hover {
-      background: #f1f5f9;
-    }
-
-    .modal-body {
-      padding: 1.5rem;
-      overflow-y: auto;
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #e2e8f0;
-    }
-
-    /* Form Styles */
-    .form-section {
-      margin-bottom: 1.5rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .form-section:last-child {
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-
-    .form-section h3 {
+    .form-section h4 {
       margin: 0 0 1rem;
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
       font-weight: 600;
-      color: #1e293b;
+      color: #334155;
     }
 
-    .form-group {
-      margin-bottom: 1rem;
+    .dark .form-section h4 {
+      color: #e2e8f0;
     }
 
-    .form-row {
+    .form-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, 1fr);
       gap: 1rem;
     }
 
-    .form-group label:not(.checkbox-item) {
-      display: block;
-      margin-bottom: 0.375rem;
-      font-size: 0.875rem;
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    .form-field label {
+      font-size: 0.8125rem;
       font-weight: 500;
-      color: #374151;
+      color: #475569;
     }
 
-    .form-group input,
-    .form-group select {
+    .dark .form-field label {
+      color: #94a3b8;
+    }
+
+    .w-full {
       width: 100%;
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
     }
 
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
-
-    .checkbox-group {
+    /* Roles Grid */
+    .roles-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 0.5rem;
     }
 
-    .checkbox-item {
+    .role-option {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: #475569;
+      gap: 0.625rem;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .checkbox-item input[type="checkbox"] {
-      width: 1rem;
-      height: 1rem;
-      accent-color: #3b82f6;
+    .dark .role-option {
+      background: #0f172a;
+      border-color: #334155;
     }
 
-    /* Detail Grid */
+    .role-option:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .dark .role-option:hover {
+      background: #1e293b;
+    }
+
+    .role-option.selected {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: #3b82f6;
+    }
+
+    .role-option i {
+      font-size: 1rem;
+      color: #94a3b8;
+    }
+
+    .role-option.selected i {
+      color: #3b82f6;
+    }
+
+    .role-option span {
+      font-size: 0.875rem;
+      color: #334155;
+    }
+
+    .dark .role-option span {
+      color: #e2e8f0;
+    }
+
+    /* Options List */
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .option-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .dark .option-item {
+      background: #0f172a;
+    }
+
+    .option-item span {
+      font-size: 0.875rem;
+      color: #334155;
+    }
+
+    .dark .option-item span {
+      color: #e2e8f0;
+    }
+
+    /* User Detail Dialog */
+    .user-detail {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .detail-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+
+    .detail-meta h2 {
+      margin: 0;
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .dark .detail-meta h2 {
+      color: #f8fafc;
+    }
+
+    .detail-meta p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
     .detail-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 1rem;
-      margin-bottom: 1.5rem;
     }
 
     .detail-item {
@@ -1124,78 +1031,74 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
       gap: 0.25rem;
     }
 
-    .detail-item label {
-      font-size: 0.75rem;
+    .detail-item .label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
-    .detail-item span {
-      font-size: 0.875rem;
-      color: #1e293b;
+    .detail-item .value {
+      font-size: 0.9375rem;
+      color: #0f172a;
     }
 
-    .detail-section {
-      margin-bottom: 1rem;
+    .dark .detail-item .value {
+      color: #f8fafc;
     }
 
-    .detail-section label {
-      display: block;
-      font-size: 0.75rem;
+    .detail-roles {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .detail-roles .label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
     }
 
-    .roles-display,
-    .credentials-display {
+    .roles-list {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
     }
 
-    .credential-badge {
-      padding: 0.25rem 0.5rem;
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
     /* Responsive */
-    @media (max-width: 768px) {
-      .header-content {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .header-actions {
-        justify-content: flex-end;
-      }
-
-      .stats-cards {
+    @media (max-width: 1200px) {
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+    }
 
-      .filters-bar {
+    @media (max-width: 768px) {
+      .users-container {
+        padding: 1rem;
+      }
+
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters-card {
         flex-direction: column;
       }
 
-      .users-table-container {
-        overflow-x: auto;
+      .search-field {
+        max-width: none;
       }
 
-      .form-row {
-        grid-template-columns: 1fr;
-      }
-
-      .checkbox-group {
-        grid-template-columns: 1fr;
-      }
-
+      .form-grid,
+      .roles-grid,
       .detail-grid {
         grid-template-columns: 1fr;
       }
@@ -1204,13 +1107,15 @@ import { User, UserStatus, UserType } from '../data-access/models/admin.model';
 })
 export class UsersComponent {
   adminService = inject(AdminService);
+  themeService = inject(ThemeService);
   private fb = inject(FormBuilder);
+  private messageService = inject(MessageService);
 
   // Filters
   searchQuery = signal('');
-  statusFilter = signal<'all' | UserStatus>('all');
-  typeFilter = signal<'all' | UserType>('all');
-  departmentFilter = signal('all');
+  statusFilter = signal<string | null>(null);
+  typeFilter = signal<string | null>(null);
+  departmentFilter = signal<string | null>(null);
 
   // Modal state
   showUserModal = signal(false);
@@ -1221,9 +1126,31 @@ export class UsersComponent {
   // Role selection
   selectedRoles = signal<string[]>([]);
 
-  // Static data
-  departments = ['Internal Medicine', 'Cardiology', 'Nursing', 'Administration', 'Billing', 'Front Desk', 'IT'];
-  
+  // Filter Options
+  statusOptions = [
+    { label: 'Active', value: 'active' },
+    { label: 'Inactive', value: 'inactive' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Locked', value: 'locked' },
+    { label: 'Suspended', value: 'suspended' }
+  ];
+
+  typeOptions = [
+    { label: 'Provider', value: 'provider' },
+    { label: 'Staff', value: 'staff' },
+    { label: 'Admin', value: 'admin' }
+  ];
+
+  departmentOptions = [
+    { label: 'Internal Medicine', value: 'Internal Medicine' },
+    { label: 'Cardiology', value: 'Cardiology' },
+    { label: 'Nursing', value: 'Nursing' },
+    { label: 'Administration', value: 'Administration' },
+    { label: 'Billing', value: 'Billing' },
+    { label: 'Front Desk', value: 'Front Desk' },
+    { label: 'IT', value: 'IT' }
+  ];
+
   availableRoles = [
     { id: 'physician', name: 'Physician' },
     { id: 'nurse', name: 'Nurse' },
@@ -1256,33 +1183,44 @@ export class UsersComponent {
   // Computed values
   filteredUsers = computed(() => {
     let users = this.adminService.users();
-    
+
     if (this.searchQuery()) {
       const query = this.searchQuery().toLowerCase();
-      users = users.filter(u => 
+      users = users.filter(u =>
         u.fullName.toLowerCase().includes(query) ||
         u.email.toLowerCase().includes(query) ||
         u.username.toLowerCase().includes(query)
       );
     }
-    
-    if (this.statusFilter() !== 'all') {
+
+    if (this.statusFilter()) {
       users = users.filter(u => u.status === this.statusFilter());
     }
-    
-    if (this.typeFilter() !== 'all') {
+
+    if (this.typeFilter()) {
       users = users.filter(u => u.type === this.typeFilter());
     }
-    
-    if (this.departmentFilter() !== 'all') {
+
+    if (this.departmentFilter()) {
       users = users.filter(u => u.department === this.departmentFilter());
     }
-    
+
     return users.sort((a, b) => a.fullName.localeCompare(b.fullName));
   });
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  }
+
+  getAvatarStyle(type: UserType): Record<string, string> {
+    const styles: Record<UserType, Record<string, string>> = {
+      provider: { 'background-color': '#3b82f6', 'color': 'white' },
+      staff: { 'background-color': '#8b5cf6', 'color': 'white' },
+      admin: { 'background-color': '#dc2626', 'color': 'white' },
+      patient: { 'background-color': '#10b981', 'color': 'white' },
+      external: {'background-color': '#d8bc20ff', 'color': 'white'},
+    };
+    return styles[type] || styles.staff;
   }
 
   formatType(type: UserType): string {
@@ -1301,16 +1239,11 @@ export class UsersComponent {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) {
-      return 'Today';
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return `${days} days ago`;
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
+
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   formatDateTime(date: Date): string {
@@ -1323,14 +1256,20 @@ export class UsersComponent {
     });
   }
 
+  getTypeSeverity(type: UserType): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+    const map: Record<string, any> = { provider: 'info', staff: 'secondary', admin: 'danger' };
+    return map[type] || 'secondary';
+  }
+
+  getStatusSeverity(status: UserStatus): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+    const map: Record<string, any> = { active: 'success', inactive: 'secondary', pending: 'warn', locked: 'danger', suspended: 'danger' };
+    return map[status] || 'secondary';
+  }
+
   openCreateModal(): void {
     this.editingUser.set(null);
     this.selectedRoles.set([]);
-    this.userForm.reset({
-      type: 'staff',
-      mfaEnabled: false,
-      sendWelcomeEmail: true
-    });
+    this.userForm.reset({ type: 'staff', mfaEnabled: false, sendWelcomeEmail: true });
     this.showUserModal.set(true);
   }
 
@@ -1396,8 +1335,10 @@ export class UsersComponent {
 
       if (this.editingUser()) {
         this.adminService.updateUser(this.editingUser()!.id, userData);
+        this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'User updated successfully' });
       } else {
         this.adminService.createUser(userData);
+        this.messageService.add({ severity: 'success', summary: 'Created', detail: 'User created successfully' });
       }
 
       this.closeUserModal();
@@ -1415,24 +1356,21 @@ export class UsersComponent {
   }
 
   unlockUser(user: User): void {
-    if (confirm(`Unlock user "${user.fullName}"?`)) {
-      this.adminService.unlockUser(user.id);
-    }
+    this.adminService.unlockUser(user.id);
+    this.messageService.add({ severity: 'success', summary: 'Unlocked', detail: `User "${user.fullName}" unlocked` });
   }
 
   resetPassword(user: User): void {
-    if (confirm(`Send password reset email to ${user.email}?`)) {
-      this.adminService.resetPassword(user.id);
-    }
+    this.adminService.resetPassword(user.id);
+    this.messageService.add({ severity: 'info', summary: 'Email Sent', detail: `Password reset email sent to ${user.email}` });
   }
 
   deleteUser(user: User): void {
-    if (confirm(`Are you sure you want to delete "${user.fullName}"? This action cannot be undone.`)) {
-      this.adminService.deleteUser(user.id);
-    }
+    this.adminService.deleteUser(user.id);
+    this.messageService.add({ severity: 'warn', summary: 'Deleted', detail: `User "${user.fullName}" deleted` });
   }
 
   exportUsers(): void {
-    console.log('Exporting users...');
+    this.messageService.add({ severity: 'info', summary: 'Exporting', detail: 'Preparing user export...' });
   }
 }

@@ -1,6 +1,24 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
+
+// PrimeNG Imports
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { SelectModule } from 'primeng/select';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { CheckboxModule } from 'primeng/checkbox';
+import { DividerModule } from 'primeng/divider';
+import { RippleModule } from 'primeng/ripple';
+import { ToastModule } from 'primeng/toast';
+import { TagModule } from 'primeng/tag';
+import { BadgeModule } from 'primeng/badge';
+import { TooltipModule } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
+
+import { ThemeService } from '../../../core/services/theme.service';
 import { AdminService } from '../data-access/services/admin.service';
 import { SystemSettings } from '../data-access/models/admin.model';
 
@@ -9,12 +27,50 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [
+    CommonModule, FormsModule, ReactiveFormsModule,
+    ButtonModule, InputTextModule, InputNumberModule, SelectModule,
+    ToggleSwitchModule, CheckboxModule, DividerModule, RippleModule,
+    ToastModule, TagModule, BadgeModule, TooltipModule,
+  ],
+  providers: [MessageService],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('fadeSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('slideIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(-20px)' }),
+        animate('350ms ease-out', style({ opacity: 1, transform: 'translateX(0)' }))
+      ])
+    ]),
+    trigger('staggerCards', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(15px)' }),
+          stagger(80, [
+            animate('300ms cubic-bezier(0.35, 0, 0.25, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ]),
+    trigger('navItem', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(-10px)' }),
+        animate('200ms ease-out', style({ opacity: 1, transform: 'translateX(0)' }))
+      ])
+    ])
+  ],
   template: `
-    <div class="settings-container">
+    <div class="settings-container" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
+
       <!-- Header -->
-      <header class="page-header">
+      <header class="page-header" @fadeSlide>
         <div class="header-content">
           <div class="title-section">
             <h1>System Settings</h1>
@@ -22,232 +78,112 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
           </div>
           <div class="header-actions">
             @if (hasChanges()) {
-              <button class="btn btn-secondary" (click)="discardChanges()">
-                Discard Changes
-              </button>
-              <button class="btn btn-primary" (click)="saveSettings()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                  <polyline points="17 21 17 13 7 13 7 21"/>
-                  <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                Save Changes
-              </button>
+              <p-button label="Discard" [outlined]="true" severity="secondary" (onClick)="discardChanges()" />
+              <p-button label="Save Changes" icon="pi pi-save" severity="success" (onClick)="saveSettings()" />
             }
           </div>
         </div>
+
+        <!-- Unsaved Changes Banner -->
+        @if (hasChanges()) {
+          <div class="changes-banner" @fadeSlide>
+            <i class="pi pi-exclamation-circle"></i>
+            <span>You have unsaved changes</span>
+          </div>
+        }
       </header>
 
       <div class="settings-layout">
         <!-- Sidebar Navigation -->
-        <nav class="settings-nav">
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'general'"
-            (click)="activeSection.set('general')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            General
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'security'"
-            (click)="activeSection.set('security')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            Security
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'email'"
-            (click)="activeSection.set('email')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
-            Email
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'scheduling'"
-            (click)="activeSection.set('scheduling')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            Scheduling
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'billing'"
-            (click)="activeSection.set('billing')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="1" x2="12" y2="23"/>
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-            Billing
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'clinical'"
-            (click)="activeSection.set('clinical')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-            </svg>
-            Clinical
-          </button>
-          <button 
-            class="nav-item"
-            [class.active]="activeSection() === 'integrations'"
-            (click)="activeSection.set('integrations')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 18 22 12 16 6"/>
-              <polyline points="8 6 2 12 8 18"/>
-            </svg>
-            Integrations
-          </button>
+        <nav class="settings-nav" @slideIn>
+          @for (item of navItems; track item.key) {
+            <button 
+              class="nav-item"
+              [class.active]="activeSection() === item.key"
+              (click)="activeSection.set(item.key)"
+              pRipple
+            >
+              <i [class]="item.icon"></i>
+              <span>{{ item.label }}</span>
+              @if (item.key === 'security') {
+                <span class="nav-badge">Important</span>
+              }
+            </button>
+          }
         </nav>
 
         <!-- Settings Content -->
         <div class="settings-content">
           <!-- General Settings -->
           @if (activeSection() === 'general') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>General Settings</h2>
-                <p>Basic practice information and preferences</p>
+                <div class="section-icon">
+                  <i class="pi pi-cog"></i>
+                </div>
+                <div class="section-info">
+                  <h2>General Settings</h2>
+                  <p>Basic practice information and preferences</p>
+                </div>
               </div>
+
               <div class="settings-card">
-                <h3>Practice Information</h3>
+                <div class="card-header">
+                  <h3>Practice Information</h3>
+                  <p-tag value="Required" severity="success" />
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="practiceName">Practice Name</label>
-                    <input 
-                      id="practiceName" 
-                      type="text" 
-                      [(ngModel)]="settings().general.practiceName"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Practice Name</label>
+                    <input pInputText [(ngModel)]="settings().general.practiceName" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="practicePhone">Phone</label>
-                    <input 
-                      id="practicePhone" 
-                      type="tel" 
-                      [(ngModel)]="settings().general.practicePhone"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Phone</label>
+                    <input pInputText [(ngModel)]="settings().general.practicePhone" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="practiceFax">Fax</label>
-                    <input 
-                      id="practiceFax" 
-                      type="tel" 
-                      [(ngModel)]="settings().general.practiceFax"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Fax</label>
+                    <input pInputText [(ngModel)]="settings().general.practiceFax" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="practiceEmail">Email</label>
-                    <input 
-                      id="practiceEmail" 
-                      type="email" 
-                      [(ngModel)]="settings().general.practiceEmail"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Email</label>
+                    <input pInputText type="email" [(ngModel)]="settings().general.practiceEmail" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group full-width">
-                    <label for="practiceAddress">Address</label>
-                    <input 
-                      id="practiceAddress" 
-                      type="text" 
-                      [(ngModel)]="settings().general.practiceAddress"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field full-width">
+                    <label>Address</label>
+                    <input pInputText [(ngModel)]="settings().general.practiceAddress" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="practiceNpi">Practice NPI</label>
-                    <input 
-                      id="practiceNpi" 
-                      type="text" 
-                      [(ngModel)]="settings().general.practiceNpi"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Practice NPI</label>
+                    <input pInputText [(ngModel)]="settings().general.practiceNpi" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="practiceTaxId">Tax ID</label>
-                    <input 
-                      id="practiceTaxId" 
-                      type="text" 
-                      [(ngModel)]="settings().general.practiceTaxId"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Tax ID</label>
+                    <input pInputText [(ngModel)]="settings().general.practiceTaxId" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Localization</h3>
+                <div class="card-header">
+                  <h3>Localization</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="timezone">Timezone</label>
-                    <select 
-                      id="timezone" 
-                      [(ngModel)]="settings().general.timezone"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="America/Los_Angeles">Pacific Time</option>
-                      <option value="America/Denver">Mountain Time</option>
-                      <option value="America/Chicago">Central Time</option>
-                      <option value="America/New_York">Eastern Time</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Timezone</label>
+                    <p-select [(ngModel)]="settings().general.timezone" (ngModelChange)="markChanged()" [options]="timezoneOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="dateFormat">Date Format</label>
-                    <select 
-                      id="dateFormat" 
-                      [(ngModel)]="settings().general.dateFormat"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Date Format</label>
+                    <p-select [(ngModel)]="settings().general.dateFormat" (ngModelChange)="markChanged()" [options]="dateFormatOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="currency">Currency</label>
-                    <select 
-                      id="currency" 
-                      [(ngModel)]="settings().general.currency"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Currency</label>
+                    <p-select [(ngModel)]="settings().general.currency" (ngModelChange)="markChanged()" [options]="currencyOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="language">Default Language</label>
-                    <select 
-                      id="language" 
-                      [(ngModel)]="settings().general.defaultLanguage"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="en">English</option>
-                      <option value="es">Spanish</option>
-                      <option value="fr">French</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Default Language</label>
+                    <p-select [(ngModel)]="settings().general.defaultLanguage" (ngModelChange)="markChanged()" [options]="languageOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
                 </div>
               </div>
@@ -256,156 +192,129 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Security Settings -->
           @if (activeSection() === 'security') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Security Settings</h2>
-                <p>Password policies, session management, and access controls</p>
+                <div class="section-icon security">
+                  <i class="pi pi-shield"></i>
+                </div>
+                <div class="section-info">
+                  <h2>Security Settings</h2>
+                  <p>Password policies, session management, and access controls</p>
+                </div>
               </div>
+
               <div class="settings-card">
-                <h3>Password Policy</h3>
+                <div class="card-header">
+                  <h3>Password Policy</h3>
+                  <p-tag value="Critical" severity="danger" />
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="minLength">Minimum Length</label>
-                    <input 
-                      id="minLength" 
-                      type="number" 
-                      [(ngModel)]="settings().security.passwordPolicy.minLength"
-                      (ngModelChange)="markChanged()"
-                      min="8" max="32"
-                    />
+                  <div class="form-field">
+                    <label>Minimum Length</label>
+                    <p-inputNumber [(ngModel)]="settings().security.passwordPolicy.minLength" (ngModelChange)="markChanged()" [min]="8" [max]="32" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="expirationDays">Expiration (days)</label>
-                    <input 
-                      id="expirationDays" 
-                      type="number" 
-                      [(ngModel)]="settings().security.passwordPolicy.expirationDays"
-                      (ngModelChange)="markChanged()"
-                      min="0" max="365"
-                    />
+                  <div class="form-field">
+                    <label>Expiration (days)</label>
+                    <p-inputNumber [(ngModel)]="settings().security.passwordPolicy.expirationDays" (ngModelChange)="markChanged()" [min]="0" [max]="365" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="historyCount">History Count</label>
-                    <input 
-                      id="historyCount" 
-                      type="number" 
-                      [(ngModel)]="settings().security.passwordPolicy.historyCount"
-                      (ngModelChange)="markChanged()"
-                      min="0" max="24"
-                    />
+                  <div class="form-field">
+                    <label>History Count</label>
+                    <p-inputNumber [(ngModel)]="settings().security.passwordPolicy.historyCount" (ngModelChange)="markChanged()" [min]="0" [max]="24" [showButtons]="true" styleClass="w-full" />
                   </div>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.passwordPolicy.requireUppercase"
-                      (ngModelChange)="markChanged()"
-                    />
+                <p-divider />
+                <div class="options-grid">
+                  <div class="option-item" pRipple (click)="togglePasswordOption('requireUppercase')">
+                    <div class="option-check" [class.checked]="settings().security.passwordPolicy.requireUppercase">
+                      @if (settings().security.passwordPolicy.requireUppercase) {
+                        <i class="pi pi-check"></i>
+                      }
+                    </div>
                     <span>Require uppercase letters</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.passwordPolicy.requireLowercase"
-                      (ngModelChange)="markChanged()"
-                    />
+                  </div>
+                  <div class="option-item" pRipple (click)="togglePasswordOption('requireLowercase')">
+                    <div class="option-check" [class.checked]="settings().security.passwordPolicy.requireLowercase">
+                      @if (settings().security.passwordPolicy.requireLowercase) {
+                        <i class="pi pi-check"></i>
+                      }
+                    </div>
                     <span>Require lowercase letters</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.passwordPolicy.requireNumbers"
-                      (ngModelChange)="markChanged()"
-                    />
+                  </div>
+                  <div class="option-item" pRipple (click)="togglePasswordOption('requireNumbers')">
+                    <div class="option-check" [class.checked]="settings().security.passwordPolicy.requireNumbers">
+                      @if (settings().security.passwordPolicy.requireNumbers) {
+                        <i class="pi pi-check"></i>
+                      }
+                    </div>
                     <span>Require numbers</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.passwordPolicy.requireSpecialChars"
-                      (ngModelChange)="markChanged()"
-                    />
+                  </div>
+                  <div class="option-item" pRipple (click)="togglePasswordOption('requireSpecialChars')">
+                    <div class="option-check" [class.checked]="settings().security.passwordPolicy.requireSpecialChars">
+                      @if (settings().security.passwordPolicy.requireSpecialChars) {
+                        <i class="pi pi-check"></i>
+                      }
+                    </div>
                     <span>Require special characters</span>
-                  </label>
+                  </div>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Session Policy</h3>
+                <div class="card-header">
+                  <h3>Session Policy</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="maxIdleMinutes">Max Idle Time (minutes)</label>
-                    <input 
-                      id="maxIdleMinutes" 
-                      type="number" 
-                      [(ngModel)]="settings().security.sessionPolicy.maxIdleMinutes"
-                      (ngModelChange)="markChanged()"
-                      min="5" max="480"
-                    />
+                  <div class="form-field">
+                    <label>Max Idle Time (minutes)</label>
+                    <p-inputNumber [(ngModel)]="settings().security.sessionPolicy.maxIdleMinutes" (ngModelChange)="markChanged()" [min]="5" [max]="480" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="maxSessionHours">Max Session Duration (hours)</label>
-                    <input 
-                      id="maxSessionHours" 
-                      type="number" 
-                      [(ngModel)]="settings().security.sessionPolicy.maxSessionHours"
-                      (ngModelChange)="markChanged()"
-                      min="1" max="24"
-                    />
+                  <div class="form-field">
+                    <label>Max Session Duration (hours)</label>
+                    <p-inputNumber [(ngModel)]="settings().security.sessionPolicy.maxSessionHours" (ngModelChange)="markChanged()" [min]="1" [max]="24" [showButtons]="true" styleClass="w-full" />
                   </div>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.sessionPolicy.singleSessionOnly"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Allow only one active session per user</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.sessionPolicy.requireMfa"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Require multi-factor authentication</span>
-                  </label>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Single Session Only</span>
+                      <span class="toggle-desc">Allow only one active session per user</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().security.sessionPolicy.singleSessionOnly" (ngModelChange)="markChanged()" />
+                  </div>
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Require MFA</span>
+                      <span class="toggle-desc">Require multi-factor authentication for all users</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().security.sessionPolicy.requireMfa" (ngModelChange)="markChanged()" />
+                  </div>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Login Policy</h3>
+                <div class="card-header">
+                  <h3>Login Policy</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="maxAttempts">Max Login Attempts</label>
-                    <input 
-                      id="maxAttempts" 
-                      type="number" 
-                      [(ngModel)]="settings().security.loginPolicy.maxAttempts"
-                      (ngModelChange)="markChanged()"
-                      min="3" max="10"
-                    />
+                  <div class="form-field">
+                    <label>Max Login Attempts</label>
+                    <p-inputNumber [(ngModel)]="settings().security.loginPolicy.maxAttempts" (ngModelChange)="markChanged()" [min]="3" [max]="10" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="lockoutMinutes">Lockout Duration (minutes)</label>
-                    <input 
-                      id="lockoutMinutes" 
-                      type="number" 
-                      [(ngModel)]="settings().security.loginPolicy.lockoutMinutes"
-                      (ngModelChange)="markChanged()"
-                      min="5" max="1440"
-                    />
+                  <div class="form-field">
+                    <label>Lockout Duration (minutes)</label>
+                    <p-inputNumber [(ngModel)]="settings().security.loginPolicy.lockoutMinutes" (ngModelChange)="markChanged()" [min]="5" [max]="1440" [showButtons]="true" styleClass="w-full" />
                   </div>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().security.loginPolicy.allowRememberMe"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Allow "Remember Me" option</span>
-                  </label>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Remember Me</span>
+                      <span class="toggle-desc">Allow "Remember Me" option on login</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().security.loginPolicy.allowRememberMe" (ngModelChange)="markChanged()" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -413,98 +322,62 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Email Settings -->
           @if (activeSection() === 'email') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Email Settings</h2>
-                <p>SMTP configuration and email preferences</p>
-              </div>
-              <div class="settings-card">
-                <h3>SMTP Configuration</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label for="smtpHost">SMTP Host</label>
-                    <input 
-                      id="smtpHost" 
-                      type="text" 
-                      [(ngModel)]="settings().email.smtpHost"
-                      (ngModelChange)="markChanged()"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="smtpPort">SMTP Port</label>
-                    <input 
-                      id="smtpPort" 
-                      type="number" 
-                      [(ngModel)]="settings().email.smtpPort"
-                      (ngModelChange)="markChanged()"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="smtpUsername">Username</label>
-                    <input 
-                      id="smtpUsername" 
-                      type="text" 
-                      [(ngModel)]="settings().email.smtpUsername"
-                      (ngModelChange)="markChanged()"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="smtpPassword">Password</label>
-                    <input 
-                      id="smtpPassword" 
-                      type="password" 
-                      [(ngModel)]="settings().email.smtpPassword"
-                      (ngModelChange)="markChanged()"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="smtpEncryption">Encryption</label>
-                    <select 
-                      id="smtpEncryption" 
-                      [(ngModel)]="settings().email.smtpEncryption"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="none">None</option>
-                      <option value="ssl">SSL</option>
-                      <option value="tls">TLS</option>
-                    </select>
-                  </div>
+                <div class="section-icon email">
+                  <i class="pi pi-envelope"></i>
                 </div>
-                <div class="form-actions">
-                  <button class="btn btn-secondary btn-sm" (click)="testEmailConnection()">
-                    Test Connection
-                  </button>
+                <div class="section-info">
+                  <h2>Email Settings</h2>
+                  <p>SMTP configuration and email preferences</p>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Email Addresses</h3>
+                <div class="card-header">
+                  <h3>SMTP Configuration</h3>
+                  <p-button label="Test Connection" icon="pi pi-bolt" [outlined]="true" severity="success" size="small" (onClick)="testEmailConnection()" />
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="fromAddress">From Address</label>
-                    <input 
-                      id="fromAddress" 
-                      type="email" 
-                      [(ngModel)]="settings().email.fromAddress"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>SMTP Host</label>
+                    <input pInputText [(ngModel)]="settings().email.smtpHost" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="fromName">From Name</label>
-                    <input 
-                      id="fromName" 
-                      type="text" 
-                      [(ngModel)]="settings().email.fromName"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>SMTP Port</label>
+                    <p-inputNumber [(ngModel)]="settings().email.smtpPort" (ngModelChange)="markChanged()" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="replyToAddress">Reply-To Address</label>
-                    <input 
-                      id="replyToAddress" 
-                      type="email" 
-                      [(ngModel)]="settings().email.replyToAddress"
-                      (ngModelChange)="markChanged()"
-                    />
+                  <div class="form-field">
+                    <label>Username</label>
+                    <input pInputText [(ngModel)]="settings().email.smtpUsername" (ngModelChange)="markChanged()" class="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Password</label>
+                    <input pInputText type="password" [(ngModel)]="settings().email.smtpPassword" (ngModelChange)="markChanged()" class="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Encryption</label>
+                    <p-select [(ngModel)]="settings().email.smtpEncryption" (ngModelChange)="markChanged()" [options]="encryptionOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="card-header">
+                  <h3>Email Addresses</h3>
+                </div>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label>From Address</label>
+                    <input pInputText type="email" [(ngModel)]="settings().email.fromAddress" (ngModelChange)="markChanged()" class="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>From Name</label>
+                    <input pInputText [(ngModel)]="settings().email.fromName" (ngModelChange)="markChanged()" class="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Reply-To Address</label>
+                    <input pInputText type="email" [(ngModel)]="settings().email.replyToAddress" (ngModelChange)="markChanged()" class="w-full" />
                   </div>
                 </div>
               </div>
@@ -513,112 +386,81 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Scheduling Settings -->
           @if (activeSection() === 'scheduling') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Scheduling Settings</h2>
-                <p>Appointment scheduling rules and working hours</p>
+                <div class="section-icon scheduling">
+                  <i class="pi pi-calendar"></i>
+                </div>
+                <div class="section-info">
+                  <h2>Scheduling Settings</h2>
+                  <p>Appointment scheduling rules and working hours</p>
+                </div>
               </div>
+
               <div class="settings-card">
-                <h3>Appointment Rules</h3>
+                <div class="card-header">
+                  <h3>Appointment Rules</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="defaultSlotDuration">Default Slot Duration (minutes)</label>
-                    <select 
-                      id="defaultSlotDuration" 
-                      [(ngModel)]="settings().scheduling.defaultSlotDuration"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option [value]="15">15 minutes</option>
-                      <option [value]="20">20 minutes</option>
-                      <option [value]="30">30 minutes</option>
-                      <option [value]="45">45 minutes</option>
-                      <option [value]="60">60 minutes</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Default Slot Duration</label>
+                    <p-select [(ngModel)]="settings().scheduling.defaultSlotDuration" (ngModelChange)="markChanged()" [options]="slotDurationOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="minAdvanceBookingHours">Min Advance Booking (hours)</label>
-                    <input 
-                      id="minAdvanceBookingHours" 
-                      type="number" 
-                      [(ngModel)]="settings().scheduling.minAdvanceBookingHours"
-                      (ngModelChange)="markChanged()"
-                      min="0"
-                    />
+                  <div class="form-field">
+                    <label>Min Advance Booking (hours)</label>
+                    <p-inputNumber [(ngModel)]="settings().scheduling.minAdvanceBookingHours" (ngModelChange)="markChanged()" [min]="0" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="maxAdvanceBookingDays">Max Advance Booking (days)</label>
-                    <input 
-                      id="maxAdvanceBookingDays" 
-                      type="number" 
-                      [(ngModel)]="settings().scheduling.maxAdvanceBookingDays"
-                      (ngModelChange)="markChanged()"
-                      min="1"
-                    />
+                  <div class="form-field">
+                    <label>Max Advance Booking (days)</label>
+                    <p-inputNumber [(ngModel)]="settings().scheduling.maxAdvanceBookingDays" (ngModelChange)="markChanged()" [min]="1" [showButtons]="true" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="cancellationPolicyHours">Cancellation Policy (hours)</label>
-                    <input 
-                      id="cancellationPolicyHours" 
-                      type="number" 
-                      [(ngModel)]="settings().scheduling.cancellationPolicyHours"
-                      (ngModelChange)="markChanged()"
-                      min="0"
-                    />
+                  <div class="form-field">
+                    <label>Cancellation Policy (hours)</label>
+                    <p-inputNumber [(ngModel)]="settings().scheduling.cancellationPolicyHours" (ngModelChange)="markChanged()" [min]="0" [showButtons]="true" styleClass="w-full" />
                   </div>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().scheduling.allowDoubleBooking"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Allow double booking</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().scheduling.allowWaitlist"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Enable waitlist</span>
-                  </label>
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().scheduling.confirmationRequired"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Require appointment confirmation</span>
-                  </label>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Allow Double Booking</span>
+                      <span class="toggle-desc">Allow scheduling multiple appointments in the same slot</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().scheduling.allowDoubleBooking" (ngModelChange)="markChanged()" />
+                  </div>
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Enable Waitlist</span>
+                      <span class="toggle-desc">Allow patients to join a waitlist for fully booked slots</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().scheduling.allowWaitlist" (ngModelChange)="markChanged()" />
+                  </div>
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Confirmation Required</span>
+                      <span class="toggle-desc">Require appointment confirmation from patients</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().scheduling.confirmationRequired" (ngModelChange)="markChanged()" />
+                  </div>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Working Hours</h3>
+                <div class="card-header">
+                  <h3>Working Hours</h3>
+                </div>
                 <div class="working-hours">
                   @for (day of weekdays; track day.key) {
-                    <div class="day-row">
-                      <label class="checkbox-item">
-                        <input 
-                          type="checkbox" 
-                          [(ngModel)]="settings().scheduling.workingHours[day.key].enabled"
-                          (ngModelChange)="markChanged()"
-                        />
+                    <div class="day-row" [class.disabled]="!settings().scheduling.workingHours[day.key].enabled">
+                      <div class="day-toggle">
+                        <p-toggleSwitch [(ngModel)]="settings().scheduling.workingHours[day.key].enabled" (ngModelChange)="markChanged()" />
                         <span class="day-name">{{ day.label }}</span>
-                      </label>
+                      </div>
                       @if (settings().scheduling.workingHours[day.key].enabled) {
                         <div class="time-range">
-                          <input 
-                            type="time" 
-                            [(ngModel)]="settings().scheduling.workingHours[day.key].start"
-                            (ngModelChange)="markChanged()"
-                          />
-                          <span>to</span>
-                          <input 
-                            type="time" 
-                            [(ngModel)]="settings().scheduling.workingHours[day.key].end"
-                            (ngModelChange)="markChanged()"
-                          />
+                          <input type="time" [(ngModel)]="settings().scheduling.workingHours[day.key].start" (ngModelChange)="markChanged()" class="time-input" />
+                          <span class="time-separator">to</span>
+                          <input type="time" [(ngModel)]="settings().scheduling.workingHours[day.key].end" (ngModelChange)="markChanged()" class="time-input" />
                         </div>
                       } @else {
                         <span class="closed-label">Closed</span>
@@ -632,90 +474,63 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Billing Settings -->
           @if (activeSection() === 'billing') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Billing Settings</h2>
-                <p>Claims, payments, and billing preferences</p>
-              </div>
-              <div class="settings-card">
-                <h3>Claims Configuration</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label for="claimSubmissionMethod">Claim Submission Method</label>
-                    <select 
-                      id="claimSubmissionMethod" 
-                      [(ngModel)]="settings().billing.claimSubmissionMethod"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="electronic">Electronic Only</option>
-                      <option value="paper">Paper Only</option>
-                      <option value="both">Both</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="clearinghouseId">Clearinghouse ID</label>
-                    <input 
-                      id="clearinghouseId" 
-                      type="text" 
-                      [(ngModel)]="settings().billing.clearinghouseId"
-                      (ngModelChange)="markChanged()"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="statementFrequency">Statement Frequency</label>
-                    <select 
-                      id="statementFrequency" 
-                      [(ngModel)]="settings().billing.statementFrequency"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="taxRate">Tax Rate (%)</label>
-                    <input 
-                      id="taxRate" 
-                      type="number" 
-                      [(ngModel)]="settings().billing.taxRate"
-                      (ngModelChange)="markChanged()"
-                      min="0" max="100" step="0.01"
-                    />
-                  </div>
+                <div class="section-icon billing">
+                  <i class="pi pi-dollar"></i>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().billing.autoPostPayments"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Auto-post ERA payments</span>
-                  </label>
+                <div class="section-info">
+                  <h2>Billing Settings</h2>
+                  <p>Claims, payments, and billing preferences</p>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Collections</h3>
+                <div class="card-header">
+                  <h3>Claims Configuration</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="collectionThresholdDays">Collection Threshold (days)</label>
-                    <input 
-                      id="collectionThresholdDays" 
-                      type="number" 
-                      [(ngModel)]="settings().billing.collectionThresholdDays"
-                      (ngModelChange)="markChanged()"
-                      min="30"
-                    />
+                  <div class="form-field">
+                    <label>Claim Submission Method</label>
+                    <p-select [(ngModel)]="settings().billing.claimSubmissionMethod" (ngModelChange)="markChanged()" [options]="claimMethodOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="collectionThresholdAmount">Collection Threshold ($)</label>
-                    <input 
-                      id="collectionThresholdAmount" 
-                      type="number" 
-                      [(ngModel)]="settings().billing.collectionThresholdAmount"
-                      (ngModelChange)="markChanged()"
-                      min="0"
-                    />
+                  <div class="form-field">
+                    <label>Clearinghouse ID</label>
+                    <input pInputText [(ngModel)]="settings().billing.clearinghouseId" (ngModelChange)="markChanged()" class="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Statement Frequency</label>
+                    <p-select [(ngModel)]="settings().billing.statementFrequency" (ngModelChange)="markChanged()" [options]="frequencyOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Tax Rate (%)</label>
+                    <p-inputNumber [(ngModel)]="settings().billing.taxRate" (ngModelChange)="markChanged()" [min]="0" [max]="100" [minFractionDigits]="2" styleClass="w-full" />
+                  </div>
+                </div>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Auto-Post Payments</span>
+                      <span class="toggle-desc">Automatically post ERA payments when received</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().billing.autoPostPayments" (ngModelChange)="markChanged()" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="card-header">
+                  <h3>Collections</h3>
+                </div>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label>Collection Threshold (days)</label>
+                    <p-inputNumber [(ngModel)]="settings().billing.collectionThresholdDays" (ngModelChange)="markChanged()" [min]="30" [showButtons]="true" styleClass="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Collection Threshold ($)</label>
+                    <p-inputNumber [(ngModel)]="settings().billing.collectionThresholdAmount" (ngModelChange)="markChanged()" [min]="0" mode="currency" currency="USD" styleClass="w-full" />
                   </div>
                 </div>
               </div>
@@ -724,96 +539,77 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Clinical Settings -->
           @if (activeSection() === 'clinical') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Clinical Settings</h2>
-                <p>Chart defaults, prescription settings, and clinical preferences</p>
-              </div>
-              <div class="settings-card">
-                <h3>Chart Settings</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label for="defaultChartTemplate">Default Chart Template</label>
-                    <select 
-                      id="defaultChartTemplate" 
-                      [(ngModel)]="settings().clinical.defaultChartTemplate"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="soap">SOAP Note</option>
-                      <option value="hpi">HPI Template</option>
-                      <option value="procedure">Procedure Note</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="autoSaveInterval">Auto-save Interval (seconds)</label>
-                    <input 
-                      id="autoSaveInterval" 
-                      type="number" 
-                      [(ngModel)]="settings().clinical.autoSaveInterval"
-                      (ngModelChange)="markChanged()"
-                      min="30" max="300"
-                    />
-                  </div>
+                <div class="section-icon clinical">
+                  <i class="pi pi-heart"></i>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().clinical.requireSignature"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Require signature for encounter completion</span>
-                  </label>
+                <div class="section-info">
+                  <h2>Clinical Settings</h2>
+                  <p>Chart defaults, prescription settings, and clinical preferences</p>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Prescription Defaults</h3>
+                <div class="card-header">
+                  <h3>Chart Settings</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="defaultQuantity">Default Quantity</label>
-                    <input 
-                      id="defaultQuantity" 
-                      type="number" 
-                      [(ngModel)]="settings().clinical.prescriptionDefaults.defaultQuantity"
-                      (ngModelChange)="markChanged()"
-                      min="1"
-                    />
+                  <div class="form-field">
+                    <label>Default Chart Template</label>
+                    <p-select [(ngModel)]="settings().clinical.defaultChartTemplate" (ngModelChange)="markChanged()" [options]="chartTemplateOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
-                  <div class="form-group">
-                    <label for="defaultRefills">Default Refills</label>
-                    <input 
-                      id="defaultRefills" 
-                      type="number" 
-                      [(ngModel)]="settings().clinical.prescriptionDefaults.defaultRefills"
-                      (ngModelChange)="markChanged()"
-                      min="0"
-                    />
+                  <div class="form-field">
+                    <label>Auto-save Interval (seconds)</label>
+                    <p-inputNumber [(ngModel)]="settings().clinical.autoSaveInterval" (ngModelChange)="markChanged()" [min]="30" [max]="300" [showButtons]="true" styleClass="w-full" />
                   </div>
                 </div>
-                <div class="checkbox-grid">
-                  <label class="checkbox-item">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().clinical.prescriptionDefaults.requireEpcs"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span>Require EPCS for controlled substances</span>
-                  </label>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Require Signature</span>
+                      <span class="toggle-desc">Require signature for encounter completion</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().clinical.requireSignature" (ngModelChange)="markChanged()" />
+                  </div>
                 </div>
               </div>
+
               <div class="settings-card">
-                <h3>Vitals Settings</h3>
+                <div class="card-header">
+                  <h3>Prescription Defaults</h3>
+                </div>
                 <div class="form-grid">
-                  <div class="form-group">
-                    <label for="vitalUnits">Unit System</label>
-                    <select 
-                      id="vitalUnits" 
-                      [(ngModel)]="settings().clinical.vitalsSigns.units"
-                      (ngModelChange)="markChanged()"
-                    >
-                      <option value="imperial">Imperial (lbs, °F)</option>
-                      <option value="metric">Metric (kg, °C)</option>
-                    </select>
+                  <div class="form-field">
+                    <label>Default Quantity</label>
+                    <p-inputNumber [(ngModel)]="settings().clinical.prescriptionDefaults.defaultQuantity" (ngModelChange)="markChanged()" [min]="1" [showButtons]="true" styleClass="w-full" />
+                  </div>
+                  <div class="form-field">
+                    <label>Default Refills</label>
+                    <p-inputNumber [(ngModel)]="settings().clinical.prescriptionDefaults.defaultRefills" (ngModelChange)="markChanged()" [min]="0" [showButtons]="true" styleClass="w-full" />
+                  </div>
+                </div>
+                <p-divider />
+                <div class="toggle-options">
+                  <div class="toggle-option">
+                    <div class="toggle-info">
+                      <span class="toggle-label">Require EPCS</span>
+                      <span class="toggle-desc">Require EPCS for controlled substances</span>
+                    </div>
+                    <p-toggleSwitch [(ngModel)]="settings().clinical.prescriptionDefaults.requireEpcs" (ngModelChange)="markChanged()" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="card-header">
+                  <h3>Vitals Settings</h3>
+                </div>
+                <div class="form-grid single">
+                  <div class="form-field">
+                    <label>Unit System</label>
+                    <p-select [(ngModel)]="settings().clinical.vitalsSigns.units" (ngModelChange)="markChanged()" [options]="unitSystemOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                   </div>
                 </div>
               </div>
@@ -822,117 +618,86 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
           <!-- Integrations Settings -->
           @if (activeSection() === 'integrations') {
-            <div class="settings-section">
+            <div class="settings-section" @staggerCards>
               <div class="section-header">
-                <h2>Integrations</h2>
-                <p>External systems and API configurations</p>
+                <div class="section-icon integrations">
+                  <i class="pi pi-link"></i>
+                </div>
+                <div class="section-info">
+                  <h2>Integrations</h2>
+                  <p>External systems and API configurations</p>
+                </div>
               </div>
-              <div class="settings-card">
+
+              <div class="settings-card integration-card">
                 <div class="integration-header">
+                  <div class="integration-icon hl7">
+                    <i class="pi pi-share-alt"></i>
+                  </div>
                   <div class="integration-info">
                     <h3>HL7 Interface</h3>
                     <p>Health Level 7 messaging integration</p>
                   </div>
-                  <label class="toggle">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().integrations.hl7.enabled"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
+                  <p-toggleSwitch [(ngModel)]="settings().integrations.hl7.enabled" (ngModelChange)="markChanged()" />
                 </div>
                 @if (settings().integrations.hl7.enabled) {
+                  <p-divider />
                   <div class="form-grid">
-                    <div class="form-group">
-                      <label for="hl7Version">HL7 Version</label>
-                      <select 
-                        id="hl7Version" 
-                        [(ngModel)]="settings().integrations.hl7.version"
-                        (ngModelChange)="markChanged()"
-                      >
-                        <option value="2.3">2.3</option>
-                        <option value="2.5">2.5</option>
-                        <option value="2.5.1">2.5.1</option>
-                      </select>
+                    <div class="form-field">
+                      <label>HL7 Version</label>
+                      <p-select [(ngModel)]="settings().integrations.hl7.version" (ngModelChange)="markChanged()" [options]="hl7VersionOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                     </div>
-                    <div class="form-group">
-                      <label for="sendingFacility">Sending Facility</label>
-                      <input 
-                        id="sendingFacility" 
-                        type="text" 
-                        [(ngModel)]="settings().integrations.hl7.sendingFacility"
-                        (ngModelChange)="markChanged()"
-                      />
+                    <div class="form-field">
+                      <label>Sending Facility</label>
+                      <input pInputText [(ngModel)]="settings().integrations.hl7.sendingFacility" (ngModelChange)="markChanged()" class="w-full" />
                     </div>
                   </div>
                 }
               </div>
-              <div class="settings-card">
+
+              <div class="settings-card integration-card">
                 <div class="integration-header">
+                  <div class="integration-icon fhir">
+                    <i class="pi pi-server"></i>
+                  </div>
                   <div class="integration-info">
                     <h3>FHIR API</h3>
                     <p>Fast Healthcare Interoperability Resources</p>
                   </div>
-                  <label class="toggle">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().integrations.fhir.enabled"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
+                  <p-toggleSwitch [(ngModel)]="settings().integrations.fhir.enabled" (ngModelChange)="markChanged()" />
                 </div>
                 @if (settings().integrations.fhir.enabled) {
+                  <p-divider />
                   <div class="form-grid">
-                    <div class="form-group">
-                      <label for="fhirVersion">FHIR Version</label>
-                      <select 
-                        id="fhirVersion" 
-                        [(ngModel)]="settings().integrations.fhir.version"
-                        (ngModelChange)="markChanged()"
-                      >
-                        <option value="R4">R4</option>
-                        <option value="STU3">STU3</option>
-                      </select>
+                    <div class="form-field">
+                      <label>FHIR Version</label>
+                      <p-select [(ngModel)]="settings().integrations.fhir.version" (ngModelChange)="markChanged()" [options]="fhirVersionOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
                     </div>
-                    <div class="form-group">
-                      <label for="fhirServerUrl">Server URL</label>
-                      <input 
-                        id="fhirServerUrl" 
-                        type="url" 
-                        [(ngModel)]="settings().integrations.fhir.serverUrl"
-                        (ngModelChange)="markChanged()"
-                      />
+                    <div class="form-field">
+                      <label>Server URL</label>
+                      <input pInputText type="url" [(ngModel)]="settings().integrations.fhir.serverUrl" (ngModelChange)="markChanged()" class="w-full" />
                     </div>
                   </div>
                 }
               </div>
-              <div class="settings-card">
+
+              <div class="settings-card integration-card">
                 <div class="integration-header">
+                  <div class="integration-icon prescription">
+                    <i class="pi pi-file-edit"></i>
+                  </div>
                   <div class="integration-info">
                     <h3>Prescription Network</h3>
                     <p>Surescripts e-Prescribing network</p>
                   </div>
-                  <label class="toggle">
-                    <input 
-                      type="checkbox" 
-                      [(ngModel)]="settings().integrations.prescriptionNetwork.enabled"
-                      (ngModelChange)="markChanged()"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
+                  <p-toggleSwitch [(ngModel)]="settings().integrations.prescriptionNetwork.enabled" (ngModelChange)="markChanged()" />
                 </div>
                 @if (settings().integrations.prescriptionNetwork.enabled) {
-                  <div class="form-grid">
-                    <div class="form-group">
-                      <label for="networkId">Network ID</label>
-                      <input 
-                        id="networkId" 
-                        type="text" 
-                        [(ngModel)]="settings().integrations.prescriptionNetwork.networkId"
-                        (ngModelChange)="markChanged()"
-                      />
+                  <p-divider />
+                  <div class="form-grid single">
+                    <div class="form-field">
+                      <label>Network ID</label>
+                      <input pInputText [(ngModel)]="settings().integrations.prescriptionNetwork.networkId" (ngModelChange)="markChanged()" class="w-full" />
                     </div>
                   </div>
                 }
@@ -945,9 +710,13 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
   `,
   styles: [`
     .settings-container {
-      padding: 1.5rem;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+    }
+
+    .dark.settings-container {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     }
 
     /* Header */
@@ -959,20 +728,25 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 1rem;
     }
 
     .title-section h1 {
       margin: 0;
-      font-size: 1.75rem;
-      font-weight: 600;
-      color: #1e293b;
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .title-section h1 {
+      color: #f8fafc;
     }
 
     .subtitle {
-      margin: 0.25rem 0 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9375rem;
       color: #64748b;
-      font-size: 0.875rem;
+      font-weight: 400;
     }
 
     .header-actions {
@@ -980,53 +754,28 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
       gap: 0.75rem;
     }
 
-    /* Buttons */
-    .btn {
-      display: inline-flex;
+    .changes-banner {
+      display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      border-radius: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
       font-size: 0.875rem;
       font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
+      color: #92400e;
     }
 
-    .btn-sm {
-      padding: 0.375rem 0.75rem;
-      font-size: 0.8125rem;
-    }
-
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #2563eb;
-    }
-
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-
-    .btn svg {
-      width: 1rem;
-      height: 1rem;
+    .changes-banner i {
+      font-size: 1rem;
     }
 
     /* Layout */
     .settings-layout {
       display: grid;
-      grid-template-columns: 220px 1fr;
+      grid-template-columns: 240px 1fr;
       gap: 1.5rem;
     }
 
@@ -1034,76 +783,157 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     .settings-nav {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.375rem;
+      position: sticky;
+      top: 1.5rem;
+      height: fit-content;
     }
 
     .nav-item {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1rem;
+      padding: 0.875rem 1rem;
       border: none;
-      background: transparent;
+      background: white;
       text-align: left;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #64748b;
-      border-radius: 0.5rem;
+      color: #475569;
+      border-radius: 10px;
       cursor: pointer;
       transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .dark .nav-item {
+      background: #1e293b;
+      color: #94a3b8;
     }
 
     .nav-item:hover {
-      background: #f1f5f9;
-      color: #1e293b;
+      background: #f0fdf4;
+      color: #16a34a;
+      border-color: #bbf7d0;
+    }
+
+    .dark .nav-item:hover {
+      background: #0f172a;
+      color: #4ade80;
     }
 
     .nav-item.active {
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
     }
 
-    .nav-item svg {
+    .nav-item i {
+      font-size: 1.125rem;
       width: 1.25rem;
-      height: 1.25rem;
+      text-align: center;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 0.125rem 0.5rem;
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border-radius: 4px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .nav-item.active .nav-badge {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
     }
 
     /* Settings Content */
-    .settings-content {
-      min-width: 0;
-    }
-
     .settings-section {
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
 
-    .section-header h2 {
-      margin: 0 0 0.25rem;
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    }
+
+    .section-icon i {
       font-size: 1.25rem;
-      font-weight: 600;
-      color: #1e293b;
+      color: white;
     }
 
-    .section-header p {
+    .section-icon.security { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .section-icon.email { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+    .section-icon.scheduling { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+    .section-icon.billing { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .section-icon.clinical { background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); }
+    .section-icon.integrations { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); }
+
+    .section-info h2 {
       margin: 0;
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+
+    .dark .section-info h2 {
+      color: #f8fafc;
+    }
+
+    .section-info p {
+      margin: 0.25rem 0 0;
       font-size: 0.875rem;
       color: #64748b;
     }
 
+    /* Settings Card */
     .settings-card {
       background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
+      border-radius: 16px;
       padding: 1.5rem;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
 
-    .settings-card h3 {
-      margin: 0 0 1rem;
+    .dark .settings-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-header h3 {
+      margin: 0;
       font-size: 1rem;
       font-weight: 600;
-      color: #1e293b;
+      color: #0f172a;
+    }
+
+    .dark .card-header h3 {
+      color: #f8fafc;
     }
 
     /* Form Styles */
@@ -1113,63 +943,138 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
       gap: 1rem;
     }
 
-    .form-group {
+    .form-grid.single {
+      grid-template-columns: 1fr;
+      max-width: 50%;
+    }
+
+    .form-field {
       display: flex;
       flex-direction: column;
       gap: 0.375rem;
     }
 
-    .form-group.full-width {
+    .form-field.full-width {
       grid-column: 1 / -1;
     }
 
-    .form-group label {
-      font-size: 0.875rem;
+    .form-field label {
+      font-size: 0.8125rem;
       font-weight: 500;
-      color: #374151;
+      color: #475569;
     }
 
-    .form-group input,
-    .form-group select {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-family: inherit;
+    .dark .form-field label {
+      color: #94a3b8;
     }
 
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #3b82f6;
+    .w-full {
+      width: 100%;
     }
 
-    .form-actions {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #e2e8f0;
-    }
-
-    .checkbox-grid {
+    /* Options Grid */
+    .options-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 0.75rem;
-      margin-top: 1rem;
+      gap: 0.5rem;
     }
 
-    .checkbox-item {
+    .option-item {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: #475569;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .checkbox-item input[type="checkbox"] {
-      width: 1rem;
-      height: 1rem;
-      accent-color: #3b82f6;
+    .dark .option-item {
+      background: #0f172a;
+    }
+
+    .option-item:hover {
+      background: #f0fdf4;
+    }
+
+    .dark .option-item:hover {
+      background: #1e293b;
+    }
+
+    .option-check {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .dark .option-check {
+      border-color: #475569;
+    }
+
+    .option-check.checked {
+      background: #22c55e;
+      border-color: #22c55e;
+    }
+
+    .option-check.checked i {
+      color: white;
+      font-size: 0.625rem;
+    }
+
+    .option-item span {
+      font-size: 0.875rem;
+      color: #334155;
+    }
+
+    .dark .option-item span {
+      color: #e2e8f0;
+    }
+
+    /* Toggle Options */
+    .toggle-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .toggle-option {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.875rem 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .dark .toggle-option {
+      background: #0f172a;
+    }
+
+    .toggle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .toggle-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    .dark .toggle-label {
+      color: #e2e8f0;
+    }
+
+    .toggle-desc {
+      font-size: 0.75rem;
+      color: #64748b;
     }
 
     /* Working Hours */
@@ -1182,33 +1087,61 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     .day-row {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+      transition: all 0.2s;
     }
 
-    .day-row .checkbox-item {
-      min-width: 140px;
+    .dark .day-row {
+      background: #0f172a;
+    }
+
+    .day-row.disabled {
+      opacity: 0.6;
+    }
+
+    .day-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
 
     .day-name {
+      font-size: 0.875rem;
       font-weight: 500;
+      color: #334155;
+      min-width: 100px;
+    }
+
+    .dark .day-name {
+      color: #e2e8f0;
     }
 
     .time-range {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
 
-    .time-range input {
-      padding: 0.375rem 0.5rem;
+    .time-input {
+      padding: 0.5rem 0.75rem;
       border: 1px solid #e2e8f0;
-      border-radius: 0.375rem;
-      font-size: 0.8125rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      background: white;
     }
 
-    .time-range span {
-      color: #64748b;
+    .dark .time-input {
+      background: #1e293b;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+
+    .time-separator {
       font-size: 0.875rem;
+      color: #64748b;
     }
 
     .closed-label {
@@ -1218,70 +1151,67 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     }
 
     /* Integration Cards */
+    .integration-card {
+      overflow: hidden;
+    }
+
     .integration-header {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1rem;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .integration-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .integration-icon i {
+      font-size: 1.125rem;
+      color: white;
+    }
+
+    .integration-icon.hl7 { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+    .integration-icon.fhir { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+    .integration-icon.prescription { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+
+    .integration-info {
+      flex: 1;
     }
 
     .integration-info h3 {
-      margin: 0 0 0.25rem;
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .dark .integration-info h3 {
+      color: #f8fafc;
     }
 
     .integration-info p {
-      margin: 0;
+      margin: 0.125rem 0 0;
       font-size: 0.8125rem;
       color: #64748b;
     }
 
-    .toggle {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-
-    .toggle input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #e2e8f0;
-      transition: 0.3s;
-      border-radius: 24px;
-    }
-
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.3s;
-      border-radius: 50%;
-    }
-
-    .toggle input:checked + .toggle-slider {
-      background-color: #3b82f6;
-    }
-
-    .toggle input:checked + .toggle-slider:before {
-      transform: translateX(20px);
-    }
-
     /* Responsive */
+    @media (max-width: 1024px) {
+      .settings-layout {
+        grid-template-columns: 200px 1fr;
+      }
+    }
+
     @media (max-width: 768px) {
+      .settings-container {
+        padding: 1rem;
+      }
+
       .settings-layout {
         grid-template-columns: 1fr;
       }
@@ -1289,35 +1219,54 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
       .settings-nav {
         flex-direction: row;
         overflow-x: auto;
+        position: static;
         padding-bottom: 0.5rem;
         gap: 0.5rem;
       }
 
       .nav-item {
         white-space: nowrap;
+        flex-shrink: 0;
       }
 
       .form-grid {
         grid-template-columns: 1fr;
       }
 
-      .checkbox-grid {
+      .form-grid.single {
+        max-width: 100%;
+      }
+
+      .options-grid {
         grid-template-columns: 1fr;
       }
 
       .day-row {
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.75rem;
       }
     }
   `]
 })
 export class SettingsComponent {
   private adminService = inject(AdminService);
+  themeService = inject(ThemeService);
+  private messageService = inject(MessageService);
 
   activeSection = signal<SettingsSection>('general');
   settings = signal<SystemSettings>(JSON.parse(JSON.stringify(this.adminService.systemSettings())));
   hasChanges = signal(false);
+
+  navItems = [
+    { key: 'general' as SettingsSection, label: 'General', icon: 'pi pi-cog' },
+    { key: 'security' as SettingsSection, label: 'Security', icon: 'pi pi-shield' },
+    { key: 'email' as SettingsSection, label: 'Email', icon: 'pi pi-envelope' },
+    { key: 'scheduling' as SettingsSection, label: 'Scheduling', icon: 'pi pi-calendar' },
+    { key: 'billing' as SettingsSection, label: 'Billing', icon: 'pi pi-dollar' },
+    { key: 'clinical' as SettingsSection, label: 'Clinical', icon: 'pi pi-heart' },
+    { key: 'integrations' as SettingsSection, label: 'Integrations', icon: 'pi pi-link' }
+  ];
 
   weekdays = [
     { key: 'monday', label: 'Monday' },
@@ -1329,14 +1278,93 @@ export class SettingsComponent {
     { key: 'sunday', label: 'Sunday' }
   ];
 
+  // Select Options
+  timezoneOptions = [
+    { label: 'Pacific Time', value: 'America/Los_Angeles' },
+    { label: 'Mountain Time', value: 'America/Denver' },
+    { label: 'Central Time', value: 'America/Chicago' },
+    { label: 'Eastern Time', value: 'America/New_York' }
+  ];
+
+  dateFormatOptions = [
+    { label: 'MM/DD/YYYY', value: 'MM/DD/YYYY' },
+    { label: 'DD/MM/YYYY', value: 'DD/MM/YYYY' },
+    { label: 'YYYY-MM-DD', value: 'YYYY-MM-DD' }
+  ];
+
+  currencyOptions = [
+    { label: 'USD ($)', value: 'USD' },
+    { label: 'EUR (€)', value: 'EUR' },
+    { label: 'GBP (£)', value: 'GBP' }
+  ];
+
+  languageOptions = [
+    { label: 'English', value: 'en' },
+    { label: 'Spanish', value: 'es' },
+    { label: 'French', value: 'fr' }
+  ];
+
+  encryptionOptions = [
+    { label: 'None', value: 'none' },
+    { label: 'SSL', value: 'ssl' },
+    { label: 'TLS', value: 'tls' }
+  ];
+
+  slotDurationOptions = [
+    { label: '15 minutes', value: 15 },
+    { label: '20 minutes', value: 20 },
+    { label: '30 minutes', value: 30 },
+    { label: '45 minutes', value: 45 },
+    { label: '60 minutes', value: 60 }
+  ];
+
+  claimMethodOptions = [
+    { label: 'Electronic Only', value: 'electronic' },
+    { label: 'Paper Only', value: 'paper' },
+    { label: 'Both', value: 'both' }
+  ];
+
+  frequencyOptions = [
+    { label: 'Weekly', value: 'weekly' },
+    { label: 'Monthly', value: 'monthly' }
+  ];
+
+  chartTemplateOptions = [
+    { label: 'SOAP Note', value: 'soap' },
+    { label: 'HPI Template', value: 'hpi' },
+    { label: 'Procedure Note', value: 'procedure' }
+  ];
+
+  unitSystemOptions = [
+    { label: 'Imperial (lbs, °F)', value: 'imperial' },
+    { label: 'Metric (kg, °C)', value: 'metric' }
+  ];
+
+  hl7VersionOptions = [
+    { label: '2.3', value: '2.3' },
+    { label: '2.5', value: '2.5' },
+    { label: '2.5.1', value: '2.5.1' }
+  ];
+
+  fhirVersionOptions = [
+    { label: 'R4', value: 'R4' },
+    { label: 'STU3', value: 'STU3' }
+  ];
+
   markChanged(): void {
     this.hasChanges.set(true);
   }
 
+  togglePasswordOption(option: 'requireUppercase' | 'requireLowercase' | 'requireNumbers' | 'requireSpecialChars'): void {
+    const currentSettings = this.settings();
+    currentSettings.security.passwordPolicy[option] = !currentSettings.security.passwordPolicy[option];
+    this.settings.set({ ...currentSettings });
+    this.markChanged();
+  }
+
   saveSettings(): void {
     const currentSettings = this.settings();
-    
-    // Update each section
+
     this.adminService.updateSettings('general', currentSettings.general);
     this.adminService.updateSettings('security', currentSettings.security);
     this.adminService.updateSettings('email', currentSettings.email);
@@ -1344,18 +1372,18 @@ export class SettingsComponent {
     this.adminService.updateSettings('billing', currentSettings.billing);
     this.adminService.updateSettings('clinical', currentSettings.clinical);
     this.adminService.updateSettings('integrations', currentSettings.integrations);
-    
+
     this.hasChanges.set(false);
-    console.log('Settings saved successfully');
+    this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Settings saved successfully' });
   }
 
   discardChanges(): void {
     this.settings.set(JSON.parse(JSON.stringify(this.adminService.systemSettings())));
     this.hasChanges.set(false);
+    this.messageService.add({ severity: 'info', summary: 'Discarded', detail: 'Changes have been discarded' });
   }
 
   testEmailConnection(): void {
-    console.log('Testing email connection...');
-    alert('Connection test successful!');
+    this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Email connection test successful!' });
   }
 }

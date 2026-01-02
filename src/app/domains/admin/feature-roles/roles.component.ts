@@ -1,123 +1,188 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
+
+// PrimeNG Imports
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { InputTextarea } from 'primeng/inputtextarea';
+import { SelectModule } from 'primeng/select';
+import { DialogModule } from 'primeng/dialog';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { ChipModule } from 'primeng/chip';
+import { TabViewModule } from 'primeng/tabview';
+import { AccordionModule } from 'primeng/accordion';
+import { DividerModule } from 'primeng/divider';
+import { RippleModule } from 'primeng/ripple';
+import { BadgeModule } from 'primeng/badge';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
+
+import { ThemeService } from '../../../core/services/theme.service';
 import { AdminService } from '../data-access/services/admin.service';
 import { Role, Permission, PermissionCategory, PermissionAction } from '../data-access/models/admin.model';
 
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [
+    CommonModule, FormsModule, ReactiveFormsModule,
+    TableModule, ButtonModule, InputTextModule, InputTextarea, SelectModule,
+    DialogModule, TagModule, TooltipModule, CheckboxModule, ToggleSwitchModule,
+    ChipModule, TabViewModule, AccordionModule, DividerModule, RippleModule,
+    BadgeModule, ToastModule,
+  ],
+  providers: [MessageService],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('fadeSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('staggerCards', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(20px) scale(0.95)' }),
+          stagger(100, [
+            animate('400ms cubic-bezier(0.35, 0, 0.25, 1)', style({ opacity: 1, transform: 'translateY(0) scale(1)' }))
+          ])
+        ], { optional: true })
+      ])
+    ]),
+    trigger('expandCollapse', [
+      transition(':enter', [
+        style({ opacity: 0, height: 0 }),
+        animate('200ms ease-out', style({ opacity: 1, height: '*' }))
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in', style({ opacity: 0, height: 0 }))
+      ])
+    ]),
+    trigger('modalSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.9)' }),
+        animate('250ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 1, transform: 'scale(1)' }))
+      ])
+    ])
+  ],
   template: `
-    <div class="roles-container">
+    <div class="roles-container" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
+
       <!-- Header -->
-      <header class="page-header">
+      <header class="page-header" @fadeSlide>
         <div class="header-content">
           <div class="title-section">
             <h1>Roles & Permissions</h1>
-            <p class="subtitle">Manage user roles and access permissions</p>
+            <p class="subtitle">Manage user roles and access permissions across your organization</p>
           </div>
           <div class="header-actions">
-            <button class="btn btn-primary" (click)="openCreateModal()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Create Role
-            </button>
+            <p-button label="Create Role" icon="pi pi-plus" (onClick)="openCreateModal()" />
           </div>
         </div>
       </header>
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <button 
-          class="tab-btn"
-          [class.active]="activeTab() === 'roles'"
-          (click)="activeTab.set('roles')"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"/>
-          </svg>
-          Roles
-        </button>
-        <button 
-          class="tab-btn"
-          [class.active]="activeTab() === 'matrix'"
-          (click)="activeTab.set('matrix')"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"/>
-            <rect x="14" y="3" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/>
-          </svg>
-          Permission Matrix
-        </button>
+      <!-- Summary Stats -->
+      <div class="stats-row" @fadeSlide>
+        <div class="stat-chip">
+          <i class="pi pi-shield"></i>
+          <span class="stat-number">{{ adminService.roles().length }}</span>
+          <span class="stat-text">Total Roles</span>
+        </div>
+        <div class="stat-chip">
+          <i class="pi pi-lock"></i>
+          <span class="stat-number">{{ systemRolesCount() }}</span>
+          <span class="stat-text">System Roles</span>
+        </div>
+        <div class="stat-chip">
+          <i class="pi pi-cog"></i>
+          <span class="stat-number">{{ customRolesCount() }}</span>
+          <span class="stat-text">Custom Roles</span>
+        </div>
+        <div class="stat-chip">
+          <i class="pi pi-key"></i>
+          <span class="stat-number">{{ adminService.permissions().length }}</span>
+          <span class="stat-text">Permissions</span>
+        </div>
       </div>
 
-      <!-- Roles List -->
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <div class="tab-buttons">
+          <button 
+            class="tab-btn" 
+            [class.active]="activeTab() === 'roles'"
+            (click)="activeTab.set('roles')"
+            pRipple
+          >
+            <i class="pi pi-id-card"></i>
+            <span>Roles</span>
+          </button>
+          <button 
+            class="tab-btn" 
+            [class.active]="activeTab() === 'matrix'"
+            (click)="activeTab.set('matrix')"
+            pRipple
+          >
+            <i class="pi pi-th-large"></i>
+            <span>Permission Matrix</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Roles Grid -->
       @if (activeTab() === 'roles') {
-        <div class="roles-grid">
+        <div class="roles-grid" @staggerCards>
           @for (role of adminService.roles(); track role.id) {
-            <div class="role-card" [class.system]="role.type === 'system'">
-              <div class="role-header">
-                <div class="role-info">
-                  <h3>{{ role.name }}</h3>
-                  <p>{{ role.description }}</p>
+            <div class="role-card" [class.system]="role.type === 'system'" pRipple>
+              <div class="role-card-header">
+                <div class="role-icon" [class.system]="role.type === 'system'" [class.custom]="role.type !== 'system'">
+                  <i class="pi" [class.pi-shield]="role.type === 'system'" [class.pi-cog]="role.type !== 'system'"></i>
                 </div>
                 <div class="role-badges">
                   @if (role.type === 'system') {
-                    <span class="badge system">System</span>
+                    <p-tag value="System" severity="info" [rounded]="true" />
+                  } @else {
+                    <p-tag value="Custom" severity="warn" [rounded]="true" />
                   }
                   @if (role.isDefault) {
-                    <span class="badge default">Default</span>
+                    <p-tag value="Default" severity="success" [rounded]="true" />
                   }
                 </div>
               </div>
+
+              <div class="role-content">
+                <h3 class="role-name">{{ role.name }}</h3>
+                <p class="role-description">{{ role.description }}</p>
+              </div>
+
               <div class="role-stats">
-                <div class="stat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                  </svg>
-                  <span>{{ role.userCount }} users</span>
+                <div class="role-stat">
+                  <i class="pi pi-users"></i>
+                  <span class="stat-value">{{ role.userCount }}</span>
+                  <span class="stat-label">Users</span>
                 </div>
-                <div class="stat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                  <span>{{ role.permissions.length }} permissions</span>
+                <div class="role-stat">
+                  <i class="pi pi-key"></i>
+                  <span class="stat-value">{{ role.permissions.length }}</span>
+                  <span class="stat-label">Permissions</span>
                 </div>
               </div>
+
+              <p-divider />
+
               <div class="role-actions">
-                <button class="btn btn-secondary btn-sm" (click)="viewRole(role)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  View
-                </button>
-                <button 
-                  class="btn btn-secondary btn-sm" 
-                  (click)="editRole(role)"
-                  [disabled]="role.type === 'system'"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  Edit
-                </button>
+                <p-button icon="pi pi-eye" label="View" [text]="true" severity="secondary" (onClick)="viewRole(role)" />
+                <p-button icon="pi pi-pencil" label="Edit" [text]="true" severity="secondary" (onClick)="editRole(role)" [disabled]="role.type === 'system'" />
                 @if (role.type !== 'system') {
-                  <button class="btn btn-danger btn-sm" (click)="deleteRole(role)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    </svg>
-                  </button>
+                  <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="deleteRole(role)" pTooltip="Delete" />
                 }
               </div>
             </div>
@@ -127,20 +192,25 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
 
       <!-- Permission Matrix -->
       @if (activeTab() === 'matrix') {
-        <div class="matrix-container">
-          <div class="matrix-filters">
-            <select [ngModel]="categoryFilter()" (ngModelChange)="categoryFilter.set($event)">
-              <option value="all">All Categories</option>
-              <option value="patients">Patients</option>
-              <option value="appointments">Appointments</option>
-              <option value="encounters">Encounters</option>
-              <option value="billing">Billing</option>
-              <option value="reports">Reports</option>
-              <option value="messaging">Messaging</option>
-              <option value="admin">Admin</option>
-            </select>
+        <div class="matrix-card" @fadeSlide>
+          <div class="matrix-header">
+            <div class="matrix-title">
+              <h3>Permission Matrix</h3>
+              <p>Configure which roles have access to specific features</p>
+            </div>
+            <div class="matrix-filters">
+              <p-select 
+                [ngModel]="categoryFilter()" 
+                (ngModelChange)="categoryFilter.set($event)"
+                [options]="categoryOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="All Categories"
+                [showClear]="true"
+              />
+            </div>
           </div>
-          
+
           <div class="matrix-table-wrapper">
             <table class="matrix-table">
               <thead>
@@ -149,9 +219,11 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
                   @for (role of adminService.roles(); track role.id) {
                     <th class="role-col">
                       <div class="role-header-cell">
-                        <span>{{ role.name }}</span>
+                        <span class="role-col-name">{{ role.name }}</span>
                         @if (role.type === 'system') {
-                          <span class="badge-small">System</span>
+                          <span class="role-col-badge system">System</span>
+                        } @else {
+                          <span class="role-col-badge custom">Custom</span>
                         }
                       </div>
                     </th>
@@ -160,14 +232,17 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
               </thead>
               <tbody>
                 @for (category of permissionCategories; track category) {
-                  @if (categoryFilter() === 'all' || categoryFilter() === category) {
+                  @if (categoryFilter() === null || categoryFilter() === category) {
                     <tr class="category-row">
                       <td [attr.colspan]="adminService.roles().length + 1">
-                        {{ formatCategory(category) }}
+                        <div class="category-label">
+                          <i [class]="getCategoryIcon(category)"></i>
+                          <span>{{ formatCategory(category) }}</span>
+                        </div>
                       </td>
                     </tr>
                     @for (permission of getPermissionsByCategory(category); track permission.id) {
-                      <tr>
+                      <tr class="permission-row">
                         <td class="permission-cell">
                           <div class="permission-info">
                             <span class="permission-name">{{ permission.name }}</span>
@@ -176,21 +251,16 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
                         </td>
                         @for (role of adminService.roles(); track role.id) {
                           <td class="check-cell">
-                            <label class="matrix-checkbox">
-                              <input 
-                                type="checkbox" 
-                                [checked]="hasPermission(role, permission)"
-                                [disabled]="role.type === 'system'"
-                                (change)="togglePermission(role, permission)"
-                              />
-                              <span class="checkmark">
-                                @if (hasPermission(role, permission)) {
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                  </svg>
-                                }
-                              </span>
-                            </label>
+                            <div 
+                              class="matrix-checkbox" 
+                              [class.checked]="hasPermission(role, permission)"
+                              [class.disabled]="role.type === 'system'"
+                              (click)="togglePermission(role, permission)"
+                            >
+                              @if (hasPermission(role, permission)) {
+                                <i class="pi pi-check"></i>
+                              }
+                            </div>
                           </td>
                         }
                       </tr>
@@ -203,153 +273,175 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
         </div>
       }
 
-      <!-- Role Modal -->
-      @if (showRoleModal()) {
-        <div class="modal-overlay" (click)="closeRoleModal()">
-          <div class="modal role-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>{{ editingRole() ? 'Edit Role' : 'Create Role' }}</h2>
-              <button class="btn-close" (click)="closeRoleModal()">×</button>
+      <!-- Create/Edit Role Dialog -->
+      <p-dialog 
+        [header]="editingRole() ? 'Edit Role' : 'Create Role'" 
+        [(visible)]="showRoleModal" 
+        [modal]="true" 
+        [style]="{ width: '650px' }" 
+        [draggable]="false"
+        [closable]="true"
+      >
+        <div class="role-form" [formGroup]="roleForm">
+          <div class="form-section">
+            <h4>Role Details</h4>
+            <div class="form-grid">
+              <div class="form-field full-width">
+                <label>Role Name *</label>
+                <input pInputText formControlName="name" class="w-full" placeholder="Enter role name" />
+              </div>
+              <div class="form-field full-width">
+                <label>Description</label>
+                <textarea pInputTextarea formControlName="description" class="w-full" rows="3" placeholder="Describe this role's purpose"></textarea>
+              </div>
             </div>
-            <div class="modal-body">
-              <form [formGroup]="roleForm">
-                <div class="form-group">
-                  <label for="name">Role Name *</label>
-                  <input id="name" type="text" formControlName="name" placeholder="Enter role name" />
-                </div>
-                
-                <div class="form-group">
-                  <label for="description">Description</label>
-                  <textarea id="description" formControlName="description" placeholder="Describe this role" rows="3"></textarea>
-                </div>
+            <div class="form-option">
+              <p-toggleSwitch formControlName="isDefault" />
+              <div class="option-text">
+                <span class="option-label">Set as default role</span>
+                <span class="option-desc">New users will automatically be assigned this role</span>
+              </div>
+            </div>
+          </div>
 
-                <div class="form-group checkbox-group">
-                  <label class="checkbox-item">
-                    <input type="checkbox" formControlName="isDefault" />
-                    <span>Set as default role for new users</span>
-                  </label>
-                </div>
+          <p-divider />
 
-                <div class="permissions-section">
-                  <h3>Permissions</h3>
-                  @for (category of permissionCategories; track category) {
-                    <div class="permission-category">
-                      <div class="category-header" (click)="toggleCategory(category)">
-                        <svg 
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          stroke-width="2"
-                          [class.expanded]="expandedCategories().includes(category)"
+          <div class="form-section">
+            <h4>Permissions</h4>
+            <div class="permissions-accordion">
+              @for (category of permissionCategories; track category) {
+                <div class="permission-category">
+                  <div 
+                    class="category-header" 
+                    (click)="toggleCategory(category)"
+                    pRipple
+                  >
+                    <i class="pi" [class.pi-chevron-right]="!expandedCategories().includes(category)" [class.pi-chevron-down]="expandedCategories().includes(category)"></i>
+                    <i [class]="getCategoryIcon(category)" class="category-icon"></i>
+                    <span class="category-name">{{ formatCategory(category) }}</span>
+                    <span class="category-count">
+                      {{ getSelectedCount(category) }}/{{ getPermissionsByCategory(category).length }}
+                    </span>
+                  </div>
+                  @if (expandedCategories().includes(category)) {
+                    <div class="category-body" @expandCollapse>
+                      @for (permission of getPermissionsByCategory(category); track permission.id) {
+                        <div 
+                          class="permission-item"
+                          [class.selected]="selectedPermissions().includes(permission.id)"
+                          (click)="toggleFormPermission(permission.id)"
+                          pRipple
                         >
-                          <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                        <span>{{ formatCategory(category) }}</span>
-                        <span class="selected-count">
-                          {{ getSelectedCount(category) }}/{{ getPermissionsByCategory(category).length }}
-                        </span>
-                      </div>
-                      @if (expandedCategories().includes(category)) {
-                        <div class="category-permissions">
-                          @for (permission of getPermissionsByCategory(category); track permission.id) {
-                            <label class="permission-checkbox">
-                              <input 
-                                type="checkbox" 
-                                [checked]="selectedPermissions().includes(permission.id)"
-                                (change)="toggleFormPermission(permission.id)"
-                              />
-                              <div class="permission-label">
-                                <span class="name">{{ permission.name }}</span>
-                                <span class="desc">{{ permission.description }}</span>
-                              </div>
-                            </label>
-                          }
+                          <div class="permission-checkbox" [class.checked]="selectedPermissions().includes(permission.id)">
+                            @if (selectedPermissions().includes(permission.id)) {
+                              <i class="pi pi-check"></i>
+                            }
+                          </div>
+                          <div class="permission-details">
+                            <span class="perm-name">{{ permission.name }}</span>
+                            <span class="perm-desc">{{ permission.description }}</span>
+                          </div>
                         </div>
                       }
                     </div>
                   }
                 </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" (click)="closeRoleModal()">Cancel</button>
-              <button 
-                class="btn btn-primary" 
-                (click)="saveRole()"
-                [disabled]="roleForm.invalid"
-              >
-                {{ editingRole() ? 'Update' : 'Create' }} Role
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-
-      <!-- Role Detail Modal -->
-      @if (showDetailModal()) {
-        <div class="modal-overlay" (click)="closeDetailModal()">
-          <div class="modal detail-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <div class="header-info">
-                <h2>{{ selectedRole()!.name }}</h2>
-                @if (selectedRole()!.type === 'system') {
-                  <span class="badge system">System Role</span>
-                }
-              </div>
-              <button class="btn-close" (click)="closeDetailModal()">×</button>
-            </div>
-            <div class="modal-body">
-              <p class="role-description">{{ selectedRole()!.description }}</p>
-              
-              <div class="detail-stats">
-                <div class="stat-item">
-                  <label>Users</label>
-                  <span>{{ selectedRole()!.userCount }}</span>
-                </div>
-                <div class="stat-item">
-                  <label>Created</label>
-                  <span>{{ formatDate(selectedRole()!.createdAt) }}</span>
-                </div>
-                <div class="stat-item">
-                  <label>Last Updated</label>
-                  <span>{{ formatDate(selectedRole()!.updatedAt) }}</span>
-                </div>
-              </div>
-
-              <div class="permissions-list">
-                <h3>Permissions ({{ selectedRole()!.permissions.length }})</h3>
-                @for (category of permissionCategories; track category) {
-                  @if (hasPermissionsInCategory(selectedRole()!, category)) {
-                    <div class="category-group">
-                      <h4>{{ formatCategory(category) }}</h4>
-                      <div class="permission-chips">
-                        @for (permission of getRolePermissionsByCategory(selectedRole()!, category); track permission.id) {
-                          <span class="permission-chip">{{ permission.name }}</span>
-                        }
-                      </div>
-                    </div>
-                  }
-                }
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" (click)="closeDetailModal()">Close</button>
-              @if (selectedRole()!.type !== 'system') {
-                <button class="btn btn-primary" (click)="editRole(selectedRole()!)">
-                  Edit Role
-                </button>
               }
             </div>
           </div>
         </div>
-      }
+
+        <ng-template pTemplate="footer">
+          <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="closeRoleModal()" />
+          <p-button [label]="editingRole() ? 'Update Role' : 'Create Role'" icon="pi pi-check" (onClick)="saveRole()" [disabled]="roleForm.invalid" />
+        </ng-template>
+      </p-dialog>
+
+      <!-- View Role Dialog -->
+      <p-dialog header="Role Details" [(visible)]="showDetailModal" [modal]="true" [style]="{ width: '600px' }" [draggable]="false">
+        @if (selectedRole(); as role) {
+          <div class="role-detail">
+            <div class="detail-header">
+              <div class="detail-icon" [class.system]="role.type === 'system'" [class.custom]="role.type !== 'system'">
+                <i class="pi" [class.pi-shield]="role.type === 'system'" [class.pi-cog]="role.type !== 'system'"></i>
+              </div>
+              <div class="detail-info">
+                <h2>{{ role.name }}</h2>
+                <div class="detail-badges">
+                  @if (role.type === 'system') {
+                    <p-tag value="System Role" severity="info" [rounded]="true" />
+                  } @else {
+                    <p-tag value="Custom Role" severity="warn" [rounded]="true" />
+                  }
+                  @if (role.isDefault) {
+                    <p-tag value="Default" severity="success" [rounded]="true" />
+                  }
+                </div>
+              </div>
+            </div>
+
+            <p class="detail-description">{{ role.description }}</p>
+
+            <div class="detail-stats-grid">
+              <div class="detail-stat">
+                <span class="stat-label">Users Assigned</span>
+                <span class="stat-value">{{ role.userCount }}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="stat-label">Permissions</span>
+                <span class="stat-value">{{ role.permissions.length }}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="stat-label">Created</span>
+                <span class="stat-value">{{ formatDate(role.createdAt) }}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="stat-label">Last Updated</span>
+                <span class="stat-value">{{ formatDate(role.updatedAt) }}</span>
+              </div>
+            </div>
+
+            <p-divider />
+
+            <div class="detail-permissions">
+              <h4>Assigned Permissions</h4>
+              @for (category of permissionCategories; track category) {
+                @if (hasPermissionsInCategory(role, category)) {
+                  <div class="permission-group">
+                    <div class="group-header">
+                      <i [class]="getCategoryIcon(category)"></i>
+                      <span>{{ formatCategory(category) }}</span>
+                    </div>
+                    <div class="permission-tags">
+                      @for (permission of getRolePermissionsByCategory(role, category); track permission.id) {
+                        <p-chip [label]="permission.name" />
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        }
+
+        <ng-template pTemplate="footer">
+          <p-button label="Close" [text]="true" severity="secondary" (onClick)="closeDetailModal()" />
+          @if (selectedRole()?.type !== 'system') {
+            <p-button label="Edit Role" icon="pi pi-pencil" (onClick)="editRole(selectedRole()!)" />
+          }
+        </ng-template>
+      </p-dialog>
     </div>
   `,
   styles: [`
     .roles-container {
-      padding: 1.5rem;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .dark.roles-container {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     }
 
     /* Header */
@@ -361,231 +453,298 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 1rem;
     }
 
     .title-section h1 {
       margin: 0;
-      font-size: 1.75rem;
-      font-weight: 600;
-      color: #1e293b;
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .title-section h1 {
+      color: #f8fafc;
     }
 
     .subtitle {
-      margin: 0.25rem 0 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9375rem;
       color: #64748b;
-      font-size: 0.875rem;
+      font-weight: 400;
     }
 
-    /* Buttons */
-    .btn {
-      display: inline-flex;
+    /* Stats Row */
+    .stats-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
+      gap: 0.625rem;
+      padding: 0.75rem 1.25rem;
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
 
-    .btn-sm {
-      padding: 0.375rem 0.75rem;
+    .dark .stat-chip {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .stat-chip i {
+      font-size: 1.25rem;
+      color: #3b82f6;
+    }
+
+    .stat-chip .stat-number {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .dark .stat-chip .stat-number {
+      color: #f8fafc;
+    }
+
+    .stat-chip .stat-text {
       font-size: 0.8125rem;
-    }
-
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #2563eb;
-    }
-
-    .btn-primary:disabled {
-      background: #94a3b8;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: #e2e8f0;
-    }
-
-    .btn-secondary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-danger {
-      background: #fee2e2;
-      color: #dc2626;
-      border: 1px solid #fecaca;
-    }
-
-    .btn-danger:hover {
-      background: #fecaca;
-    }
-
-    .btn svg {
-      width: 1rem;
-      height: 1rem;
+      color: #64748b;
+      font-weight: 500;
     }
 
     /* Tabs */
-    .tabs {
+    .tabs-container {
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-buttons {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
+      padding: 0.375rem;
+      background: white;
+      border-radius: 12px;
+      width: fit-content;
+      border: 1px solid #f1f5f9;
+    }
+
+    .dark .tab-buttons {
+      background: #1e293b;
+      border-color: #334155;
     }
 
     .tab-btn {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.75rem 1rem;
+      padding: 0.625rem 1.25rem;
       border: none;
       background: transparent;
+      border-radius: 8px;
       font-size: 0.875rem;
       font-weight: 500;
       color: #64748b;
       cursor: pointer;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
       transition: all 0.2s;
     }
 
     .tab-btn:hover {
       color: #3b82f6;
+      background: rgba(59, 130, 246, 0.05);
     }
 
     .tab-btn.active {
-      color: #3b82f6;
-      border-bottom-color: #3b82f6;
+      color: white;
+      background: #3b82f6;
     }
 
-    .tab-btn svg {
-      width: 1rem;
-      height: 1rem;
+    .tab-btn i {
+      font-size: 1rem;
     }
 
     /* Roles Grid */
     .roles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.25rem;
     }
 
     .role-card {
       background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .dark .role-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .role-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
     }
 
     .role-card.system {
       border-color: #dbeafe;
-      background: #f8fafc;
+      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
     }
 
-    .role-header {
+    .dark .role-card.system {
+      background: linear-gradient(135deg, #1e293b 0%, #1e3a5f 100%);
+      border-color: #1e40af;
+    }
+
+    .role-card-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 1rem;
+      margin-bottom: 1rem;
     }
 
-    .role-info h3 {
-      margin: 0 0 0.25rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: #1e293b;
+    .role-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .role-info p {
-      margin: 0;
-      font-size: 0.8125rem;
-      color: #64748b;
+    .role-icon i {
+      font-size: 1.25rem;
+      color: white;
+    }
+
+    .role-icon.system {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+
+    .role-icon.custom {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     }
 
     .role-badges {
       display: flex;
-      gap: 0.25rem;
+      gap: 0.375rem;
     }
 
-    .badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.625rem;
+    .role-content {
+      margin-bottom: 1.25rem;
+    }
+
+    .role-name {
+      margin: 0 0 0.5rem;
+      font-size: 1.125rem;
       font-weight: 600;
-      text-transform: uppercase;
+      color: #0f172a;
+      letter-spacing: -0.01em;
     }
 
-    .badge.system {
-      background: #dbeafe;
-      color: #1d4ed8;
+    .dark .role-name {
+      color: #f8fafc;
     }
 
-    .badge.default {
-      background: #dcfce7;
-      color: #16a34a;
+    .role-description {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #64748b;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .role-stats {
       display: flex;
-      gap: 1.5rem;
+      gap: 2rem;
+      margin-bottom: 1rem;
     }
 
-    .role-stats .stat {
+    .role-stat {
       display: flex;
       align-items: center;
-      gap: 0.375rem;
-      font-size: 0.8125rem;
-      color: #64748b;
+      gap: 0.5rem;
     }
 
-    .role-stats .stat svg {
-      width: 1rem;
-      height: 1rem;
+    .role-stat i {
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+
+    .role-stat .stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .dark .role-stat .stat-value {
+      color: #f8fafc;
+    }
+
+    .role-stat .stat-label {
+      font-size: 0.75rem;
+      color: #64748b;
     }
 
     .role-actions {
       display: flex;
-      gap: 0.5rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid #e2e8f0;
+      gap: 0.25rem;
+      margin-top: 0.75rem;
     }
 
-    /* Matrix */
-    .matrix-container {
+    /* Matrix Card */
+    .matrix-card {
       background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
+      border-radius: 16px;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
       overflow: hidden;
     }
 
-    .matrix-filters {
-      padding: 1rem;
-      border-bottom: 1px solid #e2e8f0;
+    .dark .matrix-card {
+      background: #1e293b;
+      border-color: #334155;
     }
 
-    .matrix-filters select {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
+    .matrix-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .dark .matrix-header {
+      border-bottom-color: #334155;
+    }
+
+    .matrix-title h3 {
+      margin: 0;
+      font-size: 1.0625rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .dark .matrix-title h3 {
+      color: #f8fafc;
+    }
+
+    .matrix-title p {
+      margin: 0.25rem 0 0;
+      font-size: 0.8125rem;
+      color: #64748b;
     }
 
     .matrix-table-wrapper {
@@ -598,7 +757,7 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
     }
 
     .matrix-table th {
-      padding: 0.75rem 1rem;
+      padding: 0.875rem 1rem;
       text-align: center;
       font-size: 0.75rem;
       font-weight: 600;
@@ -606,44 +765,90 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+    }
+
+    .dark .matrix-table th {
+      background: #0f172a;
+      border-bottom-color: #334155;
     }
 
     .matrix-table th.permission-col {
       text-align: left;
-      min-width: 250px;
+      min-width: 280px;
     }
 
     .matrix-table th.role-col {
-      min-width: 100px;
+      min-width: 120px;
     }
 
     .role-header-cell {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.25rem;
+      gap: 0.375rem;
     }
 
-    .badge-small {
-      padding: 0.125rem 0.375rem;
+    .role-col-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .dark .role-col-name {
+      color: #e2e8f0;
+    }
+
+    .role-col-badge {
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .role-col-badge.system {
       background: #dbeafe;
       color: #1d4ed8;
-      border-radius: 0.25rem;
-      font-size: 0.5rem;
     }
 
-    .matrix-table td {
-      padding: 0.5rem 1rem;
-      border-bottom: 1px solid #e2e8f0;
+    .role-col-badge.custom {
+      background: #fef3c7;
+      color: #d97706;
     }
 
     .category-row td {
       background: #f1f5f9;
+      padding: 0.625rem 1rem;
+    }
+
+    .dark .category-row td {
+      background: #0f172a;
+    }
+
+    .category-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       font-size: 0.75rem;
       font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+    }
+
+    .category-label i {
+      font-size: 0.875rem;
+    }
+
+    .permission-row td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .dark .permission-row td {
+      border-bottom-color: #334155;
     }
 
     .permission-cell {
@@ -653,12 +858,17 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
     .permission-info {
       display: flex;
       flex-direction: column;
+      gap: 0.125rem;
     }
 
     .permission-name {
       font-size: 0.875rem;
       font-weight: 500;
-      color: #1e293b;
+      color: #0f172a;
+    }
+
+    .dark .permission-name {
+      color: #f8fafc;
     }
 
     .permission-desc {
@@ -672,310 +882,389 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
     }
 
     .matrix-checkbox {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
       display: inline-flex;
-      cursor: pointer;
-    }
-
-    .matrix-checkbox input {
-      display: none;
-    }
-
-    .checkmark {
-      width: 1.25rem;
-      height: 1.25rem;
-      display: flex;
       align-items: center;
       justify-content: center;
-      border: 2px solid #e2e8f0;
-      border-radius: 0.25rem;
-      background: white;
+      cursor: pointer;
       transition: all 0.2s;
+      background: white;
     }
 
-    .matrix-checkbox input:checked + .checkmark {
+    .dark .matrix-checkbox {
+      border-color: #475569;
+      background: #1e293b;
+    }
+
+    .matrix-checkbox:hover:not(.disabled) {
+      border-color: #3b82f6;
+    }
+
+    .matrix-checkbox.checked {
       background: #3b82f6;
       border-color: #3b82f6;
     }
 
-    .checkmark svg {
-      width: 0.75rem;
-      height: 0.75rem;
+    .matrix-checkbox.checked i {
       color: white;
+      font-size: 0.75rem;
     }
 
-    .matrix-checkbox input:disabled + .checkmark {
+    .matrix-checkbox.disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    /* Modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 1rem;
-    }
-
-    .modal {
-      background: white;
-      border-radius: 0.75rem;
-      width: 100%;
-      max-height: 90vh;
-      overflow: hidden;
+    /* Form Styles */
+    .role-form {
       display: flex;
       flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .role-modal {
-      max-width: 600px;
-    }
-
-    .detail-modal {
-      max-width: 700px;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .modal-header h2 {
-      margin: 0;
-      font-size: 1.125rem;
+    .form-section h4 {
+      margin: 0 0 1rem;
+      font-size: 0.9375rem;
       font-weight: 600;
-      color: #1e293b;
+      color: #334155;
     }
 
-    .header-info {
+    .dark .form-section h4 {
+      color: #e2e8f0;
+    }
+
+    .form-grid {
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      flex-direction: column;
+      gap: 1rem;
     }
 
-    .btn-close {
-      width: 2rem;
-      height: 2rem;
+    .form-field {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      font-size: 1.5rem;
-      color: #64748b;
-      cursor: pointer;
-      border-radius: 0.375rem;
+      flex-direction: column;
+      gap: 0.375rem;
     }
 
-    .btn-close:hover {
-      background: #f1f5f9;
+    .form-field label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #475569;
     }
 
-    .modal-body {
-      padding: 1.5rem;
-      overflow-y: auto;
+    .dark .form-field label {
+      color: #94a3b8;
     }
 
-    .modal-footer {
+    .w-full {
+      width: 100%;
+    }
+
+    .form-option {
       display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #e2e8f0;
+      align-items: flex-start;
+      gap: 0.875rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+      margin-top: 1rem;
     }
 
-    /* Form Styles */
-    .form-group {
-      margin-bottom: 1rem;
+    .dark .form-option {
+      background: #0f172a;
     }
 
-    .form-group label {
-      display: block;
-      margin-bottom: 0.375rem;
+    .option-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .option-label {
       font-size: 0.875rem;
       font-weight: 500;
-      color: #374151;
+      color: #334155;
     }
 
-    .form-group input,
-    .form-group textarea {
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-family: inherit;
+    .dark .option-label {
+      color: #e2e8f0;
     }
 
-    .form-group input:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: #3b82f6;
-    }
-
-    .checkbox-group {
-      margin-top: 0.5rem;
-    }
-
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: #475569;
-      cursor: pointer;
-    }
-
-    .checkbox-item input[type="checkbox"] {
-      width: 1rem;
-      height: 1rem;
-      accent-color: #3b82f6;
-    }
-
-    /* Permissions Section */
-    .permissions-section {
-      margin-top: 1.5rem;
-    }
-
-    .permissions-section h3 {
-      margin: 0 0 1rem;
-      font-size: 0.875rem;
-      font-weight: 600;
+    .option-desc {
+      font-size: 0.75rem;
       color: #64748b;
+    }
+
+    /* Permissions Accordion */
+    .permissions-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
     .permission-category {
       border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      margin-bottom: 0.5rem;
+      border-radius: 10px;
       overflow: hidden;
+    }
+
+    .dark .permission-category {
+      border-color: #334155;
     }
 
     .category-header {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
+      gap: 0.625rem;
+      padding: 0.875rem 1rem;
       background: #f8fafc;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #1e293b;
+      transition: background 0.15s;
+    }
+
+    .dark .category-header {
+      background: #0f172a;
     }
 
     .category-header:hover {
       background: #f1f5f9;
     }
 
-    .category-header svg {
-      width: 1rem;
-      height: 1rem;
-      color: #64748b;
-      transition: transform 0.2s;
+    .dark .category-header:hover {
+      background: #1e293b;
     }
 
-    .category-header svg.expanded {
-      transform: rotate(90deg);
-    }
-
-    .selected-count {
-      margin-left: auto;
+    .category-header > i:first-child {
       font-size: 0.75rem;
       color: #64748b;
     }
 
-    .category-permissions {
-      padding: 0.75rem 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+    .category-icon {
+      font-size: 1rem;
+      color: #3b82f6;
     }
 
-    .permission-checkbox {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      cursor: pointer;
-    }
-
-    .permission-checkbox input[type="checkbox"] {
-      margin-top: 0.25rem;
-      width: 1rem;
-      height: 1rem;
-      accent-color: #3b82f6;
-    }
-
-    .permission-label {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .permission-label .name {
+    .category-name {
+      flex: 1;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #1e293b;
+      color: #334155;
     }
 
-    .permission-label .desc {
+    .dark .category-name {
+      color: #e2e8f0;
+    }
+
+    .category-count {
       font-size: 0.75rem;
       color: #64748b;
+      background: #e2e8f0;
+      padding: 0.125rem 0.5rem;
+      border-radius: 4px;
     }
 
-    /* Detail Modal */
-    .role-description {
-      margin: 0 0 1.5rem;
-      font-size: 0.875rem;
-      color: #475569;
-      line-height: 1.5;
+    .dark .category-count {
+      background: #334155;
     }
 
-    .detail-stats {
-      display: flex;
-      gap: 2rem;
-      padding: 1rem;
-      background: #f8fafc;
-      border-radius: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .stat-item {
+    .category-body {
+      padding: 0.5rem;
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
     }
 
-    .stat-item label {
+    .permission-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .permission-item:hover {
+      background: #f8fafc;
+    }
+
+    .dark .permission-item:hover {
+      background: #0f172a;
+    }
+
+    .permission-item.selected {
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .permission-checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+      transition: all 0.2s;
+    }
+
+    .dark .permission-checkbox {
+      border-color: #475569;
+    }
+
+    .permission-checkbox.checked {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .permission-checkbox.checked i {
+      color: white;
+      font-size: 0.625rem;
+    }
+
+    .permission-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .perm-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    .dark .perm-name {
+      color: #e2e8f0;
+    }
+
+    .perm-desc {
       font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Role Detail Dialog */
+    .role-detail {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+
+    .detail-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .detail-icon i {
+      font-size: 1.5rem;
+      color: white;
+    }
+
+    .detail-icon.system {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+
+    .detail-icon.custom {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .detail-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .detail-info h2 {
+      margin: 0;
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .dark .detail-info h2 {
+      color: #f8fafc;
+    }
+
+    .detail-badges {
+      display: flex;
+      gap: 0.375rem;
+    }
+
+    .detail-description {
+      margin: 0;
+      font-size: 0.9375rem;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .detail-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .dark .detail-stats-grid {
+      background: #0f172a;
+    }
+
+    .detail-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: center;
+    }
+
+    .detail-stat .stat-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
-    .stat-item span {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #1e293b;
+    .detail-stat .stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #0f172a;
     }
 
-    .permissions-list h3 {
+    .dark .detail-stat .stat-value {
+      color: #f8fafc;
+    }
+
+    .detail-permissions h4 {
       margin: 0 0 1rem;
       font-size: 0.875rem;
       font-weight: 600;
       color: #64748b;
     }
 
-    .category-group {
+    .permission-group {
       margin-bottom: 1rem;
     }
 
-    .category-group h4 {
-      margin: 0 0 0.5rem;
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.625rem;
       font-size: 0.75rem;
       font-weight: 600;
       color: #475569;
@@ -983,25 +1272,48 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
       letter-spacing: 0.05em;
     }
 
-    .permission-chips {
+    .dark .group-header {
+      color: #94a3b8;
+    }
+
+    .group-header i {
+      font-size: 0.875rem;
+      color: #3b82f6;
+    }
+
+    .permission-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 0.375rem;
     }
 
-    .permission-chip {
-      padding: 0.25rem 0.5rem;
-      background: #f1f5f9;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      color: #475569;
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .roles-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .detail-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
-    /* Responsive */
     @media (max-width: 768px) {
+      .roles-container {
+        padding: 1rem;
+      }
+
       .header-content {
         flex-direction: column;
-        align-items: stretch;
+        gap: 1rem;
+      }
+
+      .stats-row {
+        flex-direction: column;
+      }
+
+      .stat-chip {
+        width: 100%;
       }
 
       .roles-grid {
@@ -1016,11 +1328,13 @@ import { Role, Permission, PermissionCategory, PermissionAction } from '../data-
 })
 export class RolesComponent {
   adminService = inject(AdminService);
+  themeService = inject(ThemeService);
   private fb = inject(FormBuilder);
+  private messageService = inject(MessageService);
 
   // State
   activeTab = signal<'roles' | 'matrix'>('roles');
-  categoryFilter = signal<'all' | PermissionCategory>('all');
+  categoryFilter = signal<PermissionCategory | null>(null);
 
   // Modal state
   showRoleModal = signal(false);
@@ -1036,11 +1350,38 @@ export class RolesComponent {
     'patients', 'appointments', 'encounters', 'billing', 'reports', 'messaging', 'admin'
   ];
 
+  categoryOptions = [
+    { label: 'Patients', value: 'patients' },
+    { label: 'Appointments', value: 'appointments' },
+    { label: 'Encounters', value: 'encounters' },
+    { label: 'Billing', value: 'billing' },
+    { label: 'Reports', value: 'reports' },
+    { label: 'Messaging', value: 'messaging' },
+    { label: 'Admin', value: 'admin' }
+  ];
+
   roleForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
     description: [''],
     isDefault: [false]
   });
+
+  // Computed values
+  systemRolesCount = computed(() => this.adminService.roles().filter(r => r.type === 'system').length);
+  customRolesCount = computed(() => this.adminService.roles().filter(r => r.type !== 'system').length);
+
+  getCategoryIcon(category: string): string {
+    const icons: Record<string, string> = {
+      patients: 'pi pi-users',
+      appointments: 'pi pi-calendar',
+      encounters: 'pi pi-file-edit',
+      billing: 'pi pi-dollar',
+      reports: 'pi pi-chart-bar',
+      messaging: 'pi pi-envelope',
+      admin: 'pi pi-cog'
+    };
+    return icons[category] || 'pi pi-folder';
+  }
 
   formatCategory(category: string): string {
     return category.charAt(0).toUpperCase() + category.slice(1);
@@ -1068,17 +1409,18 @@ export class RolesComponent {
 
   togglePermission(role: Role, permission: Permission): void {
     if (role.type === 'system') return;
-    
+
     const currentPermissions = [...role.permissions];
     const index = currentPermissions.findIndex(p => p.id === permission.id);
-    
+
     if (index > -1) {
       currentPermissions.splice(index, 1);
     } else {
       currentPermissions.push(permission);
     }
-    
+
     this.adminService.updateRole(role.id, { permissions: currentPermissions });
+    this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Permission updated' });
   }
 
   viewRole(role: Role): void {
@@ -1151,11 +1493,13 @@ export class RolesComponent {
           ...formValue,
           permissions
         });
+        this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Role updated successfully' });
       } else {
         this.adminService.createRole({
           ...formValue,
           permissions
         });
+        this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Role created successfully' });
       }
 
       this.closeRoleModal();
@@ -1164,12 +1508,15 @@ export class RolesComponent {
 
   deleteRole(role: Role): void {
     if (role.userCount > 0) {
-      alert(`Cannot delete role "${role.name}" because it has ${role.userCount} users assigned.`);
+      this.messageService.add({ 
+        severity: 'error', 
+        summary: 'Cannot Delete', 
+        detail: `Role "${role.name}" has ${role.userCount} users assigned` 
+      });
       return;
     }
-    
-    if (confirm(`Are you sure you want to delete the role "${role.name}"?`)) {
-      this.adminService.deleteRole(role.id);
-    }
+
+    this.adminService.deleteRole(role.id);
+    this.messageService.add({ severity: 'warn', summary: 'Deleted', detail: `Role "${role.name}" deleted` });
   }
 }

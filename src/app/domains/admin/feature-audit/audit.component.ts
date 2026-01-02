@@ -1,91 +1,140 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
+
+// PrimeNG Imports
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
+import { DialogModule } from 'primeng/dialog';
+import { TagModule } from 'primeng/tag';
+import { ChipModule } from 'primeng/chip';
+import { TooltipModule } from 'primeng/tooltip';
+import { DividerModule } from 'primeng/divider';
+import { RippleModule } from 'primeng/ripple';
+import { ToastModule } from 'primeng/toast';
+import { BadgeModule } from 'primeng/badge';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { DatePickerModule } from 'primeng/datepicker';
+import { MessageService } from 'primeng/api';
+
+import { ThemeService } from '../../../core/services/theme.service';
 import { AdminService } from '../data-access/services/admin.service';
 import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-access/models/admin.model';
+
+interface ActiveFilter {
+  type: 'action' | 'severity' | 'module' | 'dateRange';
+  value: string;
+  label: string;
+}
 
 @Component({
   selector: 'app-audit',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule, FormsModule,
+    TableModule, ButtonModule, InputTextModule, SelectModule, MultiSelectModule,
+    DialogModule, TagModule, ChipModule, TooltipModule, DividerModule,
+    RippleModule, ToastModule, BadgeModule, IconFieldModule, InputIconModule,
+    DatePickerModule,
+  ],
+  providers: [MessageService],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('fadeSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('staggerCards', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(20px)' }),
+          stagger(80, [
+            animate('400ms cubic-bezier(0.35, 0, 0.25, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ]),
+    trigger('chipEnter', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.8)' }),
+        animate('200ms ease-out', style({ opacity: 1, transform: 'scale(1)' }))
+      ]),
+      transition(':leave', [
+        animate('150ms ease-in', style({ opacity: 0, transform: 'scale(0.8)' }))
+      ])
+    ]),
+    trigger('tableRow', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('200ms ease-out', style({ opacity: 1 }))
+      ])
+    ])
+  ],
   template: `
-    <div class="audit-container">
+    <div class="audit-container" [class.dark]="themeService.isDarkMode()">
+      <p-toast />
+
       <!-- Header -->
-      <header class="page-header">
+      <header class="page-header" @fadeSlide>
         <div class="header-content">
           <div class="title-section">
             <h1>Audit Logs</h1>
             <p class="subtitle">Monitor system activity and security events</p>
           </div>
           <div class="header-actions">
-            <button class="btn btn-secondary" (click)="exportLogs()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Export
-            </button>
-            <button class="btn btn-primary" (click)="refreshLogs()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"/>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-              </svg>
-              Refresh
-            </button>
+            <p-button label="Export" icon="pi pi-download" [outlined]="true" severity="secondary" (onClick)="exportLogs()" />
+            <p-button label="Refresh" icon="pi pi-refresh" (onClick)="refreshLogs()" />
           </div>
         </div>
       </header>
 
-      <!-- Stats Summary -->
-      <div class="stats-cards">
-        <div class="stat-card">
-          <div class="stat-icon total">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-            </svg>
+      <!-- Stats Cards -->
+      <div class="stats-grid" @staggerCards>
+        <div class="stat-card" data-type="total" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-file-edit"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.auditSummary().totalEvents }}</span>
             <span class="stat-label">Total Events</span>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon security">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
+
+        <div class="stat-card" data-type="security" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-shield"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.auditSummary().securityEvents }}</span>
             <span class="stat-label">Security Events</span>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon failed">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
-            </svg>
+
+        <div class="stat-card" data-type="failed" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-times-circle"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.auditSummary().failedEvents }}</span>
             <span class="stat-label">Failed Events</span>
           </div>
+          @if (adminService.auditSummary().failedEvents > 0) {
+            <div class="stat-alert">
+              <i class="pi pi-exclamation-triangle"></i>
+            </div>
+          }
         </div>
-        <div class="stat-card">
-          <div class="stat-icon users">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
+
+        <div class="stat-card" data-type="users" pRipple>
+          <div class="stat-icon-wrapper">
+            <i class="pi pi-users"></i>
           </div>
           <div class="stat-content">
             <span class="stat-value">{{ adminService.auditSummary().byUser.length }}</span>
@@ -94,304 +143,296 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
         </div>
       </div>
 
-      <!-- Filters -->
-      <div class="filters-bar">
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input 
-            type="text" 
-            placeholder="Search events..."
-            [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
-          />
-        </div>
-        <div class="filter-group">
-          <div class="date-range">
-            <input 
-              type="date" 
-              [ngModel]="startDate()"
-              (ngModelChange)="startDate.set($event)"
-              placeholder="Start date"
+      <!-- Filters Section -->
+      <div class="filters-card" @fadeSlide>
+        <div class="filters-row">
+          <p-iconfield class="search-field">
+            <p-inputicon styleClass="pi pi-search" />
+            <input pInputText type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" placeholder="Search events, users, resources..." class="search-input" />
+          </p-iconfield>
+
+          <div class="filter-controls">
+            <p-multiselect 
+              [(ngModel)]="selectedActions" 
+              [options]="actionOptions" 
+              optionLabel="label" 
+              optionValue="value"
+              placeholder="Actions"
+              [showClear]="true"
+              [maxSelectedLabels]="1"
+              selectedItemsLabel="{0} actions"
+              (onChange)="updateActiveFilters()"
+              styleClass="filter-select"
             />
-            <span>to</span>
-            <input 
-              type="date" 
-              [ngModel]="endDate()"
-              (ngModelChange)="endDate.set($event)"
-              placeholder="End date"
+
+            <p-multiselect 
+              [(ngModel)]="selectedSeverities" 
+              [options]="severityOptions" 
+              optionLabel="label" 
+              optionValue="value"
+              placeholder="Severity"
+              [showClear]="true"
+              [maxSelectedLabels]="1"
+              selectedItemsLabel="{0} levels"
+              (onChange)="updateActiveFilters()"
+              styleClass="filter-select"
+            />
+
+            <p-multiselect 
+              [(ngModel)]="selectedModules" 
+              [options]="moduleOptions" 
+              optionLabel="label" 
+              optionValue="value"
+              placeholder="Modules"
+              [showClear]="true"
+              [maxSelectedLabels]="1"
+              selectedItemsLabel="{0} modules"
+              (onChange)="updateActiveFilters()"
+              styleClass="filter-select"
+            />
+
+            <p-datepicker 
+              [(ngModel)]="dateRange" 
+              selectionMode="range" 
+              [readonlyInput]="true"
+              placeholder="Date range"
+              dateFormat="mm/dd/yy"
+              [showIcon]="true"
+              (onSelect)="updateActiveFilters()"
+              styleClass="date-picker"
             />
           </div>
-          <select [ngModel]="actionFilter()" (ngModelChange)="actionFilter.set($event)">
-            <option value="all">All Actions</option>
-            <option value="login">Login</option>
-            <option value="logout">Logout</option>
-            <option value="create">Create</option>
-            <option value="read">Read</option>
-            <option value="update">Update</option>
-            <option value="delete">Delete</option>
-            <option value="export">Export</option>
-            <option value="sign">Sign</option>
-            <option value="security">Security</option>
-          </select>
-          <select [ngModel]="severityFilter()" (ngModelChange)="severityFilter.set($event)">
-            <option value="all">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <select [ngModel]="moduleFilter()" (ngModelChange)="moduleFilter.set($event)">
-            <option value="all">All Modules</option>
-            <option value="auth">Authentication</option>
-            <option value="patients">Patients</option>
-            <option value="encounters">Encounters</option>
-            <option value="prescriptions">Prescriptions</option>
-            <option value="billing">Billing</option>
-            <option value="reports">Reports</option>
-            <option value="admin">Admin</option>
-          </select>
         </div>
-        <div class="filter-actions">
-          <button class="btn btn-secondary btn-sm" (click)="clearFilters()">
-            Clear Filters
-          </button>
+
+        <!-- Active Filter Chips -->
+        @if (activeFilters().length > 0) {
+          <div class="active-filters">
+            <span class="filters-label">Active filters:</span>
+            <div class="filter-chips">
+              @for (filter of activeFilters(); track filter.value) {
+                <div class="filter-chip" [class]="filter.type" @chipEnter>
+                  <span class="chip-label">{{ filter.label }}</span>
+                  <button class="chip-remove" (click)="removeFilter(filter)" pRipple>
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
+              }
+              <button class="clear-all-btn" (click)="clearAllFilters()" pRipple>
+                Clear all
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Sorting Options -->
+      <div class="sort-bar" @fadeSlide>
+        <span class="sort-label">Sort by:</span>
+        <div class="sort-options">
+          @for (option of sortOptions; track option.field) {
+            <button 
+              class="sort-btn" 
+              [class.active]="sortField() === option.field"
+              (click)="toggleSort(option.field)"
+              pRipple
+            >
+              {{ option.label }}
+              @if (sortField() === option.field) {
+                <i class="pi" [class.pi-sort-amount-up]="sortOrder() === 1" [class.pi-sort-amount-down]="sortOrder() === -1"></i>
+              }
+            </button>
+          }
         </div>
+        <span class="results-count">{{ filteredLogs().length }} results</span>
       </div>
 
       <!-- Logs Table -->
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
+      <div class="table-card">
+        <p-table 
+          [value]="paginatedLogs()" 
+          [paginator]="true" 
+          [rows]="pageSize()" 
+          [showCurrentPageReport]="true"
+          [rowsPerPageOptions]="[10, 20, 50, 100]"
+          currentPageReportTemplate="Showing {first} to {last} of {totalRecords} events"
+          [totalRecords]="filteredLogs().length"
+          styleClass="audit-table"
+          [rowHover]="true"
+          [scrollable]="true"
+          scrollHeight="600px"
+        >
+          <ng-template pTemplate="header">
             <tr>
-              <th>Timestamp</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Module</th>
-              <th>Resource</th>
-              <th>Severity</th>
-              <th>Status</th>
-              <th>Details</th>
+              <th style="width: 140px">Timestamp</th>
+              <th style="width: 150px">User</th>
+              <th style="width: 100px">Action</th>
+              <th style="width: 110px">Module</th>
+              <th style="min-width: 150px">Resource</th>
+              <th style="width: 90px">Severity</th>
+              <th style="width: 70px">Status</th>
+              <th style="width: 60px">Details</th>
             </tr>
-          </thead>
-          <tbody>
-            @for (log of filteredLogs(); track log.id) {
-              <tr [class.failed]="!log.success" [class.critical]="log.severity === 'critical'">
-                <td>
-                  <div class="timestamp">
-                    <span class="date">{{ formatDate(log.timestamp) }}</span>
-                    <span class="time">{{ formatTime(log.timestamp) }}</span>
-                  </div>
-                </td>
-                <td>
-                  <div class="user-info">
-                    <span class="user-name">{{ log.userName }}</span>
-                    <span class="user-type">{{ log.userType }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="action-badge" [class]="log.action">
-                    {{ formatAction(log.action) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="module-badge" [class]="log.module">
-                    {{ formatModule(log.module) }}
-                  </span>
-                </td>
-                <td>
-                  <div class="resource-info">
-                    <span class="resource-name">{{ log.resource }}</span>
-                    @if (log.resourceId) {
-                      <span class="resource-id">{{ log.resourceId }}</span>
-                    }
-                  </div>
-                </td>
-                <td>
-                  <span class="severity-badge" [class]="log.severity">
-                    {{ log.severity | titlecase }}
-                  </span>
-                </td>
-                <td>
-                  @if (log.success) {
-                    <span class="status-icon success">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                      </svg>
-                    </span>
-                  } @else {
-                    <span class="status-icon failed">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="15" y1="9" x2="9" y2="15"/>
-                        <line x1="9" y1="9" x2="15" y2="15"/>
-                      </svg>
-                    </span>
-                  }
-                </td>
-                <td>
-                  <button class="btn-icon" (click)="viewDetails(log)" title="View Details">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="8" class="empty-cell">
-                  <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <p>No audit logs found</p>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+          </ng-template>
 
-      <!-- Pagination -->
-      <div class="pagination">
-        <span class="page-info">
-          Showing {{ (currentPage() - 1) * pageSize() + 1 }} to 
-          {{ Math.min(currentPage() * pageSize(), filteredLogs().length) }} of 
-          {{ filteredLogs().length }} entries
-        </span>
-        <div class="page-buttons">
-          <button 
-            class="btn btn-secondary btn-sm"
-            [disabled]="currentPage() === 1"
-            (click)="previousPage()"
-          >
-            Previous
-          </button>
-          <span class="page-number">Page {{ currentPage() }}</span>
-          <button 
-            class="btn btn-secondary btn-sm"
-            [disabled]="currentPage() * pageSize() >= filteredLogs().length"
-            (click)="nextPage()"
-          >
-            Next
-          </button>
-        </div>
+          <ng-template pTemplate="body" let-log>
+            <tr [class.failed-row]="!log.success" [class.critical-row]="log.severity === 'critical'" @tableRow>
+              <td>
+                <div class="timestamp-cell">
+                  <span class="date">{{ formatDate(log.timestamp) }}</span>
+                  <span class="time">{{ formatTime(log.timestamp) }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="user-cell">
+                  <span class="user-name">{{ log.userName }}</span>
+                  <span class="user-type">{{ log.userType }}</span>
+                </div>
+              </td>
+              <td>
+                <p-tag [value]="formatAction(log.action)" [severity]="getActionSeverity(log.action)" [rounded]="true" />
+              </td>
+              <td>
+                <span class="module-text">{{ formatModule(log.module) }}</span>
+              </td>
+              <td>
+                <div class="resource-cell">
+                  <span class="resource-name">{{ log.resource }}</span>
+                  @if (log.resourceId) {
+                    <span class="resource-id">{{ log.resourceId }}</span>
+                  }
+                </div>
+              </td>
+              <td>
+                <p-tag [value]="log.severity | titlecase" [severity]="getSeverityType(log.severity)" [rounded]="true" />
+              </td>
+              <td>
+                <div class="status-cell">
+                  @if (log.success) {
+                    <i class="pi pi-check-circle status-success"></i>
+                  } @else {
+                    <i class="pi pi-times-circle status-failed"></i>
+                  }
+                </div>
+              </td>
+              <td>
+                <p-button icon="pi pi-eye" [rounded]="true" [text]="true" severity="secondary" pTooltip="View Details" (onClick)="viewDetails(log)" />
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <i class="pi pi-inbox"></i>
+                  <h3>No audit logs found</h3>
+                  <p>Try adjusting your filters or date range</p>
+                  @if (activeFilters().length > 0) {
+                    <p-button label="Clear Filters" icon="pi pi-filter-slash" [outlined]="true" (onClick)="clearAllFilters()" />
+                  }
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
       </div>
 
       <!-- Detail Modal -->
-      @if (showDetailModal()) {
-        <div class="modal-overlay" (click)="closeDetailModal()">
-          <div class="modal detail-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Event Details</h2>
-              <button class="btn-close" (click)="closeDetailModal()">×</button>
-            </div>
-            <div class="modal-body">
-              @if (selectedLog()) {
-                <div class="detail-header">
-                  <span class="action-badge large" [class]="selectedLog()!.action">
-                    {{ formatAction(selectedLog()!.action) }}
-                  </span>
-                  <span class="severity-badge large" [class]="selectedLog()!.severity">
-                    {{ selectedLog()!.severity | titlecase }}
-                  </span>
-                  @if (selectedLog()!.success) {
-                    <span class="status-badge success">Success</span>
-                  } @else {
-                    <span class="status-badge failed">Failed</span>
-                  }
-                </div>
-
-                <p class="event-description">{{ selectedLog()!.description }}</p>
-
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <label>Timestamp</label>
-                    <span>{{ formatDateTime(selectedLog()!.timestamp) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <label>User</label>
-                    <span>{{ selectedLog()!.userName }} ({{ selectedLog()!.userType }})</span>
-                  </div>
-                  <div class="detail-item">
-                    <label>Module</label>
-                    <span>{{ formatModule(selectedLog()!.module) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <label>Resource</label>
-                    <span>{{ selectedLog()!.resource }}</span>
-                  </div>
-                  @if (selectedLog()!.resourceId) {
-                    <div class="detail-item">
-                      <label>Resource ID</label>
-                      <span class="mono">{{ selectedLog()!.resourceId }}</span>
-                    </div>
-                  }
-                  <div class="detail-item">
-                    <label>Session ID</label>
-                    <span class="mono">{{ selectedLog()!.sessionId }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <label>IP Address</label>
-                    <span class="mono">{{ selectedLog()!.ipAddress }}</span>
-                  </div>
-                  <div class="detail-item full-width">
-                    <label>User Agent</label>
-                    <span class="mono small">{{ selectedLog()!.userAgent }}</span>
-                  </div>
-                </div>
-
-                @if (selectedLog()!.errorMessage) {
-                  <div class="error-section">
-                    <label>Error Message</label>
-                    <div class="error-message">{{ selectedLog()!.errorMessage }}</div>
-                  </div>
-                }
-
-                @if (selectedLog()!.changes && selectedLog()!.changes!.length > 0) {
-                  <div class="changes-section">
-                    <label>Changes</label>
-                    <table class="changes-table">
-                      <thead>
-                        <tr>
-                          <th>Field</th>
-                          <th>Old Value</th>
-                          <th>New Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (change of selectedLog()!.changes; track change.field) {
-                          <tr>
-                            <td>{{ change.fieldLabel }}</td>
-                            <td class="old-value">{{ change.oldValue }}</td>
-                            <td class="new-value">{{ change.newValue }}</td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                }
+      <p-dialog header="Event Details" [(visible)]="showDetailModal" [modal]="true" [style]="{ width: '700px' }" [draggable]="false">
+        @if (selectedLog(); as log) {
+          <div class="detail-content">
+            <div class="detail-header-badges">
+              <p-tag [value]="formatAction(log.action)" [severity]="getActionSeverity(log.action)" styleClass="detail-tag" />
+              <p-tag [value]="log.severity | titlecase" [severity]="getSeverityType(log.severity)" styleClass="detail-tag" />
+              @if (log.success) {
+                <p-tag value="Success" severity="success" styleClass="detail-tag" />
+              } @else {
+                <p-tag value="Failed" severity="danger" styleClass="detail-tag" />
               }
             </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" (click)="closeDetailModal()">Close</button>
+
+            <p class="event-description">{{ log.description }}</p>
+
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="label">Timestamp</span>
+                <span class="value">{{ formatDateTime(log.timestamp) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">User</span>
+                <span class="value">{{ log.userName }} ({{ log.userType }})</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Module</span>
+                <span class="value">{{ formatModule(log.module) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Resource</span>
+                <span class="value">{{ log.resource }}</span>
+              </div>
+              @if (log.resourceId) {
+                <div class="detail-item">
+                  <span class="label">Resource ID</span>
+                  <span class="value mono">{{ log.resourceId }}</span>
+                </div>
+              }
+              <div class="detail-item">
+                <span class="label">Session ID</span>
+                <span class="value mono">{{ log.sessionId }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">IP Address</span>
+                <span class="value mono">{{ log.ipAddress }}</span>
+              </div>
+              <div class="detail-item full-width">
+                <span class="label">User Agent</span>
+                <span class="value mono small">{{ log.userAgent }}</span>
+              </div>
             </div>
+
+            @if (log.errorMessage) {
+              <div class="error-section">
+                <span class="label">Error Message</span>
+                <div class="error-box">{{ log.errorMessage }}</div>
+              </div>
+            }
+
+            @if (log.changes && log.changes.length > 0) {
+              <div class="changes-section">
+                <span class="label">Changes Made</span>
+                <div class="changes-list">
+                  @for (change of log.changes; track change.field) {
+                    <div class="change-item">
+                      <span class="field-name">{{ change.fieldLabel }}</span>
+                      <div class="change-values">
+                        <span class="old-value">{{ change.oldValue || '(empty)' }}</span>
+                        <i class="pi pi-arrow-right"></i>
+                        <span class="new-value">{{ change.newValue || '(empty)' }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
           </div>
-        </div>
-      }
+        }
+
+        <ng-template pTemplate="footer">
+          <p-button label="Close" [text]="true" severity="secondary" (onClick)="closeDetailModal()" />
+          <p-button label="Export Event" icon="pi pi-download" [outlined]="true" (onClick)="exportSingleLog()" />
+        </ng-template>
+      </p-dialog>
     </div>
   `,
   styles: [`
     .audit-container {
-      padding: 1.5rem;
-      max-width: 1600px;
-      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .dark.audit-container {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     }
 
     /* Header */
@@ -403,20 +444,25 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 1rem;
     }
 
     .title-section h1 {
       margin: 0;
-      font-size: 1.75rem;
-      font-weight: 600;
-      color: #1e293b;
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .title-section h1 {
+      color: #f8fafc;
     }
 
     .subtitle {
-      margin: 0.25rem 0 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9375rem;
       color: #64748b;
-      font-size: 0.875rem;
+      font-weight: 400;
     }
 
     .header-actions {
@@ -424,84 +470,11 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
       gap: 0.75rem;
     }
 
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-    }
-
-    .btn-sm {
-      padding: 0.375rem 0.75rem;
-      font-size: 0.8125rem;
-    }
-
-    .btn-primary {
-      background: #3b82f6;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #2563eb;
-    }
-
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: #e2e8f0;
-    }
-
-    .btn-secondary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    .btn-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: #64748b;
-      border-radius: 0.375rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-      background: #f1f5f9;
-      color: #3b82f6;
-    }
-
-    .btn-icon svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    /* Stats Cards */
-    .stats-cards {
+    /* Stats Grid */
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
       margin-bottom: 1.5rem;
     }
 
@@ -509,196 +482,427 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
       display: flex;
       align-items: center;
       gap: 1rem;
-      padding: 1rem;
+      padding: 1.25rem 1.5rem;
       background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      border: 1px solid #f1f5f9;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
     }
 
-    .stat-icon {
-      width: 3rem;
-      height: 3rem;
+    .dark .stat-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .stat-card[data-type="total"]::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .stat-card[data-type="security"]::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .stat-card[data-type="failed"]::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .stat-card[data-type="users"]::before { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .stat-icon-wrapper {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 0.75rem;
+      flex-shrink: 0;
     }
 
-    .stat-icon svg {
-      width: 1.5rem;
-      height: 1.5rem;
+    .stat-icon-wrapper i {
+      font-size: 1.375rem;
+      color: white;
     }
 
-    .stat-icon.total { background: #dbeafe; color: #3b82f6; }
-    .stat-icon.security { background: #fef3c7; color: #d97706; }
-    .stat-icon.failed { background: #fee2e2; color: #dc2626; }
-    .stat-icon.users { background: #dcfce7; color: #16a34a; }
+    .stat-card[data-type="total"] .stat-icon-wrapper { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+    .stat-card[data-type="security"] .stat-icon-wrapper { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .stat-card[data-type="failed"] .stat-icon-wrapper { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .stat-card[data-type="users"] .stat-icon-wrapper { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 
     .stat-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
+      gap: 0.125rem;
     }
 
     .stat-value {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #1e293b;
+      font-size: 1.625rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1;
+      letter-spacing: -0.025em;
+    }
+
+    .dark .stat-value {
+      color: #f8fafc;
     }
 
     .stat-label {
+      font-size: 0.8125rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .stat-alert {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 8px;
+    }
+
+    .stat-alert i {
+      color: #ef4444;
+      font-size: 1rem;
+    }
+
+    /* Filters Card */
+    .filters-card {
+      background: white;
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .dark .filters-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .search-field {
+      flex: 1;
+      min-width: 250px;
+      max-width: 350px;
+    }
+
+    .search-input {
+      width: 100%;
+      border-radius: 10px;
+    }
+
+    .filter-controls {
+      display: flex;
+      gap: 0.75rem;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    :host ::ng-deep .filter-select {
+      min-width: 140px;
+    }
+
+    :host ::ng-deep .date-picker {
+      min-width: 200px;
+    }
+
+    /* Active Filters */
+    .active-filters {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .dark .active-filters {
+      border-top-color: #334155;
+    }
+
+    .filters-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+      border-radius: 20px;
       font-size: 0.75rem;
+      font-weight: 500;
+      background: #e2e8f0;
+      color: #475569;
+      transition: all 0.2s;
+    }
+
+    .dark .filter-chip {
+      background: #334155;
+      color: #e2e8f0;
+    }
+
+    .filter-chip.action {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .filter-chip.severity {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .filter-chip.module {
+      background: #f3e8ff;
+      color: #7c3aed;
+    }
+
+    .filter-chip.dateRange {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .chip-label {
+      white-space: nowrap;
+    }
+
+    .chip-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip-remove i {
+      font-size: 0.625rem;
+    }
+
+    .chip-remove:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .clear-all-btn {
+      padding: 0.375rem 0.75rem;
+      border: 1px dashed #cbd5e1;
+      background: transparent;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clear-all-btn:hover {
+      background: #fee2e2;
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* Sort Bar */
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #f1f5f9;
+    }
+
+    .dark .sort-bar {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .sort-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
       color: #64748b;
     }
 
-    /* Filters */
-    .filters-bar {
+    .sort-options {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-      align-items: flex-start;
+      gap: 0.375rem;
     }
 
-    .search-box {
-      position: relative;
-      min-width: 200px;
-      flex: 1;
+    .sort-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 0.875rem;
+      border: 1px solid #e2e8f0;
+      background: white;
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .search-icon {
-      position: absolute;
-      left: 0.75rem;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 1rem;
-      height: 1rem;
+    .dark .sort-btn {
+      background: #0f172a;
+      border-color: #334155;
       color: #94a3b8;
     }
 
-    .search-box input {
-      width: 100%;
-      padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-    }
-
-    .search-box input:focus {
-      outline: none;
+    .sort-btn:hover {
       border-color: #3b82f6;
+      color: #3b82f6;
     }
 
-    .filter-group {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+    .sort-btn.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
     }
 
-    .date-range {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    .sort-btn i {
+      font-size: 0.75rem;
     }
 
-    .date-range input {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-    }
-
-    .date-range span {
-      color: #64748b;
-      font-size: 0.875rem;
-    }
-
-    .filter-group select {
-      padding: 0.5rem 2rem 0.5rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      background: white;
-      cursor: pointer;
-    }
-
-    .filter-actions {
+    .results-count {
       margin-left: auto;
-    }
-
-    /* Table */
-    .table-container {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .data-table th {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .data-table td {
-      padding: 0.75rem 1rem;
-      font-size: 0.875rem;
-      color: #1e293b;
-      border-bottom: 1px solid #e2e8f0;
-      vertical-align: middle;
-    }
-
-    .data-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    .data-table tr:hover {
-      background: #f8fafc;
-    }
-
-    .data-table tr.failed {
-      background: #fef2f2;
-    }
-
-    .data-table tr.critical {
-      background: #fef2f2;
-      border-left: 3px solid #dc2626;
-    }
-
-    .timestamp {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .timestamp .date {
       font-size: 0.8125rem;
-      color: #1e293b;
+      color: #64748b;
     }
 
-    .timestamp .time {
+    /* Table Card */
+    .table-card {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .dark .table-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    :host ::ng-deep .audit-table {
+      .p-datatable-thead > tr > th {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0.875rem 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      .p-datatable-tbody > tr > td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.875rem;
+        vertical-align: middle;
+      }
+
+      .p-datatable-tbody > tr:hover {
+        background: #f8fafc;
+      }
+    }
+
+    .dark :host ::ng-deep .audit-table {
+      .p-datatable-thead > tr > th {
+        background: #0f172a;
+        border-bottom-color: #334155;
+      }
+
+      .p-datatable-tbody > tr > td {
+        border-bottom-color: #334155;
+      }
+
+      .p-datatable-tbody > tr:hover {
+        background: #0f172a;
+      }
+    }
+
+    .failed-row {
+      background: rgba(239, 68, 68, 0.05) !important;
+    }
+
+    .critical-row {
+      background: rgba(239, 68, 68, 0.08) !important;
+      border-left: 3px solid #ef4444;
+    }
+
+    /* Table Cells */
+    .timestamp-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .timestamp-cell .date {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #0f172a;
+    }
+
+    .dark .timestamp-cell .date {
+      color: #f8fafc;
+    }
+
+    .timestamp-cell .time {
       font-size: 0.75rem;
       color: #64748b;
     }
 
-    .user-info {
+    .user-cell {
       display: flex;
       flex-direction: column;
+      gap: 0.125rem;
     }
 
     .user-name {
       font-weight: 500;
-      color: #1e293b;
+      color: #0f172a;
+    }
+
+    .dark .user-name {
+      color: #f8fafc;
     }
 
     .user-type {
@@ -707,227 +911,123 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
       text-transform: capitalize;
     }
 
-    .action-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
-    .action-badge.login { background: #dbeafe; color: #1d4ed8; }
-    .action-badge.logout { background: #f1f5f9; color: #64748b; }
-    .action-badge.create { background: #dcfce7; color: #16a34a; }
-    .action-badge.read { background: #e0e7ff; color: #4f46e5; }
-    .action-badge.update { background: #fef3c7; color: #d97706; }
-    .action-badge.delete { background: #fee2e2; color: #dc2626; }
-    .action-badge.export { background: #cffafe; color: #0891b2; }
-    .action-badge.sign { background: #f3e8ff; color: #7c3aed; }
-    .action-badge.security { background: #fee2e2; color: #dc2626; }
-    .action-badge.send { background: #dbeafe; color: #1d4ed8; }
-    .action-badge.receive { background: #dcfce7; color: #16a34a; }
-
-    .action-badge.large {
-      padding: 0.375rem 0.75rem;
+    .module-text {
       font-size: 0.8125rem;
+      color: #475569;
     }
 
-    .module-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      background: #f1f5f9;
-      color: #64748b;
+    .dark .module-text {
+      color: #94a3b8;
     }
 
-    .resource-info {
+    .resource-cell {
       display: flex;
       flex-direction: column;
+      gap: 0.125rem;
     }
 
     .resource-name {
+      font-size: 0.8125rem;
+      color: #0f172a;
       text-transform: capitalize;
     }
 
+    .dark .resource-name {
+      color: #f8fafc;
+    }
+
     .resource-id {
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       color: #64748b;
       font-family: monospace;
+      background: #f1f5f9;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      width: fit-content;
     }
 
-    .severity-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
+    .dark .resource-id {
+      background: #334155;
     }
 
-    .severity-badge.low { background: #f1f5f9; color: #64748b; }
-    .severity-badge.medium { background: #dbeafe; color: #1d4ed8; }
-    .severity-badge.high { background: #fef3c7; color: #d97706; }
-    .severity-badge.critical { background: #fee2e2; color: #dc2626; }
-
-    .severity-badge.large {
-      padding: 0.375rem 0.75rem;
-      font-size: 0.8125rem;
-    }
-
-    .status-icon {
+    .status-cell {
       display: flex;
-      align-items: center;
       justify-content: center;
     }
 
-    .status-icon svg {
-      width: 1.25rem;
-      height: 1.25rem;
+    .status-success {
+      color: #10b981;
+      font-size: 1.25rem;
     }
 
-    .status-icon.success { color: #16a34a; }
-    .status-icon.failed { color: #dc2626; }
-
-    .status-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 500;
+    .status-failed {
+      color: #ef4444;
+      font-size: 1.25rem;
     }
 
-    .status-badge.success { background: #dcfce7; color: #16a34a; }
-    .status-badge.failed { background: #fee2e2; color: #dc2626; }
-
-    .empty-cell {
-      padding: 3rem !important;
-    }
-
+    /* Empty State */
     .empty-state {
       display: flex;
       flex-direction: column;
       align-items: center;
-      color: #64748b;
-    }
-
-    .empty-state svg {
-      width: 3rem;
-      height: 3rem;
-      margin-bottom: 0.5rem;
-      color: #94a3b8;
-    }
-
-    /* Pagination */
-    .pagination {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .page-info {
-      font-size: 0.875rem;
-      color: #64748b;
-    }
-
-    .page-buttons {
-      display: flex;
-      align-items: center;
       gap: 0.75rem;
+      padding: 4rem 2rem;
+      color: #64748b;
     }
 
-    .page-number {
-      font-size: 0.875rem;
-      color: #1e293b;
+    .empty-state i {
+      font-size: 3rem;
+      opacity: 0.3;
     }
 
-    /* Modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 1rem;
-    }
-
-    .modal {
-      background: white;
-      border-radius: 0.75rem;
-      width: 100%;
-      max-height: 90vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .detail-modal {
-      max-width: 700px;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .modal-header h2 {
+    .empty-state h3 {
       margin: 0;
       font-size: 1.125rem;
       font-weight: 600;
-      color: #1e293b;
+      color: #334155;
     }
 
-    .btn-close {
-      width: 2rem;
-      height: 2rem;
+    .dark .empty-state h3 {
+      color: #e2e8f0;
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 0.875rem;
+    }
+
+    /* Detail Modal */
+    .detail-content {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      font-size: 1.5rem;
-      color: #64748b;
-      cursor: pointer;
-      border-radius: 0.375rem;
+      flex-direction: column;
+      gap: 1.25rem;
     }
 
-    .btn-close:hover {
-      background: #f1f5f9;
-    }
-
-    .modal-body {
-      padding: 1.5rem;
-      overflow-y: auto;
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #e2e8f0;
-    }
-
-    /* Detail Modal Content */
-    .detail-header {
+    .detail-header-badges {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1rem;
+    }
+
+    :host ::ng-deep .detail-tag {
+      font-size: 0.8125rem;
+      padding: 0.375rem 0.75rem;
     }
 
     .event-description {
-      margin: 0 0 1.5rem;
+      margin: 0;
       font-size: 0.9375rem;
       color: #475569;
-      line-height: 1.5;
+      line-height: 1.6;
+    }
+
+    .dark .event-description {
+      color: #94a3b8;
     }
 
     .detail-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 1rem;
-      margin-bottom: 1.5rem;
     }
 
     .detail-item {
@@ -940,181 +1040,337 @@ import { AuditLog, AuditAction, AuditSeverity, AuditFilter } from '../data-acces
       grid-column: 1 / -1;
     }
 
-    .detail-item label {
-      font-size: 0.75rem;
+    .detail-item .label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
-    .detail-item span {
+    .detail-item .value {
       font-size: 0.875rem;
-      color: #1e293b;
+      color: #0f172a;
     }
 
-    .detail-item span.mono {
+    .dark .detail-item .value {
+      color: #f8fafc;
+    }
+
+    .detail-item .value.mono {
       font-family: monospace;
       background: #f1f5f9;
       padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
+      border-radius: 4px;
+      font-size: 0.8125rem;
     }
 
-    .detail-item span.small {
+    .dark .detail-item .value.mono {
+      background: #334155;
+    }
+
+    .detail-item .value.small {
       font-size: 0.75rem;
       word-break: break-all;
     }
 
-    .error-section {
-      margin-bottom: 1.5rem;
+    .error-section,
+    .changes-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .error-section label {
-      display: block;
-      font-size: 0.75rem;
+    .error-section .label,
+    .changes-section .label {
+      font-size: 0.6875rem;
+      font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
     }
 
-    .error-message {
+    .error-box {
       padding: 0.75rem 1rem;
       background: #fef2f2;
       border: 1px solid #fecaca;
-      border-radius: 0.5rem;
+      border-radius: 8px;
       font-family: monospace;
       font-size: 0.8125rem;
       color: #dc2626;
     }
 
-    .changes-section label {
-      display: block;
-      font-size: 0.75rem;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
+    .changes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .changes-table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      overflow: hidden;
-    }
-
-    .changes-table th,
-    .changes-table td {
-      padding: 0.5rem 0.75rem;
-      text-align: left;
-      font-size: 0.8125rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .changes-table th {
+    .change-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding: 0.75rem;
       background: #f8fafc;
+      border-radius: 8px;
+    }
+
+    .dark .change-item {
+      background: #0f172a;
+    }
+
+    .field-name {
+      font-size: 0.75rem;
       font-weight: 600;
       color: #64748b;
     }
 
-    .changes-table .old-value {
-      color: #dc2626;
+    .change-values {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+    }
+
+    .change-values i {
+      font-size: 0.625rem;
+      color: #64748b;
+    }
+
+    .old-value {
+      color: #ef4444;
       text-decoration: line-through;
     }
 
-    .changes-table .new-value {
-      color: #16a34a;
+    .new-value {
+      color: #10b981;
+      font-weight: 500;
     }
 
     /* Responsive */
-    @media (max-width: 768px) {
-      .header-content {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .header-actions {
-        justify-content: flex-end;
-      }
-
-      .stats-cards {
+    @media (max-width: 1200px) {
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+    }
 
-      .filters-bar {
+    @media (max-width: 768px) {
+      .audit-container {
+        padding: 1rem;
+      }
+
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters-row {
         flex-direction: column;
       }
 
-      .filter-actions {
-        margin-left: 0;
+      .search-field {
+        max-width: none;
       }
 
-      .table-container {
-        overflow-x: auto;
+      .sort-bar {
+        flex-wrap: wrap;
       }
 
-      .data-table {
-        min-width: 900px;
+      .sort-options {
+        flex-wrap: wrap;
       }
 
       .detail-grid {
         grid-template-columns: 1fr;
-      }
-
-      .pagination {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: flex-start;
       }
     }
   `]
 })
 export class AuditComponent {
   adminService = inject(AdminService);
+  themeService = inject(ThemeService);
+  private messageService = inject(MessageService);
 
   // Filters
-  searchQuery = signal('');
-  startDate = signal('');
-  endDate = signal('');
-  actionFilter = signal<'all' | AuditAction>('all');
-  severityFilter = signal<'all' | AuditSeverity>('all');
-  moduleFilter = signal('all');
+  searchQuery = '';
+  selectedActions: AuditAction[] = [];
+  selectedSeverities: AuditSeverity[] = [];
+  selectedModules: string[] = [];
+  dateRange: Date[] | null = null;
+
+  // Sorting
+  sortField = signal<string>('timestamp');
+  sortOrder = signal<number>(-1); // -1 = descending, 1 = ascending
 
   // Pagination
-  currentPage = signal(1);
   pageSize = signal(20);
 
-  // Modal state
+  // Modal
   showDetailModal = signal(false);
   selectedLog = signal<AuditLog | null>(null);
 
-  Math = Math;
+  // Active filters as chips
+  activeFilters = signal<ActiveFilter[]>([]);
+
+  // Options
+  actionOptions = [
+    { label: 'Login', value: 'login' },
+    { label: 'Logout', value: 'logout' },
+    { label: 'Create', value: 'create' },
+    { label: 'Read', value: 'read' },
+    { label: 'Update', value: 'update' },
+    { label: 'Delete', value: 'delete' },
+    { label: 'Export', value: 'export' },
+    { label: 'Sign', value: 'sign' },
+    { label: 'Security', value: 'security' }
+  ];
+
+  severityOptions = [
+    { label: 'Critical', value: 'critical' },
+    { label: 'High', value: 'high' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Low', value: 'low' }
+  ];
+
+  moduleOptions = [
+    { label: 'Authentication', value: 'auth' },
+    { label: 'Patients', value: 'patients' },
+    { label: 'Encounters', value: 'encounters' },
+    { label: 'Prescriptions', value: 'prescriptions' },
+    { label: 'Billing', value: 'billing' },
+    { label: 'Reports', value: 'reports' },
+    { label: 'Admin', value: 'admin' }
+  ];
+
+  sortOptions = [
+    { field: 'timestamp', label: 'Date' },
+    { field: 'userName', label: 'User' },
+    { field: 'action', label: 'Action' },
+    { field: 'severity', label: 'Severity' }
+  ];
 
   filteredLogs = computed(() => {
     const filter: AuditFilter = {};
-    
-    if (this.startDate()) {
-      filter.startDate = new Date(this.startDate());
+
+    if (this.dateRange && this.dateRange.length === 2) {
+      filter.startDate = this.dateRange[0];
+      filter.endDate = this.dateRange[1];
     }
-    if (this.endDate()) {
-      filter.endDate = new Date(this.endDate());
+    if (this.selectedActions.length > 0) {
+      filter.action = this.selectedActions;
     }
-    if (this.actionFilter() !== 'all') {
-      filter.action = [this.actionFilter() as AuditAction];
+    if (this.selectedSeverities.length > 0) {
+      filter.severity = this.selectedSeverities;
     }
-    if (this.severityFilter() !== 'all') {
-      filter.severity = [this.severityFilter() as AuditSeverity];
+    if (this.selectedModules.length > 0) {
+      filter.module = this.selectedModules;
     }
-    if (this.moduleFilter() !== 'all') {
-      filter.module = [this.moduleFilter()];
+    if (this.searchQuery) {
+      filter.search = this.searchQuery;
     }
-    if (this.searchQuery()) {
-      filter.search = this.searchQuery();
-    }
-    
-    return this.adminService.filterAuditLogs(filter);
+
+    let logs = this.adminService.filterAuditLogs(filter);
+
+    // Apply sorting
+    const field = this.sortField();
+    const order = this.sortOrder();
+    logs = [...logs].sort((a, b) => {
+      let aVal = (a as any)[field];
+      let bVal = (b as any)[field];
+
+      if (field === 'timestamp') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+
+      if (aVal < bVal) return -1 * order;
+      if (aVal > bVal) return 1 * order;
+      return 0;
+    });
+
+    return logs;
   });
+
+  paginatedLogs = computed(() => {
+    return this.filteredLogs();
+  });
+
+  onSearchChange(): void {
+    this.updateActiveFilters();
+  }
+
+  updateActiveFilters(): void {
+    const filters: ActiveFilter[] = [];
+
+    this.selectedActions.forEach(action => {
+      const option = this.actionOptions.find(o => o.value === action);
+      if (option) {
+        filters.push({ type: 'action', value: action, label: option.label });
+      }
+    });
+
+    this.selectedSeverities.forEach(severity => {
+      const option = this.severityOptions.find(o => o.value === severity);
+      if (option) {
+        filters.push({ type: 'severity', value: severity, label: option.label });
+      }
+    });
+
+    this.selectedModules.forEach(module => {
+      const option = this.moduleOptions.find(o => o.value === module);
+      if (option) {
+        filters.push({ type: 'module', value: module, label: option.label });
+      }
+    });
+
+    if (this.dateRange && this.dateRange.length === 2) {
+      const start = this.dateRange[0].toLocaleDateString();
+      const end = this.dateRange[1].toLocaleDateString();
+      filters.push({ type: 'dateRange', value: 'date', label: `${start} - ${end}` });
+    }
+
+    this.activeFilters.set(filters);
+  }
+
+  removeFilter(filter: ActiveFilter): void {
+    switch (filter.type) {
+      case 'action':
+        this.selectedActions = this.selectedActions.filter(a => a !== filter.value);
+        break;
+      case 'severity':
+        this.selectedSeverities = this.selectedSeverities.filter(s => s !== filter.value);
+        break;
+      case 'module':
+        this.selectedModules = this.selectedModules.filter(m => m !== filter.value);
+        break;
+      case 'dateRange':
+        this.dateRange = null;
+        break;
+    }
+    this.updateActiveFilters();
+  }
+
+  clearAllFilters(): void {
+    this.searchQuery = '';
+    this.selectedActions = [];
+    this.selectedSeverities = [];
+    this.selectedModules = [];
+    this.dateRange = null;
+    this.activeFilters.set([]);
+  }
+
+  toggleSort(field: string): void {
+    if (this.sortField() === field) {
+      this.sortOrder.update(o => o * -1);
+    } else {
+      this.sortField.set(field);
+      this.sortOrder.set(-1);
+    }
+  }
 
   formatDate(date: Date): string {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1143,26 +1399,29 @@ export class AuditComponent {
     return module.charAt(0).toUpperCase() + module.slice(1);
   }
 
-  clearFilters(): void {
-    this.searchQuery.set('');
-    this.startDate.set('');
-    this.endDate.set('');
-    this.actionFilter.set('all');
-    this.severityFilter.set('all');
-    this.moduleFilter.set('all');
-    this.currentPage.set(1);
+  getActionSeverity(action: AuditAction): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+    const map: Record<string, any> = {
+      login: 'info',
+      logout: 'secondary',
+      create: 'success',
+      read: 'info',
+      update: 'warn',
+      delete: 'danger',
+      export: 'info',
+      sign: 'success',
+      security: 'danger'
+    };
+    return map[action] || 'secondary';
   }
 
-  previousPage(): void {
-    if (this.currentPage() > 1) {
-      this.currentPage.update(p => p - 1);
-    }
-  }
-
-  nextPage(): void {
-    if (this.currentPage() * this.pageSize() < this.filteredLogs().length) {
-      this.currentPage.update(p => p + 1);
-    }
+  getSeverityType(severity: AuditSeverity): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" | undefined {
+    const map: Record<string, any> = {
+      low: 'secondary',
+      medium: 'info',
+      high: 'warn',
+      critical: 'danger'
+    };
+    return map[severity] || 'secondary';
   }
 
   viewDetails(log: AuditLog): void {
@@ -1176,10 +1435,14 @@ export class AuditComponent {
   }
 
   refreshLogs(): void {
-    console.log('Refreshing audit logs...');
+    this.messageService.add({ severity: 'success', summary: 'Refreshed', detail: 'Audit logs refreshed' });
   }
 
   exportLogs(): void {
-    console.log('Exporting audit logs...');
+    this.messageService.add({ severity: 'info', summary: 'Exporting', detail: `Exporting ${this.filteredLogs().length} log entries...` });
+  }
+
+  exportSingleLog(): void {
+    this.messageService.add({ severity: 'info', summary: 'Exporting', detail: 'Exporting event details...' });
   }
 }
