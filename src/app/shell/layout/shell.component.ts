@@ -946,7 +946,7 @@ export class ShellComponent implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
   
   protected readonly isCollapsed = signal(false);
-  protected readonly expandedItems = signal<string[]>(['/clinical']);
+  protected readonly expandedItems = signal<string[]>(['/clinical', '/admin', '/billing']);
   protected mobileMenuVisible = false;
   
   // Responsive check
@@ -1005,10 +1005,32 @@ export class ShellComponent implements OnInit {
         { label: 'Imaging', icon: 'pi-image', route: '/imaging' },
       ]
     },
-    { label: 'Billing', icon: 'pi-credit-card', route: '/billing', requiredPermissions: ['billing:read'] },
+    { 
+      label: 'Billing', 
+      icon: 'pi-credit-card', 
+      route: '/billing',
+      requiredPermissions: ['billing:read'],
+      children: [
+        { label: 'Claims', icon: 'pi-file', route: '/billing/claims' },
+        { label: 'Statements', icon: 'pi-list', route: '/billing/statements' },
+        { label: 'Insurance', icon: 'pi-shield', route: '/billing/insurance' },
+      ]
+    },
     { label: 'Messages', icon: 'pi-envelope', route: '/messages', badge: 3, badgeSeverity: 'danger' },
     { label: 'Reports', icon: 'pi-chart-line', route: '/reports', requiredPermissions: ['reports:read'] },
-    { label: 'Admin', icon: 'pi-cog', route: '/admin', requiredPermissions: ['admin:read'] },
+    { 
+      label: 'Admin', 
+      icon: 'pi-cog', 
+      route: '/admin',
+      requiredPermissions: ['admin:read'],
+      children: [
+        { label: 'Users', icon: 'pi-users', route: '/admin/users' },
+        { label: 'Roles', icon: 'pi-key', route: '/admin/roles' },
+        { label: 'Settings', icon: 'pi-sliders-h', route: '/admin/settings' },
+        { label: 'Audit Log', icon: 'pi-history', route: '/admin/audit' },
+        { label: 'System Monitor', icon: 'pi-server', route: '/admin/monitor' },
+      ]
+    },
   ];
   
   protected readonly filteredNavItems = computed(() => {
