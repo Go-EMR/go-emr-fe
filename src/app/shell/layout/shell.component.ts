@@ -127,6 +127,7 @@ interface NavItem {
                         <a 
                           [routerLink]="child.route"
                           routerLinkActive="active"
+                          [routerLinkActiveOptions]="{ exact: child.route === item.route }"
                           class="nav-item child"
                           pRipple>
                           <i [class]="'pi ' + child.icon"></i>
@@ -218,6 +219,7 @@ interface NavItem {
                     <a 
                       [routerLink]="child.route"
                       routerLinkActive="active"
+                      [routerLinkActiveOptions]="{ exact: child.route === item.route }"
                       class="nav-item child"
                       (click)="mobileMenuVisible = false"
                       pRipple>
@@ -946,7 +948,7 @@ export class ShellComponent implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
   
   protected readonly isCollapsed = signal(false);
-  protected readonly expandedItems = signal<string[]>(['/clinical', '/admin', '/billing']);
+  protected readonly expandedItems = signal<string[]>(['/clinical', '/admin', '/billing', '/messages', '/reports']);
   protected mobileMenuVisible = false;
   
   // Responsive check
@@ -1016,8 +1018,31 @@ export class ShellComponent implements OnInit {
         { label: 'Insurance', icon: 'pi-shield', route: '/billing/insurance' },
       ]
     },
-    { label: 'Messages', icon: 'pi-envelope', route: '/messages', badge: 3, badgeSeverity: 'danger' },
-    { label: 'Reports', icon: 'pi-chart-line', route: '/reports', requiredPermissions: ['reports:read'] },
+    { 
+      label: 'Messages', 
+      icon: 'pi-envelope', 
+      route: '/messages',
+      badge: 3,
+      badgeSeverity: 'danger',
+      children: [
+        { label: 'Inbox', icon: 'pi-inbox', route: '/messages', badge: 3, badgeSeverity: 'danger' },
+        { label: 'Tasks', icon: 'pi-check-square', route: '/messages/tasks', badge: 5, badgeSeverity: 'warn' },
+        { label: 'Notifications', icon: 'pi-bell', route: '/messages/notifications', badge: 4, badgeSeverity: 'info' },
+      ]
+    },
+    { 
+      label: 'Reports', 
+      icon: 'pi-chart-line', 
+      route: '/reports',
+      requiredPermissions: ['reports:read'],
+      children: [
+        { label: 'Dashboard', icon: 'pi-th-large', route: '/reports' },
+        { label: 'Clinical', icon: 'pi-heart', route: '/reports/clinical' },
+        { label: 'Financial', icon: 'pi-dollar', route: '/reports/financial' },
+        { label: 'Operational', icon: 'pi-cog', route: '/reports/operational' },
+        { label: 'Custom', icon: 'pi-sliders-h', route: '/reports/custom' },
+      ]
+    },
     { 
       label: 'Admin', 
       icon: 'pi-cog', 
