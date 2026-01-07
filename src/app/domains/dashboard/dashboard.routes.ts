@@ -10,4 +10,26 @@ export const DASHBOARD_ROUTES: Routes = [
       breadcrumb: 'Dashboard',
     },
   },
+  {
+        path: 'opd',
+        loadComponent: () =>
+          import('./opd-dashboard/opd-dashboard.component').then(
+            (m) => m.OpdDashboardComponent
+          ),
+        data: { 
+          breadcrumb: 'OPD',
+          title: 'Outpatient Department'
+        }
+      },
+      {
+        path: 'ipd',
+        loadComponent: () =>
+          import('./ipd-dashboard/ipd-dashboard.component').then(
+            (m) => m.IpdDashboardComponent
+          ),
+        data: { 
+          breadcrumb: 'IPD',
+          title: 'Inpatient Department'
+        }
+      },
 ];

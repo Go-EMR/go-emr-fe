@@ -16,17 +16,25 @@ export const ENCOUNTER_ROUTES: Routes = [
     title: 'New Encounter'
   },
   {
-    path: ':id',
+    path: ':encounterId',
     loadComponent: () =>
       import('./feature-encounter-detail/encounter-detail.component')
         .then(m => m.EncounterDetailComponent),
     title: 'Encounter Details'
   },
   {
-    path: ':id/edit',
+    path: ':encounterId/edit',
     loadComponent: () =>
       import('./feature-encounter-editor/encounter-editor.component')
         .then(m => m.EncounterEditorComponent),
     title: 'Edit Encounter'
   },
+  {
+        path: 'notes',
+        loadComponent: () =>
+          import('./feature-clinical-notes/clinical-notes.component').then(
+            (m) => m.ClinicalNotesComponent
+          ),
+        data: { breadcrumb: 'Clinical Notes' }
+  }
 ];

@@ -948,7 +948,7 @@ export class ShellComponent implements OnInit {
   private readonly breakpointObserver = inject(BreakpointObserver);
   
   protected readonly isCollapsed = signal(false);
-  protected readonly expandedItems = signal<string[]>(['/clinical', '/admin', '/billing', '/messages', '/reports']);
+  protected readonly expandedItems = signal<string[]>(['/dashboard', '/clinical', '/admin', '/billing', '/messages', '/reports']);
   protected mobileMenuVisible = false;
   
   // Responsive check
@@ -993,7 +993,16 @@ export class ShellComponent implements OnInit {
   
   // Navigation items
   private readonly navItems: NavItem[] = [
-    { label: 'Dashboard', icon: 'pi-home', route: '/dashboard' },
+    { 
+  label: 'Dashboard', 
+  icon: 'pi-home', 
+  route: '/dashboard',
+  children: [
+    { label: 'Overview', icon: 'pi-th-large', route: '/dashboard' },
+    { label: 'OPD Dashboard', icon: 'pi-building', route: '/dashboard/opd' },
+    { label: 'IPD Dashboard', icon: 'pi-warehouse', route: '/dashboard/ipd' },
+  ]
+},
     { label: 'Patients', icon: 'pi-users', route: '/patients', requiredPermissions: ['patients:read'] },
     { label: 'Appointments', icon: 'pi-calendar', route: '/appointments', requiredPermissions: ['appointments:read'] },
     { 

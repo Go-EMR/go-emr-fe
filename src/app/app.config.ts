@@ -21,7 +21,15 @@ export const appConfig: ApplicationConfig = {
     provideRouter(
       routes,
       withComponentInputBinding(),
-      withViewTransitions(),
+      withViewTransitions({
+        skipInitialTransition: true,
+        onViewTransitionCreated: ({ transition }) => {
+          // Skip transition if document is hidden to prevent DOMException
+          if (document.hidden) {
+            transition.skipTransition();
+          }
+        }
+      }),
       withRouterConfig({
         onSameUrlNavigation: 'reload',
         paramsInheritanceStrategy: 'always',

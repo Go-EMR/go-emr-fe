@@ -3,6 +3,22 @@
  * Following FHIR R4 patient resource structure where applicable
  */
 
+// Family relation types
+export type FamilyRelationType = 'spouse' | 'parent' | 'child' | 'sibling' | 'guardian' | 'other';
+
+export interface FamilyRelation {
+  id: string;
+  relatedPatientId: string;
+  relatedPatientName: string;
+  relatedPatientMrn: string;
+  relationship: FamilyRelationType;
+  reverseRelationship?: FamilyRelationType; // e.g., if this patient is "child", related is "parent"
+  verified: boolean;
+  verifiedBy?: string;
+  verifiedAt?: Date;
+  createdAt: Date;
+}
+
 export interface Patient {
   id: string;
   mrn: string; // Medical Record Number
@@ -15,6 +31,8 @@ export interface Patient {
   dateOfBirth: Date;
   gender: Gender;
   ssn?: string; // Last 4 digits only for display
+  maritalStatus?: MaritalStatus;
+  bloodGroup?: BloodGroup;
   
   // Contact
   email?: string;
@@ -38,8 +56,16 @@ export interface Patient {
   allergies?: Allergy[];
   problems?: Problem[];
   
-  // Administrative
+  // Family Relations
+  familyRelations?: FamilyRelation[];
+  
+  // Administrative - Multi-Clinic Support
   facilityId: string;
+  facilityName?: string;
+  clinicId?: string;
+  clinicName?: string;
+  visitType?: VisitType; // OPD, IPD, Emergency, Day Care
+  
   createdAt: Date;
   updatedAt: Date;
   lastVisit?: Date;
@@ -58,7 +84,13 @@ export type PatientStatus = 'active' | 'inactive' | 'deceased' | 'archived';
 
 export type Gender = 'male' | 'female' | 'other' | 'unknown';
 
+export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed' | 'separated' | 'unknown';
+
+export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
+
 export type ContactMethod = 'phone' | 'email' | 'mail' | 'portal';
+
+export type VisitType = 'opd' | 'ipd' | 'emergency' | 'daycare';
 
 export interface Address {
   line1: string;
@@ -148,6 +180,8 @@ export interface CreatePatientDto {
   dateOfBirth: Date;
   gender: Gender;
   ssn?: string;
+  maritalStatus?: MaritalStatus;
+  bloodGroup?: BloodGroup;
   email?: string;
   phone?: string;
   mobilePhone?: string;
@@ -156,11 +190,61 @@ export interface CreatePatientDto {
   emergencyContact?: EmergencyContact;
   primaryProviderId?: string;
   facilityId: string;
+  clinicId?: string;
+  visitType?: VisitType;
+  familyRelations?: CreateFamilyRelationDto[];
+}
+
+export interface CreateFamilyRelationDto {
+  relatedPatientId: string;
+  relationship: FamilyRelationType;
 }
 
 export interface UpdatePatientDto extends Partial<CreatePatientDto> {
   status?: PatientStatus;
   doNotContact?: boolean;
+}
+
+// Clinic/Facility model for multi-clinic support
+export interface Clinic {
+  id: string;
+  name: string;
+  code: string;
+  type: ClinicType;
+  address: Address;
+  phone: string;
+  email?: string;
+  operatingHours?: OperatingHours;
+  services?: string[];
+  departments?: Department[];
+  status: 'active' | 'inactive';
+}
+
+export type ClinicType = 'hospital' | 'clinic' | 'urgent_care' | 'specialty' | 'diagnostic';
+
+export interface OperatingHours {
+  monday?: DayHours;
+  tuesday?: DayHours;
+  wednesday?: DayHours;
+  thursday?: DayHours;
+  friday?: DayHours;
+  saturday?: DayHours;
+  sunday?: DayHours;
+}
+
+export interface DayHours {
+  open: string; // "09:00"
+  close: string; // "17:00"
+  closed?: boolean;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  type: 'opd' | 'ipd' | 'emergency' | 'diagnostic' | 'surgical' | 'admin';
+  head?: string;
+  phone?: string;
 }
 
 export interface PatientSearchParams {

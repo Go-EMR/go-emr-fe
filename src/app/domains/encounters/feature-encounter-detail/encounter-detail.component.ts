@@ -792,7 +792,7 @@ import {
       padding: 1rem 0;
     }
 
-    /* PrimeNG v19 Tabs Styling */
+    /* PrimeNG v19 Tabs Styling - Force Horizontal Layout */
     :host ::ng-deep .notes-card .p-card-body {
       padding: 0;
     }
@@ -803,17 +803,57 @@ import {
 
     :host ::ng-deep .clinical-tabs {
       width: 100%;
+      display: block;
+    }
+
+    :host ::ng-deep .clinical-tabs > .p-tabs {
+      display: flex;
+      flex-direction: column;
     }
 
     :host ::ng-deep .clinical-tabs .p-tablist {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
       padding: 0 1rem;
+      overflow-x: auto;
+    }
+
+    :host ::ng-deep .clinical-tabs .p-tablist-tab-list {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      gap: 0;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    :host ::ng-deep .clinical-tabs .p-tablist-content {
+      display: flex !important;
+      flex-direction: row !important;
+    }
+
+    :host ::ng-deep .clinical-tabs .p-tablist-active-bar {
+      display: none;
     }
 
     .dark :host ::ng-deep .clinical-tabs .p-tablist {
       background: #0f172a;
       border-bottom-color: #334155;
+    }
+
+    /* Ensure horizontal tab layout in PrimeNG 19 */
+    :host ::ng-deep .clinical-tabs .p-tabs-nav {
+      display: flex !important;
+      flex-direction: row !important;
+    }
+
+    :host ::ng-deep .clinical-tabs .p-tablist-content {
+      display: flex !important;
+      flex-direction: row !important;
     }
 
     :host ::ng-deep .clinical-tabs .p-tab {
@@ -1233,7 +1273,7 @@ export class EncounterDetailComponent implements OnInit {
   actionMenuItems: MenuItem[] = [];
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = this.route.snapshot.paramMap.get('encounterId');
     if (id) {
       this.loadEncounter(id);
     }

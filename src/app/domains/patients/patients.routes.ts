@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { hipaaGuard } from '../../core/guards/hipaa.guard';
-import { roleGuard } from '../../core/guards/role.guard';
 
 export const PATIENT_ROUTES: Routes = [
   {
@@ -20,21 +19,40 @@ export const PATIENT_ROUTES: Routes = [
         data: { breadcrumb: null }
       },
       {
+        path: 'new',
+        loadComponent: () =>
+          import('./feature-patient-registration/patient-registration.component').then(
+            (m) => m.PatientRegistrationComponent
+          ),
+        data: { breadcrumb: 'New Patient' }
+      },
+      {
         path: ':patientId',
+        loadComponent: () =>
+          import('./feature-patient-detail/patient-detail.component').then(
+            (m) => m.PatientDetailComponent
+          ),
+        data: { breadcrumb: 'Patient Chart' },
         children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./feature-patient-detail/patient-detail.component').then(
-                (m) => m.PatientDetailComponent
-              ),
-            data: { breadcrumb: 'Patient Chart' }
-          },
           {
             path: 'encounters',
             loadChildren: () =>
               import('../encounters/encounters.routes').then((m) => m.ENCOUNTER_ROUTES),
             data: { breadcrumb: 'Encounters' }
+          },
+          {
+            path: 'labs',
+            loadChildren: () =>
+              import('../labs/labs.routes').then((m) => m.LAB_ROUTES),
+            data: { breadcrumb: 'Lab Results' }
+          },
+          {
+            path: 'edit',
+            loadComponent: () =>
+              import('./feature-patient-registration/patient-registration.component').then(
+                (m) => m.PatientRegistrationComponent
+              ),
+            data: { breadcrumb: 'Edit Patient' }
           },
           {
             path: 'appointments',
@@ -47,12 +65,6 @@ export const PATIENT_ROUTES: Routes = [
             loadChildren: () =>
               import('../prescriptions/prescriptions.routes').then((m) => m.PRESCRIPTION_ROUTES),
             data: { breadcrumb: 'Prescriptions' }
-          },
-          {
-            path: 'labs',
-            loadChildren: () =>
-              import('../labs/labs.routes').then((m) => m.LAB_ROUTES),
-            data: { breadcrumb: 'Lab Results' }
           },
           {
             path: 'billing',

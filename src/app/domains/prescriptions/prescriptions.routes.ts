@@ -3,26 +3,26 @@ import { Routes } from '@angular/router';
 export const PRESCRIPTION_ROUTES: Routes = [
   {
     path: '',
-    loadComponent: () => import('./feature-prescription-list/prescription-list.component')
-      .then(m => m.PrescriptionListComponent),
-    title: 'Prescriptions - OpenEMR',
+    loadComponent: () =>
+      import('./feature-prescription-list/prescription-list.component').then(
+        (m) => m.PrescriptionListComponent
+      ),
+    data: { breadcrumb: null }
   },
   {
     path: 'new',
-    loadComponent: () => import('./feature-prescription-editor/prescription-editor.component')
-      .then(m => m.PrescriptionEditorComponent),
-    title: 'New Prescription - OpenEMR',
+    loadComponent: () =>
+      import('./feature-prescription-writer/prescription-writer.component').then(
+        (m) => m.PrescriptionWriterComponent
+      ),
+    data: { breadcrumb: 'New Prescription' }
   },
   {
-    path: ':id',
-    loadComponent: () => import('./feature-prescription-detail/prescription-detail.component')
-      .then(m => m.PrescriptionDetailComponent),
-    title: 'Prescription Details - OpenEMR',
-  },
-  {
-    path: ':id/edit',
-    loadComponent: () => import('./feature-prescription-editor/prescription-editor.component')
-      .then(m => m.PrescriptionEditorComponent),
-    title: 'Edit Prescription - OpenEMR',
-  },
+    path: ':prescriptionId',
+    loadComponent: () =>
+      import('./feature-prescription-detail/prescription-detail.component').then(
+        (m) => m.PrescriptionDetailComponent
+      ),
+    data: { breadcrumb: 'Prescription Details' }
+  }
 ];

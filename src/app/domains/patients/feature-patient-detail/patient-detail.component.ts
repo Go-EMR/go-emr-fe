@@ -17,6 +17,7 @@ import { Skeleton } from 'primeng/skeleton';
 import { Panel } from 'primeng/panel';
 import { Badge } from 'primeng/badge';
 import { Ripple } from 'primeng/ripple';
+import { Table, TableModule } from 'primeng/table';
 import { MenuItem } from 'primeng/api';
 
 import { PatientService } from '../data-access/services/patient.service';
@@ -63,6 +64,7 @@ interface RecentActivity {
     Panel,
     Badge,
     Ripple,
+    TableModule,
   ],
   template: `
     <div class="patient-detail" [class.dark]="themeService.isDarkMode()">
@@ -335,84 +337,163 @@ interface RecentActivity {
 
         <!-- Tab Content / Router Outlet -->
         <section class="content-section">
-          @if (isOverviewActive()) {
-            <!-- Overview Content -->
-            <div class="overview-content">
-              <!-- Recent Activity -->
-              <div class="activity-panel">
-                <p-panel header="Recent Activity" [toggleable]="true">
-                  @if (recentActivity.length > 0) {
-                    <div class="activity-list">
-                      @for (activity of recentActivity; track activity.id) {
-                        <div class="activity-item">
-                          <span class="activity-marker" [class]="activity.type">
-                            <i [class]="'pi ' + activity.icon"></i>
-                          </span>
-                          <div class="activity-content">
-                            <span class="activity-title">{{ activity.title }}</span>
-                            <span class="activity-desc">{{ activity.description }}</span>
-                            <span class="activity-date">{{ activity.date | date:'short' }}</span>
-                          </div>
+          @if (isInlineTabActive()) {
+            @switch (currentTab()) {
+              @case ('overview') {
+                <!-- Overview Content -->
+                <div class="overview-content">
+                  <!-- Recent Activity -->
+                  <div class="activity-panel">
+                    <p-panel header="Recent Activity" [toggleable]="true">
+                      @if (recentActivity.length > 0) {
+                        <div class="activity-list">
+                          @for (activity of recentActivity; track activity.id) {
+                            <div class="activity-item">
+                              <span class="activity-marker" [class]="activity.type">
+                                <i [class]="'pi ' + activity.icon"></i>
+                              </span>
+                              <div class="activity-content">
+                                <span class="activity-title">{{ activity.title }}</span>
+                                <span class="activity-desc">{{ activity.description }}</span>
+                                <span class="activity-date">{{ activity.date | date:'short' }}</span>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      } @else {
+                        <div class="no-data">
+                          <i class="pi pi-history"></i>
+                          <span>No recent activity</span>
                         </div>
                       }
-                    </div>
-                  } @else {
-                    <div class="no-data">
-                      <i class="pi pi-history"></i>
-                      <span>No recent activity</span>
-                    </div>
-                  }
-                </p-panel>
-              </div>
+                    </p-panel>
+                  </div>
 
-              <!-- Vitals -->
-              <div class="vitals-panel">
-                <p-panel header="Latest Vitals" [toggleable]="true">
-                  <div class="vitals-grid">
-                    @for (vital of vitals; track vital.label) {
-                      <div class="vital-card" pRipple>
-                        <div class="vital-icon" [class]="vital.iconClass">
-                          <i [class]="'pi ' + vital.icon"></i>
+                  <!-- Vitals -->
+                  <div class="vitals-panel">
+                    <p-panel header="Latest Vitals" [toggleable]="true">
+                      <div class="vitals-grid">
+                        @for (vital of vitals; track vital.label) {
+                          <div class="vital-card" pRipple>
+                            <div class="vital-icon" [class]="vital.iconClass">
+                              <i [class]="'pi ' + vital.icon"></i>
+                            </div>
+                            <div class="vital-info">
+                              <span class="vital-value">{{ vital.value }} <small>{{ vital.unit }}</small></span>
+                              <span class="vital-label">{{ vital.label }}</span>
+                              <span class="vital-date">{{ vital.date | date:'shortDate' }}</span>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </p-panel>
+                  </div>
+
+                  <!-- Active Problems -->
+                  <div class="problems-panel">
+                    <p-panel header="Active Problems" [toggleable]="true">
+                      @if (activeProblems().length > 0) {
+                        <div class="problems-list">
+                          @for (problem of activeProblems(); track problem.id) {
+                            <div class="problem-item">
+                              <div class="problem-info">
+                                <span class="problem-name">{{ problem.description }}</span>
+                                <span class="problem-code">ICD-10: {{ problem.code }}</span>
+                              </div>
+                              <p-tag 
+                                [value]="problem.severity || 'Unknown'" 
+                                [severity]="getProblemSeverity(problem.severity)"
+                                [rounded]="true"
+                              />
+                            </div>
+                          }
                         </div>
-                        <div class="vital-info">
-                          <span class="vital-value">{{ vital.value }} <small>{{ vital.unit }}</small></span>
-                          <span class="vital-label">{{ vital.label }}</span>
-                          <span class="vital-date">{{ vital.date | date:'shortDate' }}</span>
+                      } @else {
+                        <div class="no-data">
+                          <i class="pi pi-check-circle"></i>
+                          <span>No active problems</span>
                         </div>
+                      }
+                    </p-panel>
+                  </div>
+                </div>
+              }
+              @case ('problems') {
+                <div class="tab-content problems-tab">
+                  <p-panel header="Problem List">
+                    @if (activeProblems().length > 0) {
+                      <p-table [value]="activeProblems()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm">
+                        <ng-template pTemplate="header">
+                          <tr>
+                            <th>Description</th>
+                            <th>ICD-10 Code</th>
+                            <th>Severity</th>
+                            <th>Status</th>
+                            <th>Onset Date</th>
+                          </tr>
+                        </ng-template>
+                        <ng-template pTemplate="body" let-problem>
+                          <tr>
+                            <td>{{ problem.description }}</td>
+                            <td>{{ problem.code }}</td>
+                            <td>
+                              <p-tag [value]="problem.severity || 'Unknown'" [severity]="getProblemSeverity(problem.severity)" />
+                            </td>
+                            <td>
+                              <p-tag [value]="problem.status" [severity]="problem.status === 'active' ? 'danger' : 'secondary'" />
+                            </td>
+                            <td>{{ problem.onsetDate | date:'shortDate' }}</td>
+                          </tr>
+                        </ng-template>
+                        <ng-template pTemplate="emptymessage">
+                          <tr>
+                            <td colspan="5" class="text-center">No problems recorded</td>
+                          </tr>
+                        </ng-template>
+                      </p-table>
+                    } @else {
+                      <div class="no-data">
+                        <i class="pi pi-check-circle"></i>
+                        <span>No problems recorded</span>
                       </div>
                     }
-                  </div>
-                </p-panel>
-              </div>
-
-              <!-- Active Problems -->
-              <div class="problems-panel">
-                <p-panel header="Active Problems" [toggleable]="true">
-                  @if (activeProblems().length > 0) {
-                    <div class="problems-list">
-                      @for (problem of activeProblems(); track problem.id) {
-                        <div class="problem-item">
-                          <div class="problem-info">
-                            <span class="problem-name">{{ problem.description }}</span>
-                            <span class="problem-code">ICD-10: {{ problem.code }}</span>
-                          </div>
-                          <p-tag 
-                            [value]="problem.severity || 'Unknown'" 
-                            [severity]="getProblemSeverity(problem.severity)"
-                            [rounded]="true"
-                          />
-                        </div>
-                      }
-                    </div>
-                  } @else {
+                  </p-panel>
+                </div>
+              }
+              @case ('medications') {
+                <div class="tab-content medications-tab">
+                  <p-panel header="Current Medications">
                     <div class="no-data">
-                      <i class="pi pi-check-circle"></i>
-                      <span>No active problems</span>
+                      <i class="pi pi-box"></i>
+                      <span>No active medications</span>
+                      <p-button label="Add Medication" icon="pi pi-plus" [outlined]="true" size="small" />
                     </div>
-                  }
-                </p-panel>
-              </div>
-            </div>
+                  </p-panel>
+                </div>
+              }
+              @case ('allergies') {
+                <div class="tab-content allergies-tab">
+                  <p-panel header="Allergies & Adverse Reactions">
+                    <div class="no-data">
+                      <i class="pi pi-exclamation-triangle"></i>
+                      <span>No allergies recorded</span>
+                      <p-button label="Add Allergy" icon="pi pi-plus" [outlined]="true" size="small" />
+                    </div>
+                  </p-panel>
+                </div>
+              }
+              @case ('documents') {
+                <div class="tab-content documents-tab">
+                  <p-panel header="Clinical Documents">
+                    <div class="no-data">
+                      <i class="pi pi-folder-open"></i>
+                      <span>No documents uploaded</span>
+                      <p-button label="Upload Document" icon="pi pi-upload" [outlined]="true" size="small" />
+                    </div>
+                  </p-panel>
+                </div>
+              }
+            }
           } @else {
             <router-outlet />
           }
@@ -1174,18 +1255,27 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
     { label: 'Archive Patient', icon: 'pi pi-trash', styleClass: 'text-danger' },
   ];
 
-  // Tab items
+  // Tab items - use routerLink for routed tabs, command for inline tabs
   tabItems: MenuItem[] = [
-    { label: 'Overview', icon: 'pi pi-home', routerLink: ['./'] },
+    { label: 'Overview', icon: 'pi pi-home', command: () => this.setActiveTab('overview') },
     { label: 'Encounters', icon: 'pi pi-file-edit', routerLink: ['encounters'] },
-    { label: 'Problems', icon: 'pi pi-list', routerLink: ['problems'] },
-    { label: 'Medications', icon: 'pi pi-box', routerLink: ['medications'] },
-    { label: 'Allergies', icon: 'pi pi-exclamation-triangle', routerLink: ['allergies'] },
+    { label: 'Problems', icon: 'pi pi-list', command: () => this.setActiveTab('problems') },
+    { label: 'Medications', icon: 'pi pi-box', command: () => this.setActiveTab('medications') },
+    { label: 'Allergies', icon: 'pi pi-exclamation-triangle', command: () => this.setActiveTab('allergies') },
     { label: 'Labs', icon: 'pi pi-chart-bar', routerLink: ['labs'] },
-    { label: 'Documents', icon: 'pi pi-folder', routerLink: ['documents'] },
+    { label: 'Documents', icon: 'pi pi-folder', command: () => this.setActiveTab('documents') },
   ];
 
   activeTab = this.tabItems[0];
+  currentTab = signal<string>('overview');
+
+  setActiveTab(tab: string): void {
+    this.currentTab.set(tab);
+    const tabItem = this.tabItems.find(t => t.label?.toLowerCase() === tab);
+    if (tabItem) {
+      this.activeTab = tabItem;
+    }
+  }
 
   // Mock data
   vitals: VitalSign[] = [
@@ -1247,7 +1337,7 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe({
       next: (patient) => {
-        this.patient.set(patient);
+        this.patient.set(patient ?? null);
         this.loading.set(false);
       },
       error: () => {
@@ -1263,7 +1353,12 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
   }
 
   isOverviewActive(): boolean {
-    return !this.route.firstChild;
+    return this.currentTab() === 'overview' && !this.route.firstChild;
+  }
+
+  isInlineTabActive(): boolean {
+    const inlineTabs = ['overview', 'problems', 'medications', 'allergies', 'documents'];
+    return inlineTabs.includes(this.currentTab()) && !this.route.firstChild;
   }
 
   getGenderIcon(gender: string): string {
