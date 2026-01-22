@@ -39,7 +39,7 @@
     "@primeng/themes": "^19.0.0",
     "chart.js": "^4.5.1",
     "date-fns": "^3.0.0",
-    "lodash-es": "^4.17.21",
+    "lodash-es": "^4.17.23",
     "ng2-charts": "^6.0.0",
     "postcss": "^8.5.6",
     "primeicons": "^7.0.0",
