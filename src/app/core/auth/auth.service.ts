@@ -446,6 +446,11 @@ export class AuthService {
   }
   
   private validateToken(): Observable<boolean> {
+    // Mock mode: skip backend validation to preserve session across refreshes
+    if (USE_MOCK) {
+      return of(true);
+    }
+
     return this.http.get<{ valid: boolean }>(`${this.API_URL}/validate`).pipe(
       map(response => {
         if (!response.valid) {
