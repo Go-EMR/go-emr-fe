@@ -28,29 +28,16 @@ import { AppointmentService } from '../data-access/services/appointment.service'
 import { ThemeService } from '../../../core/services/theme.service';
 import {
   Appointment,
+  AppointmentSlot,
   AppointmentType,
   getAppointmentTypeConfig,
   APPOINTMENT_TYPE_CONFIG,
 } from '../data-access/models/appointment.model';
 
-type CalendarView = 'day' | 'week' | 'month';
-
-interface CalendarDay {
-  date: Date;
-  isToday: boolean;
-  isCurrentMonth: boolean;
-  appointments: Appointment[];
-}
-
-interface TimeSlot {
-  hour: number;
+interface TimeSlotGroup {
   label: string;
-}
-
-interface ViewOption {
   icon: string;
-  value: CalendarView;
-  tooltip: string;
+  slots: AppointmentSlot[];
 }
 
 interface ProviderOption {
@@ -105,19 +92,89 @@ interface ProviderOption {
         </div>
       </header>
 
-      <!-- Toolbar -->
-      <section class="toolbar-section">
-        <p-card styleClass="toolbar-card">
-          <div class="toolbar-content">
-            <!-- Date Navigation -->
-            <div class="date-navigation">
+      <div class="main-content">
+        <!-- Left Panel: Date Selection & Filters -->
+        <aside class="sidebar">
+          <!-- Date Selection -->
+          <p-card styleClass="date-picker-card">
+            <div class="calendar-header">
+              <i class="pi pi-calendar"></i>
+              <h3>Select Date</h3>
+            </div>
+            <p-calendar
+              [(ngModel)]="selectedDate"
+              [showIcon]="true"
+              [showButtonBar]="true"
+              dateFormat="DD, MM dd, yy"
+              (onSelect)="onDateSelect($event)"
+              styleClass="w-full date-input"
+              [inputStyle]="{'width': '100%'}"
+            />
+          </p-card>
+
+          <!-- Provider Filter -->
+          <p-card styleClass="filter-card">
+            <div class="filter-header">
+              <i class="pi pi-filter"></i>
+              <h3>Filters</h3>
+            </div>
+            <div class="filter-content">
+              <label>Provider</label>
+              <p-select
+                [options]="providerOptions"
+                [formControl]="providerControl"
+                placeholder="All Providers"
+                [showClear]="true"
+                styleClass="w-full"
+              />
+            </div>
+          </p-card>
+
+          <!-- Quick Stats -->
+          <p-card styleClass="stats-card">
+            <div class="stats-header">
+              <i class="pi pi-chart-bar"></i>
+              <h3>Today's Summary</h3>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-value">{{ todayStats().total }}</span>
+                <span class="stat-label">Total</span>
+              </div>
+              <div class="stat-item booked">
+                <span class="stat-value">{{ todayStats().booked }}</span>
+                <span class="stat-label">Booked</span>
+              </div>
+              <div class="stat-item completed">
+                <span class="stat-value">{{ todayStats().completed }}</span>
+                <span class="stat-label">Completed</span>
+              </div>
+              <div class="stat-item available">
+                <span class="stat-value">{{ todayStats().available }}</span>
+                <span class="stat-label">Available</span>
+              </div>
+            </div>
+          </p-card>
+        </aside>
+
+        <!-- Right Panel: Time Slots & Appointments -->
+        <main class="content-area">
+          <!-- Selected Date Header -->
+          <div class="date-header">
+            <div class="date-info">
+              <h2>{{ selectedDate | date:'EEEE, MMMM d, yyyy' }}</h2>
+              @if (isToday()) {
+                <p-tag value="Today" severity="info" [rounded]="true" />
+              }
+            </div>
+            <div class="date-nav">
               <p-button
                 icon="pi pi-chevron-left"
                 [rounded]="true"
                 [outlined]="true"
                 severity="secondary"
                 (onClick)="navigatePrevious()"
-                pTooltip="Previous"
+                pTooltip="Previous Day"
                 tooltipPosition="bottom"
               />
               <p-button
@@ -125,6 +182,7 @@ interface ProviderOption {
                 [outlined]="true"
                 severity="secondary"
                 (onClick)="goToToday()"
+                [disabled]="isToday()"
               />
               <p-button
                 icon="pi pi-chevron-right"
@@ -132,176 +190,156 @@ interface ProviderOption {
                 [outlined]="true"
                 severity="secondary"
                 (onClick)="navigateNext()"
-                pTooltip="Next"
+                pTooltip="Next Day"
                 tooltipPosition="bottom"
               />
-              <h2 class="current-period">{{ currentPeriodLabel() }}</h2>
-            </div>
-
-            <!-- Controls -->
-            <div class="toolbar-controls">
-              <!-- Provider Filter -->
-              <p-select
-                [options]="providerOptions"
-                [formControl]="providerControl"
-                placeholder="All Providers"
-                [showClear]="true"
-                class="provider-select"
-              />
-
-              <!-- View Toggle -->
-              <p-selectButton
-                [options]="viewOptions"
-                [(ngModel)]="selectedView"
-                (onChange)="setViewMode($event.value)"
-                optionLabel="tooltip"
-                optionValue="value"
-                class="view-toggle">
-                <ng-template pTemplate="item" let-item>
-                  <i [class]="'pi ' + item.icon" [pTooltip]="item.tooltip" tooltipPosition="bottom"></i>
-                </ng-template>
-              </p-selectButton>
             </div>
           </div>
-        </p-card>
-      </section>
 
-      <!-- Calendar Content -->
-      <section class="calendar-section">
-        <div class="calendar-content" [class.loading]="loading()">
-          @if (loading()) {
-            <div class="loading-overlay">
-              <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: #3b82f6;"></i>
-              <p>Loading appointments...</p>
+          <!-- Time Slots Section -->
+          <p-card styleClass="slots-card">
+            <div class="slots-header">
+              <h3>
+                <i class="pi pi-clock"></i>
+                Available Time Slots
+              </h3>
+              <span class="slots-hint">Click a slot to book an appointment</span>
             </div>
-          }
 
-          @switch (viewMode()) {
-            @case ('day') {
-              <!-- Day View -->
-              <div class="day-view">
-                <div class="time-grid">
-                  <div class="time-column">
-                    @for (slot of timeSlots; track slot.hour) {
-                      <div class="time-slot-label">{{ slot.label }}</div>
-                    }
+            @if (loadingSlots()) {
+              <div class="loading-slots">
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Loading available slots...</span>
+              </div>
+            } @else {
+              <div class="time-slot-groups">
+                @for (group of timeSlotGroups(); track group.label) {
+                  <div class="slot-group">
+                    <div class="group-header">
+                      <i [class]="'pi ' + group.icon"></i>
+                      <span>{{ group.label }}</span>
+                      <span class="slot-count">{{ getAvailableCount(group.slots) }} available</span>
+                    </div>
+                    <div class="slots-grid">
+                      @for (slot of group.slots; track slot.start) {
+                        <button
+                          class="time-slot-capsule"
+                          [class.available]="slot.isAvailable"
+                          [class.booked]="!slot.isAvailable"
+                          (click)="onSlotClick(slot)"
+                          [disabled]="!slot.isAvailable"
+                          pRipple>
+                          <span class="slot-time">{{ slot.start | date:'h:mm a' }}</span>
+                          @if (!slot.isAvailable) {
+                            <span class="slot-status">Booked</span>
+                          }
+                        </button>
+                      }
+                    </div>
                   </div>
-                  <div class="appointments-column">
-                    @for (slot of timeSlots; track slot.hour) {
-                      <div class="time-slot" (click)="onSlotClick(slot.hour)" pRipple>
-                        @for (apt of getAppointmentsForHour(slot.hour); track apt.id) {
-                          <div
-                            class="appointment-block"
-                            [style.top.px]="getAppointmentTop(apt)"
-                            [style.height.px]="getAppointmentHeight(apt)"
-                            [style.background]="getAppointmentColor(apt)"
-                            (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()"
-                            pRipple>
-                            <div class="apt-content">
-                              <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
-                              <span class="apt-patient">{{ apt.patientName }}</span>
-                              <span class="apt-type">{{ getTypeLabel(apt.appointmentType) }}</span>
-                            </div>
-                            <p-tag
-                              [value]="apt.status | titlecase"
-                              [severity]="getStatusSeverity(apt.status)"
-                              [rounded]="true"
-                              class="apt-status"
-                            />
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
+                }
               </div>
             }
+          </p-card>
 
-            @case ('week') {
-              <!-- Week View -->
-              <div class="week-view">
-                <div class="week-header">
-                  <div class="time-header"></div>
-                  @for (day of weekDays(); track day.date.toISOString()) {
-                    <div class="day-header" [class.today]="day.isToday">
-                      <span class="day-name">{{ day.date | date:'EEE' }}</span>
-                      <span class="day-number" [class.today-number]="day.isToday">{{ day.date | date:'d' }}</span>
+          <!-- Scheduled Appointments Section -->
+          <p-card styleClass="appointments-card">
+            <div class="appointments-header">
+              <h3>
+                <i class="pi pi-calendar-plus"></i>
+                Scheduled Appointments
+              </h3>
+              <span class="appointments-count">{{ appointments().length }} appointments</span>
+            </div>
+
+            @if (loading()) {
+              <div class="loading-appointments">
+                <p-skeleton height="80px" styleClass="mb-2" />
+                <p-skeleton height="80px" styleClass="mb-2" />
+                <p-skeleton height="80px" />
+              </div>
+            } @else if (appointments().length === 0) {
+              <div class="no-appointments">
+                <i class="pi pi-calendar-times"></i>
+                <p>No appointments scheduled for this day</p>
+                <p-button
+                  label="Book an Appointment"
+                  icon="pi pi-plus"
+                  [outlined]="true"
+                  routerLink="new"
+                />
+              </div>
+            } @else {
+              <div class="appointments-list">
+                @for (apt of appointments(); track apt.id) {
+                  <div
+                    class="appointment-card"
+                    [class.in-progress]="apt.status === 'in-progress'"
+                    (click)="navigateToAppointment(apt.id)"
+                    pRipple>
+                    <div class="apt-time-block" [style.background]="getAppointmentColor(apt)">
+                      <span class="apt-time">{{ apt.start | date:'h:mm' }}</span>
+                      <span class="apt-period">{{ apt.start | date:'a' }}</span>
                     </div>
-                  }
-                </div>
-                <div class="week-body">
-                  <div class="time-column">
-                    @for (slot of timeSlots; track slot.hour) {
-                      <div class="time-slot-label">{{ slot.label }}</div>
-                    }
-                  </div>
-                  @for (day of weekDays(); track day.date.toISOString()) {
-                    <div class="day-column" [class.today]="day.isToday">
-                      @for (slot of timeSlots; track slot.hour) {
-                        <div class="time-slot" (click)="onSlotClick(slot.hour, day.date)" pRipple>
-                          @for (apt of getAppointmentsForDayHour(day.date, slot.hour); track apt.id) {
-                            <div
-                              class="appointment-block compact"
-                              [style.top.px]="getAppointmentTop(apt)"
-                              [style.height.px]="getAppointmentHeight(apt)"
-                              [style.background]="getAppointmentColor(apt)"
-                              [pTooltip]="apt.patientName + ' - ' + getTypeLabel(apt.appointmentType)"
-                              tooltipPosition="top"
-                              (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()"
-                              pRipple>
-                              <span class="apt-time">{{ apt.start | date:'shortTime' }}</span>
-                              <span class="apt-patient">{{ apt.patientName }}</span>
-                            </div>
-                          }
+                    <div class="apt-details">
+                      <div class="apt-main">
+                        <span class="apt-patient">{{ apt.patientName }}</span>
+                        <p-tag
+                          [value]="apt.status | titlecase"
+                          [severity]="getStatusSeverity(apt.status)"
+                          [rounded]="true"
+                          class="apt-status-tag"
+                        />
+                      </div>
+                      <div class="apt-meta">
+                        <span class="apt-type">
+                          <i [class]="'pi ' + getTypeIcon(apt.appointmentType)"></i>
+                          {{ getTypeLabel(apt.appointmentType) }}
+                        </span>
+                        <span class="apt-duration">
+                          <i class="pi pi-clock"></i>
+                          {{ apt.duration }} min
+                        </span>
+                        <span class="apt-provider">
+                          <i class="pi pi-user"></i>
+                          {{ apt.providerName }}
+                        </span>
+                      </div>
+                      @if (apt.reasonDescription) {
+                        <div class="apt-reason">
+                          {{ apt.reasonDescription }}
                         </div>
                       }
                     </div>
-                  }
-                </div>
-              </div>
-            }
-
-            @case ('month') {
-              <!-- Month View -->
-              <div class="month-view">
-                <div class="month-header">
-                  @for (day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track day) {
-                    <div class="weekday-header">{{ day }}</div>
-                  }
-                </div>
-                <div class="month-grid">
-                  @for (day of calendarDays(); track day.date.toISOString()) {
-                    <div
-                      class="calendar-day"
-                      [class.today]="day.isToday"
-                      [class.other-month]="!day.isCurrentMonth"
-                      (click)="onDayClick(day.date)"
-                      pRipple>
-                      <span class="day-number" [class.today-badge]="day.isToday">{{ day.date | date:'d' }}</span>
-                      <div class="day-appointments">
-                        @for (apt of day.appointments.slice(0, 3); track apt.id) {
-                          <div
-                            class="mini-appointment"
-                            [style.background]="getAppointmentColor(apt)"
-                            (click)="showAppointmentDetail(apt, $event); $event.stopPropagation()">
-                            <span class="mini-time">{{ apt.start | date:'shortTime' }}</span>
-                            <span class="mini-name">{{ apt.patientName }}</span>
-                          </div>
-                        }
-                        @if (day.appointments.length > 3) {
-                          <div class="more-appointments" (click)="onDayClick(day.date); $event.stopPropagation()">
-                            +{{ day.appointments.length - 3 }} more
-                          </div>
-                        }
-                      </div>
+                    <div class="apt-actions">
+                      <p-button
+                        icon="pi pi-eye"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="secondary"
+                        pTooltip="View Details"
+                        tooltipPosition="top"
+                        (onClick)="navigateToAppointment(apt.id); $event.stopPropagation()"
+                      />
+                      @if (apt.status === 'booked') {
+                        <p-button
+                          icon="pi pi-check"
+                          [rounded]="true"
+                          [text]="true"
+                          severity="success"
+                          pTooltip="Check In"
+                          tooltipPosition="top"
+                          (onClick)="checkInAppointment(apt); $event.stopPropagation()"
+                        />
+                      }
                     </div>
-                  }
-                </div>
+                  </div>
+                }
               </div>
             }
-          }
-        </div>
-      </section>
+          </p-card>
+        </main>
+      </div>
 
       <!-- Legend -->
       <section class="legend-section">
@@ -319,70 +357,6 @@ interface ProviderOption {
           </div>
         </p-card>
       </section>
-
-      <!-- Appointment Detail Overlay -->
-      <p-overlayPanel #appointmentDetail styleClass="appointment-detail-panel">
-        @if (selectedAppointment()) {
-          <div class="detail-header">
-            <div class="detail-type" [style.background]="getAppointmentColor(selectedAppointment()!)">
-              <i [class]="'pi ' + getTypeIcon(selectedAppointment()!.appointmentType)"></i>
-            </div>
-            <div class="detail-info">
-              <h3>{{ selectedAppointment()!.patientName }}</h3>
-              <span class="detail-type-label">{{ getTypeLabel(selectedAppointment()!.appointmentType) }}</span>
-            </div>
-            <p-tag
-              [value]="selectedAppointment()!.status | titlecase"
-              [severity]="getStatusSeverity(selectedAppointment()!.status)"
-              [rounded]="true"
-            />
-          </div>
-          <p-divider />
-          <div class="detail-body">
-            <div class="detail-row">
-              <i class="pi pi-clock"></i>
-              <span>{{ selectedAppointment()!.start | date:'medium' }}</span>
-            </div>
-            <div class="detail-row">
-              <i class="pi pi-stopwatch"></i>
-              <span>{{ selectedAppointment()!.duration }} minutes</span>
-            </div>
-            <div class="detail-row">
-              <i class="pi pi-user"></i>
-              <span>{{ selectedAppointment()!.providerName }}</span>
-            </div>
-            @if (selectedAppointment()!.reasonDescription) {
-              <div class="detail-row">
-                <i class="pi pi-info-circle"></i>
-                <span>{{ selectedAppointment()!.reasonDescription }}</span>
-              </div>
-            }
-          </div>
-          <p-divider />
-          <div class="detail-actions">
-            <p-button
-              label="View Details"
-              icon="pi pi-eye"
-              [text]="true"
-              (onClick)="navigateToAppointment(selectedAppointment()!.id)"
-            />
-            <p-button
-              label="Check In"
-              icon="pi pi-check"
-              [text]="true"
-              severity="success"
-              [disabled]="selectedAppointment()!.status !== 'booked'"
-            />
-            <p-button
-              label="Cancel"
-              icon="pi pi-times"
-              [text]="true"
-              severity="danger"
-              [disabled]="selectedAppointment()!.status === 'cancelled'"
-            />
-          </div>
-        }
-      </p-overlayPanel>
     </div>
   `,
   styles: [`
@@ -434,25 +408,170 @@ interface ProviderOption {
       color: #94a3b8;
     }
 
-    /* Toolbar */
-    .toolbar-section {
+    /* Main Content Layout */
+    .main-content {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 1.5rem;
       margin-bottom: 1.5rem;
     }
 
-    :host ::ng-deep .toolbar-card {
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-width: 260px;
+      overflow: hidden;
+    }
+
+    :host ::ng-deep .date-picker-card,
+    :host ::ng-deep .filter-card,
+    :host ::ng-deep .stats-card {
       border-radius: 1rem;
     }
 
-    :host ::ng-deep .toolbar-card .p-card-body {
-      padding: 1rem 1.25rem;
+    :host ::ng-deep .date-picker-card .p-card-body,
+    :host ::ng-deep .filter-card .p-card-body,
+    :host ::ng-deep .stats-card .p-card-body {
+      padding: 1rem;
     }
 
-    .dark :host ::ng-deep .toolbar-card {
+    .dark :host ::ng-deep .date-picker-card,
+    .dark :host ::ng-deep .filter-card,
+    .dark :host ::ng-deep .stats-card {
       background: #1e293b;
       border-color: #334155;
     }
 
-    .toolbar-content {
+    .calendar-header,
+    .filter-header,
+    .stats-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .calendar-header h3,
+    .filter-header h3,
+    .stats-header h3 {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .calendar-header h3,
+    .dark .filter-header h3,
+    .dark .stats-header h3 {
+      color: #f1f5f9;
+    }
+
+    .filter-header i,
+    .stats-header i {
+      color: #3b82f6;
+    }
+
+    .filter-content label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+
+    .dark .filter-content label {
+      color: #94a3b8;
+    }
+
+    :host ::ng-deep .date-input {
+      width: 100%;
+    }
+
+    :host ::ng-deep .date-input .p-datepicker-input {
+      width: 100%;
+      font-size: 0.9rem;
+    }
+
+    .calendar-header i {
+      color: #3b82f6;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.75rem;
+      background: #f8fafc;
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+
+    .dark .stat-item {
+      background: #334155;
+    }
+
+    .stat-item.booked {
+      background: #eff6ff;
+    }
+
+    .dark .stat-item.booked {
+      background: rgba(59, 130, 246, 0.2);
+    }
+
+    .stat-item.completed {
+      background: #f0fdf4;
+    }
+
+    .dark .stat-item.completed {
+      background: rgba(34, 197, 94, 0.2);
+    }
+
+    .stat-item.available {
+      background: #fefce8;
+    }
+
+    .dark .stat-item.available {
+      background: rgba(234, 179, 8, 0.2);
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .dark .stat-value {
+      color: #f1f5f9;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+
+    .dark .stat-label {
+      color: #94a3b8;
+    }
+
+    /* Content Area */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Date Header */
+    .date-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -460,454 +579,394 @@ interface ProviderOption {
       gap: 1rem;
     }
 
-    .date-navigation {
+    .date-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .date-info h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .date-info h2 {
+      color: #f1f5f9;
+    }
+
+    .date-nav {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
 
-    .current-period {
-      margin: 0 0 0 1rem;
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .dark .current-period {
-      color: #f1f5f9;
-    }
-
-    .toolbar-controls {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .provider-select {
-      min-width: 180px;
-    }
-
-    :host ::ng-deep .view-toggle .p-selectbutton .p-button {
-      padding: 0.5rem 0.75rem;
-    }
-
-    /* Calendar Content */
-    .calendar-section {
-      margin-bottom: 1.5rem;
-    }
-
-    .calendar-content {
-      background: white;
+    /* Slots Card */
+    :host ::ng-deep .slots-card,
+    :host ::ng-deep .appointments-card {
       border-radius: 1rem;
-      border: 1px solid #e2e8f0;
-      min-height: 600px;
-      position: relative;
-      overflow: hidden;
     }
 
-    .dark .calendar-content {
+    :host ::ng-deep .slots-card .p-card-body,
+    :host ::ng-deep .appointments-card .p-card-body {
+      padding: 1.25rem;
+    }
+
+    .dark :host ::ng-deep .slots-card,
+    .dark :host ::ng-deep .appointments-card {
       background: #1e293b;
       border-color: #334155;
     }
 
-    .calendar-content.loading {
-      pointer-events: none;
-    }
-
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.9);
+    .slots-header,
+    .appointments-header {
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      z-index: 10;
-      gap: 1rem;
+      margin-bottom: 1.25rem;
     }
 
-    .dark .loading-overlay {
-      background: rgba(30, 41, 59, 0.9);
-    }
-
-    .loading-overlay p {
-      color: #64748b;
+    .slots-header h3,
+    .appointments-header h3 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       margin: 0;
-    }
-
-    /* Day View */
-    .day-view .time-grid {
-      display: flex;
-    }
-
-    .time-column {
-      width: 70px;
-      flex-shrink: 0;
-      border-right: 1px solid #e2e8f0;
-    }
-
-    .dark .time-column {
-      border-right-color: #334155;
-    }
-
-    .time-slot-label {
-      height: 60px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding: 4px 8px 0 0;
-      font-size: 0.75rem;
-      color: #94a3b8;
-    }
-
-    .appointments-column {
-      flex: 1;
-      position: relative;
-    }
-
-    .time-slot {
-      height: 60px;
-      border-bottom: 1px solid #f1f5f9;
-      position: relative;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .dark .time-slot {
-      border-bottom-color: #334155;
-    }
-
-    .time-slot:hover {
-      background: #f8fafc;
-    }
-
-    .dark .time-slot:hover {
-      background: #334155;
-    }
-
-    .appointment-block {
-      position: absolute;
-      left: 4px;
-      right: 4px;
-      border-radius: 8px;
-      padding: 8px;
-      cursor: pointer;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      z-index: 1;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .appointment-block:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-      z-index: 2;
-    }
-
-    .apt-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .apt-time {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .apt-patient {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: white;
-    }
-
-    .apt-type {
-      font-size: 0.6875rem;
-      color: rgba(255, 255, 255, 0.8);
-    }
-
-    .apt-status {
-      align-self: flex-start;
-      margin-top: auto;
-    }
-
-    :host ::ng-deep .apt-status .p-tag {
-      font-size: 0.625rem;
-      padding: 0.125rem 0.375rem;
-    }
-
-    .appointment-block.compact {
-      padding: 4px 6px;
-      gap: 2px;
-    }
-
-    .appointment-block.compact .apt-time,
-    .appointment-block.compact .apt-patient {
-      font-size: 0.6875rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Week View */
-    .week-view {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .week-header {
-      display: flex;
-      border-bottom: 1px solid #e2e8f0;
-      position: sticky;
-      top: 0;
-      background: white;
-      z-index: 5;
-    }
-
-    .dark .week-header {
-      border-bottom-color: #334155;
-      background: #1e293b;
-    }
-
-    .time-header {
-      width: 70px;
-      flex-shrink: 0;
-    }
-
-    .day-header {
-      flex: 1;
-      text-align: center;
-      padding: 0.75rem 0.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      border-left: 1px solid #e2e8f0;
-    }
-
-    .dark .day-header {
-      border-left-color: #334155;
-    }
-
-    .day-header.today {
-      background: #eff6ff;
-    }
-
-    .dark .day-header.today {
-      background: #1e3a8a;
-    }
-
-    .day-name {
-      font-size: 0.75rem;
-      color: #64748b;
-      text-transform: uppercase;
-      font-weight: 500;
-    }
-
-    .dark .day-name {
-      color: #94a3b8;
-    }
-
-    .day-number {
-      font-size: 1.25rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #1e293b;
     }
 
-    .dark .day-number {
+    .dark .slots-header h3,
+    .dark .appointments-header h3 {
       color: #f1f5f9;
     }
 
-    .today-number {
-      background: #3b82f6;
-      color: white;
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto;
+    .slots-header h3 i,
+    .appointments-header h3 i {
+      color: #3b82f6;
     }
 
-    .week-body {
-      display: flex;
-      overflow-y: auto;
-      max-height: calc(100vh - 400px);
-    }
-
-    .day-column {
-      flex: 1;
-      border-left: 1px solid #e2e8f0;
-      position: relative;
-    }
-
-    .dark .day-column {
-      border-left-color: #334155;
-    }
-
-    .day-column.today {
-      background: rgba(59, 130, 246, 0.05);
-    }
-
-    .dark .day-column.today {
-      background: rgba(59, 130, 246, 0.1);
-    }
-
-    /* Month View */
-    .month-view {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .month-header {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .dark .month-header {
-      border-bottom-color: #334155;
-    }
-
-    .weekday-header {
-      padding: 0.75rem;
-      text-align: center;
-      font-size: 0.75rem;
-      font-weight: 600;
+    .slots-hint,
+    .appointments-count {
+      font-size: 0.8125rem;
       color: #64748b;
-      text-transform: uppercase;
     }
 
-    .dark .weekday-header {
+    .dark .slots-hint,
+    .dark .appointments-count {
       color: #94a3b8;
     }
 
-    .month-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      grid-auto-rows: minmax(120px, 1fr);
+    /* Loading States */
+    .loading-slots,
+    .loading-appointments {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 2rem;
+      color: #64748b;
     }
 
-    .calendar-day {
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 0.5rem;
-      cursor: pointer;
-      transition: background 0.2s;
+    .dark .loading-slots,
+    .dark .loading-appointments {
+      color: #94a3b8;
+    }
+
+    .loading-slots i {
+      font-size: 1.5rem;
+      color: #3b82f6;
+    }
+
+    /* Time Slot Groups */
+    .time-slot-groups {
       display: flex;
       flex-direction: column;
+      gap: 1.5rem;
     }
 
-    .dark .calendar-day {
-      border-color: #334155;
-    }
-
-    .calendar-day:nth-child(7n) {
-      border-right: none;
-    }
-
-    .calendar-day:hover {
+    .slot-group {
       background: #f8fafc;
+      border-radius: 1rem;
+      padding: 1rem;
     }
 
-    .dark .calendar-day:hover {
-      background: #334155;
-    }
-
-    .calendar-day.today {
-      background: #eff6ff;
-    }
-
-    .dark .calendar-day.today {
-      background: rgba(59, 130, 246, 0.15);
-    }
-
-    .calendar-day.other-month {
-      background: #f8fafc;
-    }
-
-    .dark .calendar-day.other-month {
+    .dark .slot-group {
       background: #0f172a;
     }
 
-    .calendar-day.other-month .day-number {
-      color: #cbd5e1;
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
     }
 
-    .dark .calendar-day.other-month .day-number {
+    .dark .group-header {
+      border-bottom-color: #334155;
+    }
+
+    .group-header i {
+      color: #3b82f6;
+      font-size: 1rem;
+    }
+
+    .group-header span:first-of-type {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .dark .group-header span:first-of-type {
+      color: #f1f5f9;
+    }
+
+    .slot-count {
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: #10b981;
+      font-weight: 500;
+    }
+
+    /* Time Slot Capsules */
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.625rem;
+    }
+
+    .time-slot-capsule {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1rem;
+      border: 2px solid transparent;
+      border-radius: 2rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 52px;
+    }
+
+    .time-slot-capsule.available {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+    }
+
+    .time-slot-capsule.available:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+    }
+
+    .time-slot-capsule.available:active {
+      transform: translateY(0);
+    }
+
+    .time-slot-capsule.booked {
+      background: #f1f5f9;
+      color: #94a3b8;
+      border-color: #e2e8f0;
+      cursor: not-allowed;
+    }
+
+    .dark .time-slot-capsule.booked {
+      background: #1e293b;
+      border-color: #334155;
+      color: #64748b;
+    }
+
+    .slot-time {
+      font-weight: 600;
+    }
+
+    .slot-status {
+      font-size: 0.6875rem;
+      font-weight: 400;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    /* No Appointments */
+    .no-appointments {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+
+    .no-appointments i {
+      font-size: 3rem;
+      color: #cbd5e1;
+      margin-bottom: 1rem;
+    }
+
+    .dark .no-appointments i {
       color: #475569;
     }
 
-    .calendar-day .day-number {
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 0.5rem;
+    .no-appointments p {
+      color: #64748b;
+      margin: 0 0 1.5rem;
     }
 
-    .dark .calendar-day .day-number {
-      color: #e2e8f0;
+    .dark .no-appointments p {
+      color: #94a3b8;
     }
 
-    .today-badge {
-      background: #3b82f6;
-      color: white !important;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
+    /* Appointments List */
+    .appointments-list {
       display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .appointment-card {
+      display: flex;
+      align-items: stretch;
+      gap: 1rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+
+    .dark .appointment-card {
+      background: #0f172a;
+    }
+
+    .appointment-card:hover {
+      background: white;
+      border-color: #e2e8f0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .dark .appointment-card:hover {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .appointment-card.in-progress {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .dark .appointment-card.in-progress {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: #3b82f6;
+    }
+
+    .apt-time-block {
+      display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 0.875rem;
+      min-width: 70px;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      color: white;
     }
 
-    .day-appointments {
+    .apt-time-block .apt-time {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .apt-time-block .apt-period {
+      font-size: 0.75rem;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-top: 0.25rem;
+    }
+
+    .apt-details {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      overflow: hidden;
+      gap: 0.5rem;
+      min-width: 0;
     }
 
-    .mini-appointment {
+    .apt-main {
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.6875rem;
-      color: white;
-      cursor: pointer;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      gap: 0.75rem;
     }
 
-    .mini-time {
+    .apt-details .apt-patient {
       font-weight: 600;
+      font-size: 1rem;
+      color: #1e293b;
     }
 
-    .mini-name {
+    .dark .apt-details .apt-patient {
+      color: #f1f5f9;
+    }
+
+    .apt-status-tag {
+      flex-shrink: 0;
+    }
+
+    .apt-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.8125rem;
+      color: #64748b;
+    }
+
+    .dark .apt-meta {
+      color: #94a3b8;
+    }
+
+    .apt-meta span {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .apt-meta i {
+      font-size: 0.75rem;
+    }
+
+    .apt-reason {
+      font-size: 0.8125rem;
+      color: #64748b;
+      padding-top: 0.5rem;
+      border-top: 1px solid #e2e8f0;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .more-appointments {
-      font-size: 0.6875rem;
-      color: #3b82f6;
-      font-weight: 500;
-      padding: 2px 4px;
-      cursor: pointer;
+    .dark .apt-reason {
+      color: #94a3b8;
+      border-top-color: #334155;
     }
 
-    .more-appointments:hover {
-      text-decoration: underline;
+    .apt-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.25rem;
     }
 
     /* Legend */
+    .legend-section {
+      margin-top: 1.5rem;
+    }
+
     :host ::ng-deep .legend-card {
       border-radius: 1rem;
     }
@@ -965,95 +1024,6 @@ interface ProviderOption {
       color: #94a3b8;
     }
 
-    /* Appointment Detail Panel */
-    :host ::ng-deep .appointment-detail-panel {
-      width: 320px;
-    }
-
-    .dark :host ::ng-deep .appointment-detail-panel .p-overlaypanel {
-      background: #1e293b;
-      border-color: #334155;
-    }
-
-    .detail-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .detail-type {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .detail-type i {
-      font-size: 1.125rem;
-      color: white;
-    }
-
-    .detail-info {
-      flex: 1;
-    }
-
-    .detail-info h3 {
-      margin: 0 0 0.25rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .dark .detail-info h3 {
-      color: #f1f5f9;
-    }
-
-    .detail-type-label {
-      font-size: 0.8125rem;
-      color: #64748b;
-    }
-
-    .dark .detail-type-label {
-      color: #94a3b8;
-    }
-
-    .detail-body {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .detail-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-size: 0.875rem;
-    }
-
-    .detail-row i {
-      color: #64748b;
-      width: 16px;
-    }
-
-    .dark .detail-row i {
-      color: #94a3b8;
-    }
-
-    .detail-row span {
-      color: #374151;
-    }
-
-    .dark .detail-row span {
-      color: #e2e8f0;
-    }
-
-    .detail-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
     /* Dark mode inputs */
     .dark :host ::ng-deep .p-select {
       background: #334155;
@@ -1064,38 +1034,46 @@ interface ProviderOption {
       color: #f1f5f9;
     }
 
-    .dark :host ::ng-deep .p-selectbutton .p-button {
-      background: #334155;
-      border-color: #475569;
-      color: #94a3b8;
+    .dark :host ::ng-deep .p-datepicker {
+      background: transparent;
     }
 
-    .dark :host ::ng-deep .p-selectbutton .p-button.p-highlight {
+    .dark :host ::ng-deep .p-datepicker-header {
+      background: transparent;
+      border-color: #334155;
+    }
+
+    .dark :host ::ng-deep .p-datepicker table td > span {
+      color: #e2e8f0;
+    }
+
+    .dark :host ::ng-deep .p-datepicker table td.p-datepicker-today > span {
       background: #3b82f6;
-      border-color: #3b82f6;
       color: white;
+    }
+
+    .dark :host ::ng-deep .p-datepicker table td > span:focus {
+      box-shadow: 0 0 0 2px #334155, 0 0 0 4px #3b82f6;
+    }
+
+    .w-full {
+      width: 100%;
     }
 
     /* Responsive */
     @media (max-width: 1024px) {
-      .toolbar-content {
-        flex-direction: column;
-        align-items: stretch;
+      .main-content {
+        grid-template-columns: 1fr;
       }
 
-      .date-navigation {
-        justify-content: center;
+      .sidebar {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
       }
 
-      .toolbar-controls {
-        justify-content: center;
-      }
-
-      .current-period {
-        margin: 0;
-        text-align: center;
-        width: 100%;
-        order: -1;
+      .slots-grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
       }
     }
 
@@ -1109,13 +1087,41 @@ interface ProviderOption {
         align-items: stretch;
       }
 
-      .month-grid {
-        grid-auto-rows: minmax(80px, 1fr);
+      .sidebar {
+        grid-template-columns: 1fr;
       }
 
-      .mini-appointment {
-        font-size: 0.625rem;
-        padding: 1px 4px;
+      .date-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .date-nav {
+        justify-content: center;
+      }
+
+      .slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .appointment-card {
+        flex-direction: column;
+      }
+
+      .apt-time-block {
+        flex-direction: row;
+        gap: 0.5rem;
+        width: 100%;
+        min-width: auto;
+      }
+
+      .apt-time-block .apt-time {
+        font-size: 1rem;
+      }
+
+      .apt-actions {
+        flex-direction: row;
+        justify-content: flex-end;
       }
 
       .legend-items {
@@ -1133,6 +1139,9 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
   // Form controls
   providerControl = new FormControl<string | null>(null);
 
+  // Date selection
+  selectedDate: Date = new Date();
+
   // Options
   providerOptions: ProviderOption[] = [
     { label: 'Dr. Emily Chen', value: 'prov-001' },
@@ -1140,112 +1149,60 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     { label: 'Dr. Maria Garcia', value: 'prov-003' },
   ];
 
-  viewOptions: ViewOption[] = [
-    { icon: 'pi-calendar', value: 'day', tooltip: 'Day View' },
-    { icon: 'pi-calendar-plus', value: 'week', tooltip: 'Week View' },
-    { icon: 'pi-th-large', value: 'month', tooltip: 'Month View' },
-  ];
-
-  selectedView: CalendarView = 'week';
   appointmentTypeConfigs = APPOINTMENT_TYPE_CONFIG;
-  timeSlots: TimeSlot[] = [];
 
   // Signals
   appointments = signal<Appointment[]>([]);
-  currentDate = signal(new Date());
-  viewMode = signal<CalendarView>('week');
+  availableSlots = signal<AppointmentSlot[]>([]);
   loading = signal(false);
-  selectedAppointment = signal<Appointment | null>(null);
+  loadingSlots = signal(false);
 
-  // Computed
-  currentPeriodLabel = computed(() => {
-    const date = this.currentDate();
-    const view = this.viewMode();
+  // Computed - Time slot groups (Morning, Afternoon, Evening)
+  timeSlotGroups = computed((): TimeSlotGroup[] => {
+    const slots = this.availableSlots();
 
-    switch (view) {
-      case 'day':
-        return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      case 'week':
-        const weekStart = this.getWeekStart(date);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        if (weekStart.getMonth() === weekEnd.getMonth()) {
-          return `${weekStart.toLocaleDateString('en-US', { month: 'long' })} ${weekStart.getDate()} - ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
-        }
-        return `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-      case 'month':
-        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      default:
-        return '';
-    }
+    const morning: AppointmentSlot[] = [];
+    const afternoon: AppointmentSlot[] = [];
+    const evening: AppointmentSlot[] = [];
+
+    slots.forEach(slot => {
+      const hour = new Date(slot.start).getHours();
+      if (hour < 12) {
+        morning.push(slot);
+      } else if (hour < 17) {
+        afternoon.push(slot);
+      } else {
+        evening.push(slot);
+      }
+    });
+
+    return [
+      { label: 'Morning', icon: 'pi-sun', slots: morning },
+      { label: 'Afternoon', icon: 'pi-cloud', slots: afternoon },
+      { label: 'Evening', icon: 'pi-moon', slots: evening },
+    ].filter(group => group.slots.length > 0);
   });
 
-  weekDays = computed(() => {
-    const current = this.currentDate();
-    const weekStart = this.getWeekStart(current);
-    const days: CalendarDay[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Computed - Today's statistics
+  todayStats = computed(() => {
+    const apts = this.appointments();
+    const slots = this.availableSlots();
+    const availableCount = slots.filter(s => s.isAvailable).length;
 
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
-
-      days.push({
-        date,
-        isToday: date.getTime() === today.getTime(),
-        isCurrentMonth: date.getMonth() === current.getMonth(),
-        appointments: this.appointments().filter(apt => {
-          const aptDate = new Date(apt.start).toISOString().split('T')[0];
-          return aptDate === dateStr;
-        }),
-      });
-    }
-
-    return days;
-  });
-
-  calendarDays = computed(() => {
-    const current = this.currentDate();
-    const firstOfMonth = new Date(current.getFullYear(), current.getMonth(), 1);
-    const lastOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-
-    const startDate = this.getWeekStart(firstOfMonth);
-    const endDate = new Date(lastOfMonth);
-    while (endDate.getDay() !== 6) {
-      endDate.setDate(endDate.getDate() + 1);
-    }
-
-    const days: CalendarDay[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      days.push({
-        date: new Date(currentDate),
-        isToday: currentDate.getTime() === today.getTime(),
-        isCurrentMonth: currentDate.getMonth() === current.getMonth(),
-        appointments: this.appointments().filter(apt => {
-          const aptDate = new Date(apt.start).toISOString().split('T')[0];
-          return aptDate === dateStr;
-        }),
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return days;
+    return {
+      total: apts.length,
+      booked: apts.filter(a => a.status === 'booked' || a.status === 'pending').length,
+      completed: apts.filter(a => a.status === 'fulfilled' || a.status === 'checked-in').length,
+      available: availableCount,
+    };
   });
 
   ngOnInit(): void {
-    this.generateTimeSlots();
-    this.loadAppointments();
+    this.loadData();
 
     this.providerControl.valueChanges.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(() => this.loadAppointments());
+    ).subscribe(() => this.loadData());
   }
 
   ngOnDestroy(): void {
@@ -1253,21 +1210,17 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private generateTimeSlots(): void {
-    this.timeSlots = [];
-    for (let hour = 6; hour <= 20; hour++) {
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-      this.timeSlots.push({
-        hour,
-        label: `${displayHour} ${ampm}`,
-      });
-    }
+  private loadData(): void {
+    this.loadAppointments();
+    this.loadAvailableSlots();
   }
 
   private loadAppointments(): void {
     this.loading.set(true);
-    const { startDate, endDate } = this.getDateRange();
+    const startDate = new Date(this.selectedDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(this.selectedDate);
+    endDate.setHours(23, 59, 59, 999);
 
     this.appointmentService.getAppointmentsByDateRange(
       startDate,
@@ -1277,136 +1230,82 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe({
       next: (appointments) => {
-        this.appointments.set(appointments);
+        // Sort appointments by start time
+        const sorted = [...appointments].sort((a, b) =>
+          new Date(a.start).getTime() - new Date(b.start).getTime()
+        );
+        this.appointments.set(sorted);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
   }
 
-  private getDateRange(): { startDate: Date; endDate: Date } {
-    const current = this.currentDate();
-    const view = this.viewMode();
-    let startDate: Date, endDate: Date;
+  private loadAvailableSlots(): void {
+    this.loadingSlots.set(true);
+    const providerId = this.providerControl.value || 'prov-001';
 
-    switch (view) {
-      case 'day':
-        startDate = new Date(current);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(current);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'week':
-        startDate = this.getWeekStart(current);
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'month':
-        startDate = new Date(current.getFullYear(), current.getMonth(), 1);
-        startDate.setDate(startDate.getDate() - startDate.getDay());
-        endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-        endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      default:
-        startDate = new Date();
-        endDate = new Date();
-    }
-
-    return { startDate, endDate };
+    this.appointmentService.getAvailableSlots(
+      this.selectedDate,
+      providerId,
+      30 // default duration
+    ).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (slots) => {
+        this.availableSlots.set(slots);
+        this.loadingSlots.set(false);
+      },
+      error: () => {
+        this.availableSlots.set([]);
+        this.loadingSlots.set(false);
+      },
+    });
   }
 
-  private getWeekStart(date: Date): Date {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    const day = d.getDay();
-    d.setDate(d.getDate() - day);
-    return d;
+  isToday(): boolean {
+    const today = new Date();
+    return (
+      this.selectedDate.getDate() === today.getDate() &&
+      this.selectedDate.getMonth() === today.getMonth() &&
+      this.selectedDate.getFullYear() === today.getFullYear()
+    );
   }
 
-  setViewMode(view: CalendarView): void {
-    this.viewMode.set(view);
-    this.loadAppointments();
+  onDateSelect(event: Date): void {
+    this.selectedDate = event;
+    this.loadData();
   }
 
   navigatePrevious(): void {
-    const current = this.currentDate();
-    const newDate = new Date(current);
-
-    switch (this.viewMode()) {
-      case 'day':
-        newDate.setDate(newDate.getDate() - 1);
-        break;
-      case 'week':
-        newDate.setDate(newDate.getDate() - 7);
-        break;
-      case 'month':
-        newDate.setMonth(newDate.getMonth() - 1);
-        break;
-    }
-
-    this.currentDate.set(newDate);
-    this.loadAppointments();
+    const newDate = new Date(this.selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    this.selectedDate = newDate;
+    this.loadData();
   }
 
   navigateNext(): void {
-    const current = this.currentDate();
-    const newDate = new Date(current);
-
-    switch (this.viewMode()) {
-      case 'day':
-        newDate.setDate(newDate.getDate() + 1);
-        break;
-      case 'week':
-        newDate.setDate(newDate.getDate() + 7);
-        break;
-      case 'month':
-        newDate.setMonth(newDate.getMonth() + 1);
-        break;
-    }
-
-    this.currentDate.set(newDate);
-    this.loadAppointments();
+    const newDate = new Date(this.selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    this.selectedDate = newDate;
+    this.loadData();
   }
 
   goToToday(): void {
-    this.currentDate.set(new Date());
-    this.loadAppointments();
+    this.selectedDate = new Date();
+    this.loadData();
   }
 
-  getAppointmentsForHour(hour: number): Appointment[] {
-    const date = this.currentDate();
-    return this.appointments().filter(apt => {
-      const aptDate = new Date(apt.start);
-      return (
-        aptDate.getDate() === date.getDate() &&
-        aptDate.getMonth() === date.getMonth() &&
-        aptDate.getFullYear() === date.getFullYear() &&
-        aptDate.getHours() === hour
-      );
+  getAvailableCount(slots: AppointmentSlot[]): number {
+    return slots.filter(s => s.isAvailable).length;
+  }
+
+  onSlotClick(slot: AppointmentSlot): void {
+    if (!slot.isAvailable) return;
+
+    this.router.navigate(['/appointments/new'], {
+      queryParams: { date: slot.start.toISOString() }
     });
-  }
-
-  getAppointmentsForDayHour(date: Date, hour: number): Appointment[] {
-    return this.appointments().filter(apt => {
-      const aptDate = new Date(apt.start);
-      return (
-        aptDate.getDate() === date.getDate() &&
-        aptDate.getMonth() === date.getMonth() &&
-        aptDate.getFullYear() === date.getFullYear() &&
-        aptDate.getHours() === hour
-      );
-    });
-  }
-
-  getAppointmentTop(apt: Appointment): number {
-    const start = new Date(apt.start);
-    return start.getMinutes();
-  }
-
-  getAppointmentHeight(apt: Appointment): number {
-    return Math.max(apt.duration, 20);
   }
 
   getAppointmentColor(apt: Appointment): string {
@@ -1437,8 +1336,9 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
 
   getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
     const severities: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+      proposed: 'secondary',
+      pending: 'info',
       booked: 'info',
-      confirmed: 'info',
       arrived: 'success',
       'checked-in': 'success',
       'in-progress': 'warn',
@@ -1449,27 +1349,17 @@ export class AppointmentsCalendarComponent implements OnInit, OnDestroy {
     return severities[status] || 'secondary';
   }
 
-  onSlotClick(hour: number, date?: Date): void {
-    const targetDate = date || this.currentDate();
-    const startTime = new Date(targetDate);
-    startTime.setHours(hour, 0, 0, 0);
-    this.router.navigate(['/appointments/new'], {
-      queryParams: { date: startTime.toISOString() }
-    });
-  }
-
-  onDayClick(date: Date): void {
-    this.currentDate.set(date);
-    this.viewMode.set('day');
-    this.loadAppointments();
-  }
-
-  showAppointmentDetail(apt: Appointment, event: Event): void {
-    this.selectedAppointment.set(apt);
-    // The overlay panel should be triggered by the click
-  }
-
   navigateToAppointment(id: string): void {
     this.router.navigate(['/appointments', id]);
+  }
+
+  checkInAppointment(apt: Appointment): void {
+    this.appointmentService.checkIn(apt.id).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: () => {
+        this.loadAppointments();
+      },
+    });
   }
 }

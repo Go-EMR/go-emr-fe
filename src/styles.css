@@ -1515,8 +1515,261 @@ input,
 textarea,
 select,
 a {
-  transition: background-color 0.3s ease, 
-              border-color 0.3s ease, 
+  transition: background-color 0.3s ease,
+              border-color 0.3s ease,
               color 0.3s ease,
               box-shadow 0.3s ease;
+}
+
+/* ========================================
+   UI Animation Enhancements
+   Modern shimmer, pulse, and micro-interactions
+   ======================================== */
+
+/* Shimmer Skeleton Animation - Modern gradient shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer,
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 20%,
+    #f8fafc 40%,
+    #e2e8f0 60%,
+    #f1f5f9 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Dark mode shimmer */
+.dark-mode .skeleton-shimmer,
+.dark-mode .shimmer,
+[data-theme="dark"] .skeleton-shimmer,
+[data-theme="dark"] .shimmer {
+  background: linear-gradient(
+    90deg,
+    #334155 0%,
+    #475569 20%,
+    #3d4f63 40%,
+    #475569 60%,
+    #334155 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Badge Pulse Animation - Subtle attention grabber */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+.badge-pulse,
+.p-badge.badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+/* Success pulse variant */
+@keyframes success-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.success-pulse {
+  animation: success-pulse 2s ease-in-out infinite;
+}
+
+/* Form Validation Shake Animation */
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.input-shake,
+.shake-error {
+  animation: input-shake 0.4s ease-out;
+}
+
+/* Error message fade in */
+@keyframes error-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-message,
+.p-error {
+  animation: error-fade-in 0.2s ease-out;
+}
+
+/* Enhanced Dropdown/Menu Transitions */
+.p-dropdown-panel,
+.p-menu,
+.p-overlaypanel,
+.p-dialog {
+  transform-origin: top center;
+}
+
+.p-dropdown-panel-enter {
+  opacity: 0;
+  transform: scaleY(0.95) translateY(-4px);
+}
+
+.p-dropdown-panel-enter-active {
+  opacity: 1;
+  transform: scaleY(1) translateY(0);
+  transition: opacity 150ms cubic-bezier(0.35, 0, 0.25, 1),
+              transform 150ms cubic-bezier(0.35, 0, 0.25, 1);
+}
+
+.p-dropdown-panel-exit {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.p-dropdown-panel-exit-active {
+  opacity: 0;
+  transform: scaleY(0.95);
+  transition: opacity 100ms ease-out,
+              transform 100ms ease-out;
+}
+
+/* Dialog/Modal enhanced transitions */
+.p-dialog-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.p-dialog-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms cubic-bezier(0.35, 0, 0.25, 1),
+              transform 200ms cubic-bezier(0.35, 0, 0.25, 1);
+}
+
+.p-dialog-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.p-dialog-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 150ms ease-out,
+              transform 150ms ease-out;
+}
+
+/* Smooth Icon Rotations */
+.icon-rotate,
+.expand-icon,
+.collapse-icon,
+[class*="pi-angle-"],
+[class*="pi-chevron-"] {
+  transition: transform 250ms cubic-bezier(0.35, 0, 0.25, 1);
+}
+
+.icon-rotate.rotated,
+.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* Button hover lift effect */
+.btn-lift,
+.stat-card,
+.quick-link {
+  transition: transform 200ms cubic-bezier(0.35, 0, 0.25, 1),
+              box-shadow 200ms cubic-bezier(0.35, 0, 0.25, 1);
+}
+
+.btn-lift:hover,
+.stat-card:hover,
+.quick-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* List item hover transitions */
+.list-item-hover {
+  transition: background-color 150ms ease,
+              transform 150ms ease;
+}
+
+.list-item-hover:hover {
+  background-color: var(--color-gray-50);
+}
+
+.dark-mode .list-item-hover:hover,
+[data-theme="dark"] .list-item-hover:hover {
+  background-color: #334155;
+}
+
+/* ========================================
+   Reduced Motion Support
+   Respects user accessibility preferences
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton-shimmer,
+  .shimmer {
+    animation: none;
+    background: #e2e8f0;
+  }
+
+  .dark-mode .skeleton-shimmer,
+  .dark-mode .shimmer,
+  [data-theme="dark"] .skeleton-shimmer,
+  [data-theme="dark"] .shimmer {
+    background: #475569;
+  }
+
+  .badge-pulse,
+  .success-pulse {
+    animation: none;
+  }
+
+  .btn-lift:hover,
+  .stat-card:hover,
+  .quick-link:hover {
+    transform: none;
+  }
+}
+
+/* Pause animations on hover where applicable */
+.animation-pausable:hover {
+  animation-play-state: paused;
 }

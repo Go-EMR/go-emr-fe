@@ -712,11 +712,11 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     .settings-container {
       padding: 1.5rem 2rem;
       min-height: 100vh;
-      background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     }
 
     .dark.settings-container {
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
 
     /* Header */
@@ -812,20 +812,20 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     }
 
     .nav-item:hover {
-      background: #f0fdf4;
-      color: #16a34a;
-      border-color: #bbf7d0;
+      background: #eff6ff;
+      color: #2563eb;
+      border-color: #bfdbfe;
     }
 
     .dark .nav-item:hover {
       background: #0f172a;
-      color: #4ade80;
+      color: #60a5fa;
     }
 
     .nav-item.active {
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: white;
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     }
 
     .nav-item i {
@@ -871,7 +871,7 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     }
 
     .section-icon i {
@@ -995,7 +995,7 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     }
 
     .option-item:hover {
-      background: #f0fdf4;
+      background: #eff6ff;
     }
 
     .dark .option-item:hover {
@@ -1018,8 +1018,8 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
     }
 
     .option-check.checked {
-      background: #22c55e;
-      border-color: #22c55e;
+      background: #3b82f6;
+      border-color: #3b82f6;
     }
 
     .option-check.checked i {
@@ -1177,7 +1177,7 @@ type SettingsSection = 'general' | 'security' | 'email' | 'scheduling' | 'billin
 
     .integration-icon.hl7 { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
     .integration-icon.fhir { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-    .integration-icon.prescription { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+    .integration-icon.prescription { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
 
     .integration-info {
       flex: 1;

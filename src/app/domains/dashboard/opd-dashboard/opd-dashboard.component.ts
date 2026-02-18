@@ -129,62 +129,72 @@ interface DepartmentQueue {
         <div class="stats-grid">
           <!-- Total Appointments -->
           <div class="stat-card primary">
-            <div class="stat-icon">
-              <i class="pi pi-calendar"></i>
+            <div class="stat-header">
+              <div class="stat-icon">
+                <i class="pi pi-calendar"></i>
+              </div>
+              <div class="stat-content">
+                <span class="stat-label">Today's Appointments</span>
+                <span class="stat-value">{{ stats().totalAppointments }}</span>
+              </div>
             </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ stats().totalAppointments }}</span>
-              <span class="stat-label">Today's Appointments</span>
-            </div>
-            <div class="stat-progress">
-              <p-progressBar 
-                [value]="getCompletionPercentage()" 
-                [showValue]="false"
-                styleClass="stat-progress-bar"
-              />
-              <span class="progress-label">{{ getCompletionPercentage() }}% completed</span>
+            <div class="stat-footer">
+              <div class="stat-progress">
+                <p-progressBar
+                  [value]="getCompletionPercentage()"
+                  [showValue]="false"
+                  styleClass="stat-progress-bar"
+                />
+              </div>
+              <span class="progress-label">{{ getCompletionPercentage() }}% done</span>
             </div>
           </div>
 
           <!-- Checked In -->
           <div class="stat-card success">
-            <div class="stat-icon">
-              <i class="pi pi-check-circle"></i>
+            <div class="stat-header">
+              <div class="stat-icon">
+                <i class="pi pi-check-circle"></i>
+              </div>
+              <div class="stat-content">
+                <span class="stat-label">Checked In</span>
+                <span class="stat-value">{{ stats().checkedIn }}</span>
+              </div>
             </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ stats().checkedIn }}</span>
-              <span class="stat-label">Checked In</span>
-            </div>
-            <div class="stat-badge">
-              <p-tag [value]="stats().inConsultation + ' in consultation'" severity="success" />
+            <div class="stat-footer">
+              <span class="stat-sub"><i class="pi pi-user"></i> {{ stats().inConsultation }} in consultation</span>
             </div>
           </div>
 
           <!-- Waiting -->
           <div class="stat-card warning">
-            <div class="stat-icon">
-              <i class="pi pi-clock"></i>
+            <div class="stat-header">
+              <div class="stat-icon">
+                <i class="pi pi-clock"></i>
+              </div>
+              <div class="stat-content">
+                <span class="stat-label">Waiting</span>
+                <span class="stat-value">{{ getWaitingCount() }}</span>
+              </div>
             </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ getWaitingCount() }}</span>
-              <span class="stat-label">Waiting</span>
-            </div>
-            <div class="stat-badge">
-              <p-tag [value]="stats().avgWaitTime + ' min avg wait'" severity="warn" />
+            <div class="stat-footer">
+              <span class="stat-sub"><i class="pi pi-stopwatch"></i> {{ stats().avgWaitTime }} min avg</span>
             </div>
           </div>
 
           <!-- No Show -->
           <div class="stat-card danger">
-            <div class="stat-icon">
-              <i class="pi pi-times-circle"></i>
+            <div class="stat-header">
+              <div class="stat-icon">
+                <i class="pi pi-times-circle"></i>
+              </div>
+              <div class="stat-content">
+                <span class="stat-label">No Show</span>
+                <span class="stat-value">{{ stats().noShow }}</span>
+              </div>
             </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ stats().noShow }}</span>
-              <span class="stat-label">No Show</span>
-            </div>
-            <div class="stat-badge">
-              <p-tag [value]="getNoShowPercentage() + '%'" severity="danger" />
+            <div class="stat-footer">
+              <span class="stat-sub">{{ getNoShowPercentage() }}% of total</span>
             </div>
           </div>
         </div>
@@ -449,7 +459,7 @@ interface DepartmentQueue {
   styles: [`
     .opd-dashboard {
       min-height: 100vh;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       padding: 1.5rem 2rem;
     }
 
@@ -472,7 +482,7 @@ interface DepartmentQueue {
     .dashboard-header h1 {
       font-size: 1.75rem;
       font-weight: 700;
-      color: #0c4a6e;
+      color: #1e293b;
       margin: 0;
       display: flex;
       align-items: center;
@@ -480,7 +490,7 @@ interface DepartmentQueue {
     }
 
     .dashboard-header h1 i {
-      color: #0ea5e9;
+      color: #3b82f6;
     }
 
     .subtitle {
@@ -507,19 +517,19 @@ interface DepartmentQueue {
 
     .stat-card {
       background: white;
-      border-radius: 16px;
-      padding: 1.25rem;
+      border-radius: 12px;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      border-left: 4px solid;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-left: 3px solid;
       transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     .stat-card.primary { border-left-color: #3b82f6; }
@@ -527,14 +537,21 @@ interface DepartmentQueue {
     .stat-card.warning { border-left-color: #f59e0b; }
     .stat-card.danger { border-left-color: #ef4444; }
 
+    .stat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
     .stat-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.25rem;
+      font-size: 1rem;
+      flex-shrink: 0;
     }
 
     .stat-card.primary .stat-icon { background: #eff6ff; color: #3b82f6; }
@@ -545,36 +562,62 @@ interface DepartmentQueue {
     .stat-content {
       display: flex;
       flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #1e293b;
-      line-height: 1;
+      min-width: 0;
     }
 
     .stat-label {
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       color: #64748b;
-      margin-top: 0.25rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1e293b;
+      line-height: 1.2;
+    }
+
+    .stat-footer {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid #f1f5f9;
     }
 
     .stat-progress {
-      margin-top: auto;
+      flex: 1;
     }
 
     :host ::ng-deep .stat-progress-bar {
-      height: 6px;
-      border-radius: 3px;
+      height: 4px;
+      border-radius: 2px;
     }
 
     .progress-label {
+      font-size: 0.6875rem;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    .stat-sub {
       font-size: 0.75rem;
       color: #64748b;
-      display: block;
-      margin-top: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
     }
+
+    .stat-sub i {
+      font-size: 0.6875rem;
+    }
+
+    .stat-card.success .stat-sub { color: #10b981; }
+    .stat-card.warning .stat-sub { color: #f59e0b; }
+    .stat-card.danger .stat-sub { color: #ef4444; }
 
     /* Main Content Layout */
     .dashboard-content {
@@ -970,11 +1013,11 @@ interface DepartmentQueue {
 
     /* Dark Mode */
     .opd-dashboard.dark {
-      background: linear-gradient(135deg, #0c1929 0%, #1e293b 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
 
     .dark .dashboard-header h1 {
-      color: #f0f9ff;
+      color: #f1f5f9;
     }
 
     .dark .stat-card {
@@ -1128,59 +1171,30 @@ export class OpdDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadMockData(): void {
-    // Mock stats
+    // Empty stats
     this.stats.set({
-      totalAppointments: 48,
-      checkedIn: 32,
-      inConsultation: 8,
-      completed: 18,
-      noShow: 4,
-      avgWaitTime: 22,
+      totalAppointments: 0,
+      checkedIn: 0,
+      inConsultation: 0,
+      completed: 0,
+      noShow: 0,
+      avgWaitTime: 0,
     });
 
-    // Mock queue
-    this.queue.set([
-      {
-        id: '1', tokenNumber: 'A-001', patientName: 'John Smith', patientId: 'p1',
-        mrn: 'MRN-2024-001', appointmentTime: '09:00 AM', checkInTime: '08:45 AM',
-        waitTime: 35, status: 'waiting', provider: 'Dr. Johnson', department: 'GEN',
-        visitType: 'Follow-up', priority: 'normal'
-      },
-      {
-        id: '2', tokenNumber: 'A-002', patientName: 'Sarah Wilson', patientId: 'p2',
-        mrn: 'MRN-2024-042', appointmentTime: '09:15 AM', checkInTime: '09:00 AM',
-        waitTime: 20, status: 'in-consultation', provider: 'Dr. Patel', department: 'CAR',
-        visitType: 'Consultation', priority: 'urgent'
-      },
-      {
-        id: '3', tokenNumber: 'A-003', patientName: 'Michael Brown', patientId: 'p3',
-        mrn: 'MRN-2024-078', appointmentTime: '09:30 AM', checkInTime: '09:20 AM',
-        waitTime: 15, status: 'waiting', provider: 'Dr. Johnson', department: 'GEN',
-        visitType: 'New Patient', priority: 'normal'
-      },
-      {
-        id: '4', tokenNumber: 'E-001', patientName: 'Emily Davis', patientId: 'p4',
-        mrn: 'MRN-2024-156', appointmentTime: '09:45 AM', checkInTime: '09:30 AM',
-        waitTime: 5, status: 'waiting', provider: 'Dr. Lee', department: 'PED',
-        visitType: 'Emergency', priority: 'emergency'
-      },
-    ]);
+    // Empty queue
+    this.queue.set([]);
 
-    // Mock departments
+    // Empty departments
     this.departments.set([
-      { id: '1', name: 'General Medicine', code: 'GEN', waiting: 8, inProgress: 3, avgWaitTime: 25, status: 'busy' },
-      { id: '2', name: 'Cardiology', code: 'CAR', waiting: 4, inProgress: 2, avgWaitTime: 18, status: 'normal' },
-      { id: '3', name: 'Orthopedics', code: 'ORT', waiting: 6, inProgress: 2, avgWaitTime: 30, status: 'busy' },
-      { id: '4', name: 'Pediatrics', code: 'PED', waiting: 3, inProgress: 1, avgWaitTime: 15, status: 'normal' },
-      { id: '5', name: 'ENT', code: 'ENT', waiting: 10, inProgress: 2, avgWaitTime: 45, status: 'overloaded' },
+      { id: '1', name: 'General Medicine', code: 'GEN', waiting: 0, inProgress: 0, avgWaitTime: 0, status: 'normal' },
+      { id: '2', name: 'Cardiology', code: 'CAR', waiting: 0, inProgress: 0, avgWaitTime: 0, status: 'normal' },
+      { id: '3', name: 'Orthopedics', code: 'ORT', waiting: 0, inProgress: 0, avgWaitTime: 0, status: 'normal' },
+      { id: '4', name: 'Pediatrics', code: 'PED', waiting: 0, inProgress: 0, avgWaitTime: 0, status: 'normal' },
+      { id: '5', name: 'ENT', code: 'ENT', waiting: 0, inProgress: 0, avgWaitTime: 0, status: 'normal' },
     ]);
 
-    // Mock alerts
-    this.alerts.set([
-      { id: '1', type: 'warning', icon: 'pi-clock', title: 'Long wait time in ENT dept', time: '5 min ago' },
-      { id: '2', type: 'danger', icon: 'pi-exclamation-triangle', title: 'Emergency patient arrived', time: '2 min ago' },
-      { id: '3', type: 'info', icon: 'pi-info-circle', title: 'Dr. Johnson delayed by 15 min', time: '10 min ago' },
-    ]);
+    // Empty alerts
+    this.alerts.set([]);
   }
 
   refreshData(): void {

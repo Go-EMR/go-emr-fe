@@ -606,7 +606,7 @@ interface DischargeCandidate {
   styles: [`
     .ipd-dashboard {
       min-height: 100vh;
-      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       padding: 1.5rem 2rem;
     }
 
@@ -629,7 +629,7 @@ interface DischargeCandidate {
     .dashboard-header h1 {
       font-size: 1.75rem;
       font-weight: 700;
-      color: #065f46;
+      color: #1e293b;
       margin: 0;
       display: flex;
       align-items: center;
@@ -637,7 +637,7 @@ interface DischargeCandidate {
     }
 
     .dashboard-header h1 i {
-      color: #10b981;
+      color: #3b82f6;
     }
 
     .subtitle {
@@ -790,7 +790,7 @@ interface DischargeCandidate {
 
     .card-header h2 i,
     .card-header h3 i {
-      color: #10b981;
+      color: #3b82f6;
     }
 
     .header-controls {
@@ -816,8 +816,8 @@ interface DischargeCandidate {
     }
 
     .ward-item:hover {
-      border-color: #10b981;
-      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+      border-color: #3b82f6;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
     }
 
     .ward-item.warning {
@@ -1117,7 +1117,7 @@ interface DischargeCandidate {
 
     .action-item i {
       font-size: 1.25rem;
-      color: #10b981;
+      color: #3b82f6;
       width: 24px;
     }
 
@@ -1144,11 +1144,11 @@ interface DischargeCandidate {
 
     /* Dark Mode */
     .ipd-dashboard.dark {
-      background: linear-gradient(135deg, #022c22 0%, #064e3b 100%);
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
 
     .dark .dashboard-header h1 {
-      color: #d1fae5;
+      color: #f1f5f9;
     }
 
     .dark .metric-card,

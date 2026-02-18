@@ -7,3 +7,6 @@ export * from './ui/status-badge/status-badge.component';
 export * from './ui/stat-card/stat-card.component';
 export * from './ui/avatar/avatar.component';
 export * from './ui/data-table/data-table.component';
+
+// Pipes
+export * from './pipes/markdown.pipe';

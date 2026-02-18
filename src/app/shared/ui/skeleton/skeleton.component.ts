@@ -40,17 +40,33 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
   `,
   styles: [`
     .skeleton {
-      background: #f1f5f9;
+      background: linear-gradient(
+        90deg,
+        #f1f5f9 0%,
+        #e2e8f0 20%,
+        #f8fafc 40%,
+        #e2e8f0 60%,
+        #f1f5f9 100%
+      );
+      background-size: 200% 100%;
       border-radius: 4px;
-      animation: pulse 1.5s ease-in-out infinite;
+      animation: shimmer 1.5s ease-in-out infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
       }
-      50% {
-        opacity: 0.5;
+      100% {
+        background-position: 200% 0;
+      }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton {
+        animation: none;
+        background: #e2e8f0;
       }
     }
 
@@ -96,9 +112,17 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
         width: 48px;
         height: 48px;
         border-radius: 50%;
-        background: #e2e8f0;
+        background: linear-gradient(
+          90deg,
+          #e2e8f0 0%,
+          #cbd5e1 20%,
+          #f1f5f9 40%,
+          #cbd5e1 60%,
+          #e2e8f0 100%
+        );
+        background-size: 200% 100%;
         flex-shrink: 0;
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
       }
 
       .skeleton-title-group {
@@ -116,9 +140,17 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
 
       .skeleton-line {
         height: 12px;
-        background: #e2e8f0;
+        background: linear-gradient(
+          90deg,
+          #e2e8f0 0%,
+          #cbd5e1 20%,
+          #f1f5f9 40%,
+          #cbd5e1 60%,
+          #e2e8f0 100%
+        );
+        background-size: 200% 100%;
         border-radius: 4px;
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
 
         &.title {
           width: 70%;
@@ -152,9 +184,17 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
 
       .skeleton-line {
         height: 14px;
-        background: #e2e8f0;
+        background: linear-gradient(
+          90deg,
+          #e2e8f0 0%,
+          #cbd5e1 20%,
+          #f1f5f9 40%,
+          #cbd5e1 60%,
+          #e2e8f0 100%
+        );
+        background-size: 200% 100%;
         border-radius: 4px;
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
       }
     }
 
@@ -170,9 +210,17 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: #e2e8f0;
+        background: linear-gradient(
+          90deg,
+          #e2e8f0 0%,
+          #cbd5e1 20%,
+          #f1f5f9 40%,
+          #cbd5e1 60%,
+          #e2e8f0 100%
+        );
+        background-size: 200% 100%;
         flex-shrink: 0;
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
 
         &.small {
           width: 36px;
@@ -189,9 +237,17 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
 
       .skeleton-line {
         height: 12px;
-        background: #e2e8f0;
+        background: linear-gradient(
+          90deg,
+          #e2e8f0 0%,
+          #cbd5e1 20%,
+          #f1f5f9 40%,
+          #cbd5e1 60%,
+          #e2e8f0 100%
+        );
+        background-size: 200% 100%;
         border-radius: 4px;
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: shimmer 1.5s ease-in-out infinite;
 
         &.title {
           width: 60%;
@@ -202,6 +258,59 @@ type SkeletonType = 'text' | 'title' | 'avatar' | 'thumbnail' | 'card' | 'table-
           width: 40%;
           height: 10px;
         }
+      }
+    }
+
+    /* Dark mode support */
+    :host-context(.dark-mode),
+    :host-context([data-theme="dark"]) {
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          #334155 0%,
+          #475569 20%,
+          #3d4f63 40%,
+          #475569 60%,
+          #334155 100%
+        );
+        background-size: 200% 100%;
+      }
+
+      .skeleton-avatar,
+      .skeleton-line {
+        background: linear-gradient(
+          90deg,
+          #475569 0%,
+          #64748b 20%,
+          #52667a 40%,
+          #64748b 60%,
+          #475569 100%
+        );
+        background-size: 200% 100%;
+      }
+
+      .card {
+        background: #1e293b;
+        border-color: #334155;
+      }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton,
+      .skeleton-avatar,
+      .skeleton-line {
+        animation: none;
+        background: #e2e8f0;
+      }
+
+      :host-context(.dark-mode) .skeleton,
+      :host-context(.dark-mode) .skeleton-avatar,
+      :host-context(.dark-mode) .skeleton-line,
+      :host-context([data-theme="dark"]) .skeleton,
+      :host-context([data-theme="dark"]) .skeleton-avatar,
+      :host-context([data-theme="dark"]) .skeleton-line {
+        background: #475569;
       }
     }
   `]

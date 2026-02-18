@@ -21,6 +21,9 @@ import { TableModule } from 'primeng/table';
 import { TimelineModule } from 'primeng/timeline';
 import { MenuItem } from 'primeng/api';
 
+// Animations
+import { fadeSlide, staggerCards, cardItem, staggerList, listItem } from '../../../shared/animations';
+
 // Services
 import { AuthService } from '../../../core/auth/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
@@ -50,10 +53,11 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
     TableModule,
     TimelineModule,
   ],
+  animations: [fadeSlide, staggerCards, cardItem, staggerList, listItem],
   template: `
     <div class="dashboard" [class.dark]="themeService.isDarkMode()">
       <!-- Welcome Header -->
-      <header class="dashboard-header">
+      <header class="dashboard-header" @fadeSlide>
         <div class="header-content">
           <div class="greeting">
             <h1>Good {{ getGreeting() }}, {{ userName() }}! 👋</h1>
@@ -93,9 +97,9 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
             }
           </div>
         } @else if (stats()) {
-          <div class="stats-grid">
+          <div class="stats-grid" [@staggerCards]="4">
             <!-- Today's Patients -->
-            <div class="stat-card primary" [routerLink]="['/appointments']" pRipple>
+            <div class="stat-card primary" [routerLink]="['/appointments']" pRipple @cardItem>
               <div class="stat-icon">
                 <i class="pi pi-users"></i>
               </div>
@@ -110,7 +114,7 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
             </div>
 
             <!-- Pending Tasks -->
-            <div class="stat-card warning" [routerLink]="['/tasks']" pRipple>
+            <div class="stat-card warning" [routerLink]="['/tasks']" pRipple @cardItem>
               <div class="stat-icon">
                 <i class="pi pi-check-square"></i>
               </div>
@@ -122,7 +126,7 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
             </div>
 
             <!-- Unread Messages -->
-            <div class="stat-card info" [routerLink]="['/messages']" pRipple>
+            <div class="stat-card info" [routerLink]="['/messages']" pRipple @cardItem>
               <div class="stat-icon">
                 <i class="pi pi-envelope"></i>
               </div>
@@ -134,7 +138,7 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
             </div>
 
             <!-- Lab Results -->
-            <div class="stat-card success" [routerLink]="['/labs']" pRipple>
+            <div class="stat-card success" [routerLink]="['/labs']" pRipple @cardItem>
               <div class="stat-icon">
                 <i class="pi pi-chart-bar"></i>
               </div>
@@ -202,14 +206,15 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
                   />
                 </div>
               } @else {
-                <div class="appointments-list">
+                <div class="appointments-list" [@staggerList]="todayAppointments().length">
                   @for (apt of todayAppointments(); track apt.id; let i = $index) {
-                    <div 
-                      class="appointment-item" 
+                    <div
+                      class="appointment-item"
                       [class.current]="apt.isCurrent"
                       [class.past]="apt.isPast"
                       [routerLink]="['/patients', apt.patientId]"
-                      pRipple>
+                      pRipple
+                      @listItem>
                       <div class="apt-time">
                         <span class="time">{{ apt.time }}</span>
                         <span class="duration">{{ apt.duration }}m</span>
@@ -292,9 +297,9 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
                   <p>You've completed all your tasks. Great work!</p>
                 </div>
               } @else {
-                <div class="tasks-list">
+                <div class="tasks-list" [@staggerList]="tasks().length">
                   @for (task of tasks(); track task.id) {
-                    <div class="task-item" [class.high-priority]="task.priority === 'high'" pRipple>
+                    <div class="task-item" [class.high-priority]="task.priority === 'high'" pRipple @listItem>
                       <div class="task-icon" [class]="task.type">
                         <i [class]="'pi ' + getTaskIcon(task.type)"></i>
                       </div>
@@ -376,9 +381,9 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
                   <p>Activity will appear here as you work</p>
                 </div>
               } @else {
-                <div class="activity-list">
+                <div class="activity-list" [@staggerList]="recentActivity().length">
                   @for (activity of recentActivity(); track activity.id) {
-                    <div class="activity-item">
+                    <div class="activity-item" @listItem>
                       <div class="activity-marker" [class]="activity.type"></div>
                       <div class="activity-content">
                         <p class="activity-text">
@@ -415,9 +420,9 @@ import { DashboardService, DashboardStats, TodayAppointment, Task, RecentActivit
             </ng-template>
             
             <div class="card-body">
-              <div class="quick-links-grid">
+              <div class="quick-links-grid" [@staggerCards]="quickLinks.length">
                 @for (link of quickLinks; track link.route) {
-                  <a [routerLink]="link.route" class="quick-link" pRipple>
+                  <a [routerLink]="link.route" class="quick-link" pRipple @cardItem>
                     <div class="link-icon" [class]="link.class">
                       <i [class]="'pi ' + link.icon"></i>
                     </div>

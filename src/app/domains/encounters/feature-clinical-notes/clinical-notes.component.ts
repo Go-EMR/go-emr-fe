@@ -10,7 +10,6 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
-import { EditorModule } from 'primeng/editor';
 import { TagModule } from 'primeng/tag';
 import { AvatarModule } from 'primeng/avatar';
 import { TooltipModule } from 'primeng/tooltip';
@@ -30,6 +29,7 @@ import { SplitButtonModule } from 'primeng/splitbutton';
 import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
 
 import { ThemeService } from '../../../core/services/theme.service';
+import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
 
 interface ClinicalNote {
   id: string;
@@ -148,7 +148,6 @@ interface NoteTemplate {
     SelectModule,
     InputTextModule,
     TextareaModule,
-    EditorModule,
     TagModule,
     AvatarModule,
     TooltipModule,
@@ -165,6 +164,7 @@ interface NoteTemplate {
     AutoCompleteModule,
     RippleModule,
     SplitButtonModule,
+    MarkdownPipe,
   ],
   providers: [MessageService, ConfirmationService],
   template: `
@@ -269,14 +269,21 @@ interface NoteTemplate {
                       />
                     </div>
                     <div class="editor-actions">
-                      <p-button 
+                      <p-button
                         label="Templates"
                         icon="pi pi-file-edit"
                         [outlined]="true"
                         severity="secondary"
                         (onClick)="showTemplatesDialog.set(true)"
                       />
-                      <p-button 
+                      <p-button
+                        [label]="showPreview() ? 'Edit' : 'Preview'"
+                        [icon]="showPreview() ? 'pi pi-pencil' : 'pi pi-eye'"
+                        [outlined]="true"
+                        severity="help"
+                        (onClick)="togglePreview()"
+                      />
+                      <p-button
                         label="Save Draft"
                         icon="pi pi-save"
                         [outlined]="true"
@@ -300,6 +307,27 @@ interface NoteTemplate {
                   </div>
                 </ng-template>
 
+                <!-- Markdown Hint Bar -->
+                <div class="markdown-hint-bar" (click)="toggleMarkdownHelp()">
+                  <i class="pi pi-info-circle"></i>
+                  <span>Markdown supported</span>
+                  <i class="pi" [ngClass]="showMarkdownHelp() ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+                </div>
+                @if (showMarkdownHelp()) {
+                  <div class="markdown-cheatsheet">
+                    <div class="cheatsheet-grid">
+                      <code>**bold**</code>
+                      <code>*italic*</code>
+                      <code># Heading</code>
+                      <code>- item</code>
+                      <code>1. item</code>
+                      <code>| A | B |</code>
+                      <code>\`code\`</code>
+                      <code>---</code>
+                    </div>
+                  </div>
+                }
+
                 <p-tabView styleClass="soap-tabs">
                   <!-- SOAP Tab -->
                   <p-tabPanel header="SOAP Note">
@@ -317,13 +345,18 @@ interface NoteTemplate {
                             (onClick)="insertFromSmartPhrase('chiefComplaint')"
                           />
                         </div>
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.chiefComplaint"
-                          rows="2"
-                          placeholder="Patient presents with..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.chiefComplaint"
+                            rows="2"
+                            placeholder="Patient presents with..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.chiefComplaint) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.chiefComplaint | markdown"></div>
+                          }
+                        </div>
                       </div>
 
                       <!-- Subjective -->
@@ -341,13 +374,18 @@ interface NoteTemplate {
                             pTooltip="Smart phrases"
                           />
                         </div>
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.subjective"
-                          rows="6"
-                          placeholder="History of present illness, patient's description of symptoms, relevant history..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.subjective"
+                            rows="6"
+                            placeholder="History of present illness, patient's description of symptoms, relevant history..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.subjective) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.subjective | markdown"></div>
+                          }
+                        </div>
                       </div>
 
                       <!-- Objective -->
@@ -394,13 +432,18 @@ interface NoteTemplate {
                           </div>
                         }
 
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.objective"
-                          rows="6"
-                          placeholder="Physical examination findings, vital signs, lab results, imaging..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.objective"
+                            rows="6"
+                            placeholder="Physical examination findings, vital signs, lab results, imaging..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.objective) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.objective | markdown"></div>
+                          }
+                        </div>
                       </div>
 
                       <!-- Assessment -->
@@ -438,13 +481,18 @@ interface NoteTemplate {
                           </div>
                         }
 
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.assessment"
-                          rows="4"
-                          placeholder="Clinical impression, differential diagnosis, problem list..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.assessment"
+                            rows="4"
+                            placeholder="Clinical impression, differential diagnosis, problem list..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.assessment) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.assessment | markdown"></div>
+                          }
+                        </div>
                       </div>
 
                       <!-- Plan -->
@@ -461,13 +509,18 @@ interface NoteTemplate {
                             size="small"
                           />
                         </div>
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.plan"
-                          rows="6"
-                          placeholder="Treatment plan, medications, referrals, follow-up..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.plan"
+                            rows="6"
+                            placeholder="Treatment plan, medications, referrals, follow-up..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.plan) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.plan | markdown"></div>
+                          }
+                        </div>
                       </div>
 
                       <!-- Follow-up -->
@@ -475,13 +528,18 @@ interface NoteTemplate {
                         <div class="section-header">
                           <label>Follow-up</label>
                         </div>
-                        <textarea 
-                          pInputTextarea 
-                          [(ngModel)]="noteContent.followUp"
-                          rows="2"
-                          placeholder="Return in 2 weeks, PRN visit if symptoms worsen..."
-                          class="soap-textarea"
-                        ></textarea>
+                        <div class="textarea-with-preview">
+                          <textarea
+                            pInputTextarea
+                            [(ngModel)]="noteContent.followUp"
+                            rows="2"
+                            placeholder="Return in 2 weeks, PRN visit if symptoms worsen..."
+                            class="soap-textarea"
+                          ></textarea>
+                          @if (showPreview() && noteContent.followUp) {
+                            <div class="preview-pane markdown-body" [innerHTML]="noteContent.followUp | markdown"></div>
+                          }
+                        </div>
                       </div>
                     </div>
                   </p-tabPanel>
@@ -594,7 +652,7 @@ interface NoteTemplate {
                   @if (selectedNote()!.content.chiefComplaint) {
                     <div class="content-section">
                       <h4>Chief Complaint</h4>
-                      <p>{{ selectedNote()!.content.chiefComplaint }}</p>
+                      <div class="markdown-body" [innerHTML]="selectedNote()!.content.chiefComplaint | markdown"></div>
                     </div>
                   }
 
@@ -604,8 +662,7 @@ interface NoteTemplate {
                         <span class="letter">S</span>
                         <span>Subjective</span>
                       </div>
-                      <div class="section-content">
-                        {{ selectedNote()!.content.subjective || 'Not documented' }}
+                      <div class="section-content markdown-body" [innerHTML]="(selectedNote()!.content.subjective || 'Not documented') | markdown">
                       </div>
                     </div>
 
@@ -614,8 +671,7 @@ interface NoteTemplate {
                         <span class="letter">O</span>
                         <span>Objective</span>
                       </div>
-                      <div class="section-content">
-                        {{ selectedNote()!.content.objective || 'Not documented' }}
+                      <div class="section-content markdown-body" [innerHTML]="(selectedNote()!.content.objective || 'Not documented') | markdown">
                       </div>
                     </div>
 
@@ -638,7 +694,7 @@ interface NoteTemplate {
                             }
                           </div>
                         }
-                        {{ selectedNote()!.content.assessment || 'Not documented' }}
+                        <div class="markdown-body" [innerHTML]="(selectedNote()!.content.assessment || 'Not documented') | markdown"></div>
                       </div>
                     </div>
 
@@ -647,8 +703,7 @@ interface NoteTemplate {
                         <span class="letter">P</span>
                         <span>Plan</span>
                       </div>
-                      <div class="section-content">
-                        {{ selectedNote()!.content.plan || 'Not documented' }}
+                      <div class="section-content markdown-body" [innerHTML]="(selectedNote()!.content.plan || 'Not documented') | markdown">
                       </div>
                     </div>
                   </div>
@@ -656,7 +711,7 @@ interface NoteTemplate {
                   @if (selectedNote()!.content.followUp) {
                     <div class="content-section">
                       <h4>Follow-up</h4>
-                      <p>{{ selectedNote()!.content.followUp }}</p>
+                      <div class="markdown-body" [innerHTML]="selectedNote()!.content.followUp | markdown"></div>
                     </div>
                   }
                 </div>
@@ -673,7 +728,7 @@ interface NoteTemplate {
                           <span class="amendment-date">{{ amendment.createdAt | date:'short' }}</span>
                         </div>
                         <div class="amendment-reason">Reason: {{ amendment.reason }}</div>
-                        <div class="amendment-content">{{ amendment.content }}</div>
+                        <div class="amendment-content markdown-body" [innerHTML]="amendment.content | markdown"></div>
                       </div>
                     }
                   </div>
@@ -1362,7 +1417,6 @@ interface NoteTemplate {
       padding: 1rem;
       color: #1e293b;
       line-height: 1.6;
-      white-space: pre-wrap;
     }
 
     .diagnoses-view {
@@ -1566,6 +1620,170 @@ interface NoteTemplate {
       margin-bottom: 0.5rem;
     }
 
+    /* Markdown Body */
+    .markdown-body h1, .markdown-body h2, .markdown-body h3,
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+      margin: 0.5em 0 0.25em;
+      font-weight: 600;
+      color: #1e293b;
+      line-height: 1.3;
+    }
+    .markdown-body h1 { font-size: 1.25rem; }
+    .markdown-body h2 { font-size: 1.125rem; }
+    .markdown-body h3 { font-size: 1rem; }
+    .markdown-body h4 { font-size: 0.9375rem; }
+
+    .markdown-body p {
+      margin: 0.25em 0;
+      line-height: 1.6;
+    }
+
+    .markdown-body ul, .markdown-body ol {
+      margin: 0.25em 0;
+      padding-left: 1.5em;
+    }
+
+    .markdown-body li {
+      margin: 0.125em 0;
+    }
+
+    .markdown-body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.5em 0;
+      font-size: 0.875rem;
+    }
+
+    .markdown-body th, .markdown-body td {
+      border: 1px solid #d1d5db;
+      padding: 0.375rem 0.625rem;
+      text-align: left;
+    }
+
+    .markdown-body th {
+      background: #f1f5f9;
+      font-weight: 600;
+    }
+
+    .markdown-body code {
+      background: #f1f5f9;
+      padding: 0.125em 0.375em;
+      border-radius: 4px;
+      font-size: 0.8125rem;
+      font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .markdown-body pre {
+      background: #f1f5f9;
+      padding: 0.75rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.5em 0;
+    }
+
+    .markdown-body pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .markdown-body blockquote {
+      border-left: 3px solid #94a3b8;
+      margin: 0.5em 0;
+      padding: 0.25rem 0.75rem;
+      color: #64748b;
+    }
+
+    .markdown-body hr {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 0.75em 0;
+    }
+
+    .markdown-body strong {
+      font-weight: 600;
+    }
+
+    /* Textarea with Preview */
+    .textarea-with-preview {
+      display: flex;
+    }
+
+    .textarea-with-preview .soap-textarea {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-pane {
+      flex: 1;
+      min-width: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 0.75rem 1rem;
+      background: #fafbfc;
+      border-left: 1px solid #e5e7eb;
+    }
+
+    /* Markdown Hint Bar */
+    .markdown-hint-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 1rem;
+      background: #f0f9ff;
+      border-bottom: 1px solid #bae6fd;
+      font-size: 0.75rem;
+      color: #0369a1;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+
+    .markdown-hint-bar:hover {
+      background: #e0f2fe;
+    }
+
+    .markdown-hint-bar .pi {
+      font-size: 0.75rem;
+    }
+
+    .markdown-hint-bar span {
+      flex: 1;
+    }
+
+    .markdown-cheatsheet {
+      padding: 0.5rem 1rem;
+      background: #f0f9ff;
+      border-bottom: 1px solid #bae6fd;
+    }
+
+    .cheatsheet-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .cheatsheet-grid code {
+      background: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      border: 1px solid #e0f2fe;
+      color: #0c4a6e;
+    }
+
+    /* Print Styles */
+    @media print {
+      .preview-pane,
+      .markdown-hint-bar,
+      .markdown-cheatsheet {
+        display: none !important;
+      }
+
+      .markdown-body table {
+        page-break-inside: avoid;
+      }
+    }
+
     /* Dark Mode */
     .clinical-notes.dark {
       background: #0f172a;
@@ -1589,6 +1807,59 @@ interface NoteTemplate {
     .dark .note-item:hover,
     .dark .note-item.selected {
       background: #334155;
+    }
+
+    .dark .markdown-body h1, .dark .markdown-body h2,
+    .dark .markdown-body h3, .dark .markdown-body h4 {
+      color: #f1f5f9;
+    }
+
+    .dark .markdown-body th {
+      background: #334155;
+    }
+
+    .dark .markdown-body th, .dark .markdown-body td {
+      border-color: #475569;
+    }
+
+    .dark .markdown-body code {
+      background: #334155;
+      color: #e2e8f0;
+    }
+
+    .dark .markdown-body pre {
+      background: #1e293b;
+    }
+
+    .dark .markdown-body blockquote {
+      border-color: #475569;
+      color: #94a3b8;
+    }
+
+    .dark .preview-pane {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark .markdown-hint-bar {
+      background: #1e293b;
+      border-color: #334155;
+      color: #93c5fd;
+    }
+
+    .dark .markdown-hint-bar:hover {
+      background: #334155;
+    }
+
+    .dark .markdown-cheatsheet {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark .cheatsheet-grid code {
+      background: #0f172a;
+      border-color: #334155;
+      color: #93c5fd;
     }
 
     /* Responsive */
@@ -1630,6 +1901,8 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
   showVitalsDialog = signal(false);
   showPhysicalExamDialog = signal(false);
   showDiagnosisDialog = signal(false);
+  showPreview = signal(false);
+  showMarkdownHelp = signal(false);
   diagnosisSuggestions = signal<any[]>([]);
   selectedDiagnosis = signal<Diagnosis | null>(null);
 
@@ -1980,6 +2253,14 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
 
   removeDiagnosis(dx: Diagnosis): void {
     this.noteContent.diagnoses = (this.noteContent.diagnoses || []).filter(d => d.code !== dx.code);
+  }
+
+  togglePreview(): void {
+    this.showPreview.set(!this.showPreview());
+  }
+
+  toggleMarkdownHelp(): void {
+    this.showMarkdownHelp.set(!this.showMarkdownHelp());
   }
 
   // Helper methods

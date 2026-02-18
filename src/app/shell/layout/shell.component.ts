@@ -2,7 +2,7 @@ import { Component, inject, signal, computed, ViewChild, OnInit } from '@angular
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { trigger, transition, style, animate, state } from '@angular/animations';
+import { trigger, transition, style, animate, state, keyframes } from '@angular/animations';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 
@@ -61,19 +61,52 @@ interface NavItem {
     trigger('fadeIn', [
       transition(':enter', [
         style({ opacity: 0 }),
-        animate('200ms ease-out', style({ opacity: 1 })),
+        animate('200ms cubic-bezier(0.35, 0, 0.25, 1)', style({ opacity: 1 })),
       ]),
     ]),
     trigger('slideIn', [
       transition(':enter', [
         style({ transform: 'translateX(-20px)', opacity: 0 }),
-        animate('300ms ease-out', style({ transform: 'translateX(0)', opacity: 1 })),
+        animate('300ms cubic-bezier(0.35, 0, 0.25, 1)', style({ transform: 'translateX(0)', opacity: 1 })),
       ]),
     ]),
     trigger('expandCollapse', [
-      state('collapsed', style({ height: '0', opacity: 0, overflow: 'hidden' })),
-      state('expanded', style({ height: '*', opacity: 1 })),
-      transition('collapsed <=> expanded', animate('200ms ease-in-out')),
+      state('collapsed', style({
+        height: '0',
+        opacity: 0,
+        paddingTop: '0',
+        paddingBottom: '0',
+        overflow: 'hidden',
+      })),
+      state('expanded', style({
+        height: '*',
+        opacity: 1,
+        overflow: 'hidden',
+      })),
+      transition('collapsed => expanded', [
+        style({ overflow: 'hidden' }),
+        animate('300ms cubic-bezier(0.35, 0, 0.25, 1)'),
+      ]),
+      transition('expanded => collapsed', [
+        style({ overflow: 'hidden' }),
+        animate('250ms cubic-bezier(0.0, 0.0, 0.2, 1)'),
+      ]),
+    ]),
+    trigger('iconRotate', [
+      state('collapsed', style({ transform: 'rotate(0deg)' })),
+      state('expanded', style({ transform: 'rotate(180deg)' })),
+      transition('collapsed <=> expanded', [
+        animate('250ms cubic-bezier(0.35, 0, 0.25, 1)'),
+      ]),
+    ]),
+    trigger('badgePulse', [
+      transition('* => *', [
+        animate('300ms ease-out', keyframes([
+          style({ transform: 'scale(1)', offset: 0 }),
+          style({ transform: 'scale(1.15)', offset: 0.5 }),
+          style({ transform: 'scale(1)', offset: 1 }),
+        ])),
+      ]),
     ]),
   ],
   template: `
@@ -107,7 +140,7 @@ interface NavItem {
               @if (item.children) {
                 <!-- Parent with children -->
                 <div class="nav-group">
-                  <button 
+                  <button
                     class="nav-item parent"
                     [class.expanded]="expandedItems().includes(item.route)"
                     (click)="toggleExpanded(item.route)"
@@ -115,7 +148,8 @@ interface NavItem {
                     <i [class]="'pi ' + item.icon"></i>
                     @if (!isCollapsed()) {
                       <span class="nav-label">{{ item.label }}</span>
-                      <i class="pi expand-icon" [class.pi-angle-down]="!expandedItems().includes(item.route)" [class.pi-angle-up]="expandedItems().includes(item.route)"></i>
+                      <i class="pi pi-angle-down expand-icon"
+                         [@iconRotate]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'"></i>
                     }
                   </button>
                   
@@ -202,21 +236,22 @@ interface NavItem {
           @for (item of filteredNavItems(); track item.route) {
             @if (item.children) {
               <div class="nav-group">
-                <button 
+                <button
                   class="nav-item parent"
                   [class.expanded]="expandedItems().includes(item.route)"
                   (click)="toggleExpanded(item.route)"
                   pRipple>
                   <i [class]="'pi ' + item.icon"></i>
                   <span class="nav-label">{{ item.label }}</span>
-                  <i class="pi expand-icon" [class.pi-angle-down]="!expandedItems().includes(item.route)" [class.pi-angle-up]="expandedItems().includes(item.route)"></i>
+                  <i class="pi pi-angle-down expand-icon"
+                     [@iconRotate]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'"></i>
                 </button>
-                
-                <div 
+
+                <div
                   class="nav-children"
                   [@expandCollapse]="expandedItems().includes(item.route) ? 'expanded' : 'collapsed'">
                   @for (child of item.children; track child.route) {
-                    <a 
+                    <a
                       [routerLink]="child.route"
                       routerLinkActive="active"
                       [routerLinkActiveOptions]="{ exact: child.route === item.route }"
@@ -315,15 +350,16 @@ interface NavItem {
             />
             
             <!-- Notifications -->
-            <p-button 
-              icon="pi pi-bell" 
-              [rounded]="true" 
+            <p-button
+              icon="pi pi-bell"
+              [rounded]="true"
               [text]="true"
               [badge]="unreadNotifications().toString()"
               badgeSeverity="danger"
               pTooltip="Notifications"
               tooltipPosition="bottom"
               (onClick)="notificationPanel.toggle($event)"
+              [@badgePulse]="unreadNotifications()"
             />
             
             <!-- Theme Toggle -->
