@@ -22,6 +22,10 @@ export type PrescriptionIntent =
 
 export type PrescriptionPriority = 'routine' | 'urgent' | 'asap' | 'stat';
 
+export type MedicationType = 'rx' | 'otc' | 'supplement' | 'herbal' | 'vitamin';
+
+export type VerificationStatus = 'verified' | 'patient-reported' | 'unverified';
+
 export interface Medication {
   id: string;
   name: string;
@@ -44,6 +48,8 @@ export interface Medication {
   warnings?: string[];
   contraindications?: string[];
   interactions?: DrugInteraction[];
+  medicationType?: MedicationType;
+  verificationStatus?: VerificationStatus;
   // Additional dosing properties
   route?: MedicationRoute;
   drugClass?: string;

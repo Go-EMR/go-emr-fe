@@ -50,6 +50,12 @@ export const REPORTS_ROUTES: Routes = [
         loadComponent: () => import('./feature-scheduled/scheduled-reports.component')
           .then(m => m.ScheduledReportsComponent),
         title: 'Scheduled Reports'
+      },
+      {
+        path: 'rounding-sheets',
+        loadComponent: () => import('./feature-rounding-sheets/rounding-sheets.component')
+          .then(m => m.RoundingSheetsComponent),
+        title: 'Rounding Sheets'
       }
     ]
   }

@@ -31,6 +31,49 @@ import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
 import { ThemeService } from '../../../core/services/theme.service';
 import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
 
+export type ClinicalRole =
+  | 'attending' | 'resident' | 'fellow' | 'intern'
+  | 'nurse' | 'nurse-practitioner' | 'physician-assistant'
+  | 'respiratory-therapist' | 'physical-therapist' | 'occupational-therapist'
+  | 'pharmacist' | 'social-worker' | 'dietitian' | 'psychologist'
+  | 'case-manager';
+
+export const ROLE_COLORS: Record<ClinicalRole, { bg: string; text: string; border: string; darkBg: string; darkText: string; darkBorder: string }> = {
+  'attending':              { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6', darkBg: '#1e3a5f', darkText: '#93c5fd', darkBorder: '#3b82f6' },
+  'resident':               { bg: '#e0e7ff', text: '#3730a3', border: '#6366f1', darkBg: '#312e81', darkText: '#a5b4fc', darkBorder: '#6366f1' },
+  'fellow':                 { bg: '#ede9fe', text: '#5b21b6', border: '#8b5cf6', darkBg: '#3b0764', darkText: '#c4b5fd', darkBorder: '#8b5cf6' },
+  'intern':                 { bg: '#f0f9ff', text: '#075985', border: '#0ea5e9', darkBg: '#0c4a6e', darkText: '#7dd3fc', darkBorder: '#0ea5e9' },
+  'nurse':                  { bg: '#fce7f3', text: '#9d174d', border: '#ec4899', darkBg: '#831843', darkText: '#f9a8d4', darkBorder: '#ec4899' },
+  'nurse-practitioner':     { bg: '#fdf2f8', text: '#831843', border: '#f472b6', darkBg: '#701a3e', darkText: '#fbcfe8', darkBorder: '#f472b6' },
+  'physician-assistant':    { bg: '#fff7ed', text: '#9a3412', border: '#f97316', darkBg: '#7c2d12', darkText: '#fdba74', darkBorder: '#f97316' },
+  'respiratory-therapist':  { bg: '#ecfdf5', text: '#065f46', border: '#10b981', darkBg: '#064e3b', darkText: '#6ee7b7', darkBorder: '#10b981' },
+  'physical-therapist':     { bg: '#f0fdf4', text: '#166534', border: '#22c55e', darkBg: '#14532d', darkText: '#86efac', darkBorder: '#22c55e' },
+  'occupational-therapist': { bg: '#fefce8', text: '#854d0e', border: '#eab308', darkBg: '#713f12', darkText: '#fde047', darkBorder: '#eab308' },
+  'pharmacist':             { bg: '#fff1f2', text: '#9f1239', border: '#f43f5e', darkBg: '#881337', darkText: '#fda4af', darkBorder: '#f43f5e' },
+  'social-worker':          { bg: '#f5f3ff', text: '#6b21a8', border: '#a855f7', darkBg: '#581c87', darkText: '#d8b4fe', darkBorder: '#a855f7' },
+  'dietitian':              { bg: '#fefce8', text: '#a16207', border: '#facc15', darkBg: '#854d0e', darkText: '#fef08a', darkBorder: '#facc15' },
+  'psychologist':           { bg: '#fdf4ff', text: '#86198f', border: '#d946ef', darkBg: '#701a75', darkText: '#f0abfc', darkBorder: '#d946ef' },
+  'case-manager':           { bg: '#f1f5f9', text: '#334155', border: '#64748b', darkBg: '#1e293b', darkText: '#94a3b8', darkBorder: '#64748b' },
+};
+
+export const ROLE_LABELS: Record<ClinicalRole, string> = {
+  'attending':              'Attending Physician',
+  'resident':               'Resident',
+  'fellow':                 'Fellow',
+  'intern':                 'Intern',
+  'nurse':                  'Nurse',
+  'nurse-practitioner':     'Nurse Practitioner',
+  'physician-assistant':    'Physician Assistant',
+  'respiratory-therapist':  'Respiratory Therapist',
+  'physical-therapist':     'Physical Therapist',
+  'occupational-therapist': 'Occupational Therapist',
+  'pharmacist':             'Pharmacist',
+  'social-worker':          'Social Worker',
+  'dietitian':              'Dietitian',
+  'psychologist':           'Psychologist',
+  'case-manager':           'Case Manager',
+};
+
 interface ClinicalNote {
   id: string;
   patientId: string;
@@ -40,6 +83,8 @@ interface ClinicalNote {
   status: NoteStatus;
   author: string;
   authorId: string;
+  authorRole?: ClinicalRole;
+  authorSpecialty?: string;
   createdAt: Date;
   updatedAt: Date;
   signedAt?: Date;
@@ -200,36 +245,64 @@ interface NoteTemplate {
               <ng-template pTemplate="header">
                 <div class="panel-header">
                   <h3>Recent Notes</h3>
-                  <p-select
-                    [options]="noteTypeFilters"
-                    [(ngModel)]="selectedTypeFilter"
-                    placeholder="All Types"
-                    [showClear]="true"
-                    styleClass="type-filter"
-                  />
+                  <div class="panel-filters">
+                    <p-select
+                      [options]="noteTypeFilters"
+                      [(ngModel)]="selectedTypeFilter"
+                      placeholder="All Types"
+                      [showClear]="true"
+                      styleClass="type-filter"
+                    />
+                    <p-select
+                      [options]="roleFilterOptions"
+                      [(ngModel)]="selectedRoleFilter"
+                      placeholder="All Roles"
+                      [showClear]="true"
+                      styleClass="role-filter"
+                      (onChange)="onRoleFilterChange($event)"
+                      (onClear)="onRoleFilterClear()"
+                    />
+                  </div>
                 </div>
               </ng-template>
 
               <div class="notes-list">
                 @for (note of filteredNotes(); track note.id) {
-                  <div 
+                  <div
                     class="note-item"
                     [class.selected]="selectedNote()?.id === note.id"
                     [class.draft]="note.status === 'draft'"
                     (click)="selectNote(note)"
                     pRipple
                   >
-                    <div class="note-icon" [class]="note.noteType">
+                    <div
+                      class="note-icon"
+                      [class]="note.noteType"
+                      [style.background]="note.authorRole ? getRoleColor(note.authorRole, 'bg') : null"
+                      [style.color]="note.authorRole ? getRoleColor(note.authorRole, 'text') : null"
+                    >
                       <i [class]="getNoteTypeIcon(note.noteType)"></i>
                     </div>
                     <div class="note-info">
                       <span class="note-title">{{ note.title }}</span>
                       <span class="note-meta">
-                        {{ note.author }} \u2022 {{ note.createdAt | date:'short' }}
+                        {{ note.author }}
+                        @if (note.authorSpecialty) {
+                          <span class="author-specialty"> &bull; {{ note.authorSpecialty }}</span>
+                        }
+                        &bull; {{ note.createdAt | date:'short' }}
                       </span>
+                      @if (note.authorRole) {
+                        <span
+                          class="role-badge"
+                          [style.background]="getRoleColor(note.authorRole, 'bg')"
+                          [style.color]="getRoleColor(note.authorRole, 'text')"
+                          [style.border-color]="getRoleColor(note.authorRole, 'border')"
+                        >{{ getRoleLabel(note.authorRole) }}</span>
+                      }
                     </div>
                     <div class="note-status">
-                      <p-tag 
+                      <p-tag
                         [value]="getStatusLabel(note.status)"
                         [severity]="getStatusSeverity(note.status)"
                         [rounded]="true"
@@ -632,7 +705,20 @@ interface NoteTemplate {
                 <div class="note-metadata">
                   <div class="meta-item">
                     <i class="pi pi-user"></i>
-                    <span>{{ selectedNote()!.author }}</span>
+                    <div class="meta-author-block">
+                      <span class="meta-author-name">{{ selectedNote()!.author }}</span>
+                      @if (selectedNote()!.authorSpecialty) {
+                        <span class="meta-author-specialty">{{ selectedNote()!.authorSpecialty }}</span>
+                      }
+                      @if (selectedNote()!.authorRole) {
+                        <span
+                          class="role-badge role-badge--detail"
+                          [style.background]="getRoleColor(selectedNote()!.authorRole!, 'bg')"
+                          [style.color]="getRoleColor(selectedNote()!.authorRole!, 'text')"
+                          [style.border-color]="getRoleColor(selectedNote()!.authorRole!, 'border')"
+                        >{{ getRoleLabel(selectedNote()!.authorRole!) }}</span>
+                      }
+                    </div>
                   </div>
                   <div class="meta-item">
                     <i class="pi pi-calendar"></i>
@@ -1771,6 +1857,87 @@ interface NoteTemplate {
       color: #0c4a6e;
     }
 
+    /* Panel Filters */
+    .panel-filters {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    :host ::ng-deep .role-filter {
+      width: 160px;
+    }
+
+    /* Role Badge */
+    .role-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      border: 1px solid;
+      line-height: 1.6;
+      margin-top: 0.25rem;
+      letter-spacing: 0.01em;
+    }
+
+    .role-badge--detail {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.625rem;
+      margin-top: 0.25rem;
+    }
+
+    /* Author block in note meta */
+    .note-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .author-specialty {
+      color: #64748b;
+    }
+
+    /* Detail view author block */
+    .meta-author-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .meta-author-name {
+      font-weight: 500;
+      color: #1e293b;
+    }
+
+    .meta-author-specialty {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Dark mode role badges */
+    .dark .role-badge,
+    .dark .role-badge--detail {
+      /* Colors are applied inline via [style] bindings using darkBg/darkText/darkBorder;
+         this rule ensures the border rendering stays consistent */
+      opacity: 1;
+    }
+
+    .dark .meta-author-name {
+      color: #f1f5f9;
+    }
+
+    .dark .meta-author-specialty {
+      color: #94a3b8;
+    }
+
+    .dark .author-specialty {
+      color: #94a3b8;
+    }
+
     /* Print Styles */
     @media print {
       .preview-pane,
@@ -1906,8 +2073,29 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
   diagnosisSuggestions = signal<any[]>([]);
   selectedDiagnosis = signal<Diagnosis | null>(null);
 
-  // Filter
+  // Filters
   selectedTypeFilter = '';
+  selectedRoleFilter = '';
+  selectedRole = signal<ClinicalRole | 'all'>('all');
+
+  // Role filter options
+  roleFilterOptions = [
+    { label: 'Attending',            value: 'attending' },
+    { label: 'Resident',             value: 'resident' },
+    { label: 'Fellow',               value: 'fellow' },
+    { label: 'Intern',               value: 'intern' },
+    { label: 'Nurse',                value: 'nurse' },
+    { label: 'Nurse Practitioner',   value: 'nurse-practitioner' },
+    { label: 'Physician Assistant',  value: 'physician-assistant' },
+    { label: 'Respiratory Therapist',value: 'respiratory-therapist' },
+    { label: 'Physical Therapist',   value: 'physical-therapist' },
+    { label: 'Occupational Therapist',value: 'occupational-therapist' },
+    { label: 'Pharmacist',           value: 'pharmacist' },
+    { label: 'Social Worker',        value: 'social-worker' },
+    { label: 'Dietitian',            value: 'dietitian' },
+    { label: 'Psychologist',         value: 'psychologist' },
+    { label: 'Case Manager',         value: 'case-manager' },
+  ];
 
   // Current note being edited
   currentNoteType: NoteType = 'soap';
@@ -1989,6 +2177,10 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
     if (this.selectedTypeFilter) {
       notes = notes.filter(n => n.noteType === this.selectedTypeFilter);
     }
+    const role = this.selectedRole();
+    if (role !== 'all') {
+      notes = notes.filter(n => n.authorRole === role);
+    }
     return notes;
   });
 
@@ -2009,46 +2201,179 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
   }
 
   private loadMockNotes(): void {
+    const now = Date.now();
+    const day = 86400000;
+
     const mockNotes: ClinicalNote[] = [
+      // ── Attending ──────────────────────────────────────────────────────────
       {
         id: '1', patientId: 'pt1', encounterId: 'enc1', noteType: 'soap',
         title: 'Follow-up Visit - Hypertension', status: 'signed',
-        author: 'Dr. Smith', authorId: 'dr1', createdAt: new Date(), updatedAt: new Date(),
-        signedAt: new Date(), signedBy: 'Dr. Smith',
+        author: 'Dr. Sarah Smith', authorId: 'dr1',
+        authorRole: 'attending', authorSpecialty: 'Internal Medicine',
+        createdAt: new Date(now), updatedAt: new Date(now),
+        signedAt: new Date(now), signedBy: 'Dr. Sarah Smith',
         content: {
-          subjective: 'Patient reports compliance with medications. Denies headaches, chest pain, or shortness of breath. BP log shows readings consistently around 130/85.',
-          objective: 'BP: 128/82. HR: 72. Well-appearing, no acute distress.',
-          assessment: 'Essential hypertension - controlled on current regimen.',
-          plan: 'Continue current medications. Return in 3 months for follow-up. Labs ordered: BMP, lipid panel.',
           chiefComplaint: 'Follow-up for hypertension management',
+          subjective: 'Patient reports **compliance with medications**. Denies headaches, chest pain, or shortness of breath. Home BP log shows readings consistently around 130/85 mmHg.',
+          objective: '- BP: 128/82 mmHg\n- HR: 72 bpm, regular\n- Well-appearing, in no acute distress\n- Lungs clear to auscultation bilaterally\n- No peripheral edema',
+          assessment: 'Essential hypertension — well-controlled on current regimen.',
+          plan: '1. Continue lisinopril 10 mg daily\n2. Continue HCTZ 25 mg daily\n3. Labs ordered: BMP, lipid panel\n4. Dietary counseling reinforced (DASH diet)',
+          followUp: 'Return in **3 months** or sooner if BP exceeds 150/95.',
           diagnoses: [{ code: 'I10', description: 'Essential hypertension', type: 'primary' }],
-          followUp: 'Return in 3 months',
         }
       },
+      // ── Resident ───────────────────────────────────────────────────────────
       {
         id: '2', patientId: 'pt1', encounterId: 'enc2', noteType: 'soap',
         title: 'Acute Visit - Upper Respiratory Infection', status: 'draft',
-        author: 'Dr. Smith', authorId: 'dr1', createdAt: new Date(Date.now() - 86400000), updatedAt: new Date(),
+        author: 'Dr. Marcus Webb', authorId: 'dr-res1',
+        authorRole: 'resident', authorSpecialty: 'Internal Medicine',
+        createdAt: new Date(now - day), updatedAt: new Date(now),
         content: {
-          subjective: 'Patient presents with 3 days of nasal congestion, sore throat, and low-grade fever.',
+          chiefComplaint: 'Cold symptoms x 3 days',
+          subjective: 'Patient presents with 3 days of nasal congestion, sore throat, and low-grade fever (max 100.4 °F at home). Denies ear pain or productive cough.',
           objective: '',
           assessment: '',
           plan: '',
-          chiefComplaint: 'Cold symptoms x 3 days',
         }
       },
+      // ── Attending ──────────────────────────────────────────────────────────
       {
         id: '3', patientId: 'pt1', encounterId: 'enc3', noteType: 'progress',
         title: 'Progress Note - Diabetes Management', status: 'signed',
-        author: 'Dr. Johnson', authorId: 'dr2', createdAt: new Date(Date.now() - 172800000), updatedAt: new Date(Date.now() - 172800000),
-        signedAt: new Date(Date.now() - 172800000), signedBy: 'Dr. Johnson',
+        author: 'Dr. Linda Johnson', authorId: 'dr2',
+        authorRole: 'attending', authorSpecialty: 'Endocrinology',
+        createdAt: new Date(now - 2 * day), updatedAt: new Date(now - 2 * day),
+        signedAt: new Date(now - 2 * day), signedBy: 'Dr. Linda Johnson',
         content: {
-          subjective: 'Patient reports good glucose control. Following diabetic diet. Walking 30 min daily.',
-          objective: 'A1C: 6.8%. Foot exam normal. Monofilament testing intact.',
-          assessment: 'Type 2 diabetes mellitus - well controlled',
-          plan: 'Continue current regimen. Schedule ophthalmology referral. Return in 3 months.',
+          subjective: 'Patient reports good glucose control. Following diabetic diet. Walking 30 min daily. No hypoglycemic episodes since last visit.',
+          objective: '- A1C: **6.8%** (improved from 7.2%)\n- Fasting glucose: 112 mg/dL\n- Foot exam: normal sensation, intact skin\n- Monofilament testing intact bilaterally',
+          assessment: 'Type 2 diabetes mellitus — well controlled. A1C trending down appropriately.',
+          plan: '1. Continue metformin 1000 mg BID\n2. Schedule ophthalmology referral for annual diabetic eye exam\n3. Repeat A1C in 3 months\n4. Continue dietary counseling',
           diagnoses: [
             { code: 'E11.9', description: 'Type 2 diabetes mellitus without complications', type: 'primary' },
+            { code: 'I10', description: 'Essential hypertension', type: 'secondary' },
+          ],
+        }
+      },
+      // ── Nurse ──────────────────────────────────────────────────────────────
+      {
+        id: '4', patientId: 'pt1', encounterId: 'enc1', noteType: 'progress',
+        title: 'Nursing Assessment - Admission', status: 'signed',
+        author: 'RN Patricia Torres', authorId: 'rn1',
+        authorRole: 'nurse', authorSpecialty: 'Medical-Surgical',
+        createdAt: new Date(now - 3 * day), updatedAt: new Date(now - 3 * day),
+        signedAt: new Date(now - 3 * day), signedBy: 'RN Patricia Torres',
+        content: {
+          chiefComplaint: 'Nursing admission assessment',
+          subjective: 'Patient alert and oriented x4. Cooperative. Reports pain **4/10** in lower back, describes it as aching and constant. Denies chest pain, dyspnea, or nausea. Last oral intake 6 hours prior to admission.',
+          objective: '## Vital Signs\n- BP: 134/86 mmHg\n- HR: 80 bpm\n- Temp: 98.8 °F\n- RR: 16/min\n- SpO2: 97% on room air\n\n## Skin Assessment\nWarm, dry, intact. No pressure injuries noted. Braden score: **20** (low risk).\n\n## Fall Risk\nMorse Fall Scale: **35** — moderate risk. Fall precautions initiated.',
+          assessment: 'Patient admitted in stable condition. Pain and fall risk identified as active nursing concerns.',
+          plan: '- Initiate fall precautions protocol\n- Pain reassessment q4h\n- Hourly rounding\n- IV access established — right antecubital 20G\n- Intake and output monitoring',
+        }
+      },
+      // ── Respiratory Therapist ──────────────────────────────────────────────
+      {
+        id: '5', patientId: 'pt1', encounterId: 'enc1', noteType: 'progress',
+        title: 'Respiratory Therapy Assessment', status: 'signed',
+        author: 'RT James Okafor', authorId: 'rt1',
+        authorRole: 'respiratory-therapist', authorSpecialty: 'Respiratory Care',
+        createdAt: new Date(now - 4 * day), updatedAt: new Date(now - 4 * day),
+        signedAt: new Date(now - 4 * day), signedBy: 'RT James Okafor',
+        content: {
+          chiefComplaint: 'Respiratory therapy evaluation — ordered for COPD exacerbation monitoring',
+          subjective: 'Patient reports increased dyspnea on exertion over the past week. Using rescue inhaler approximately 3x daily (baseline 1x). No nocturnal symptoms. Denies recent fever or productive cough.',
+          objective: '## Pulmonary Function\n- SpO2: 91% on room air → 96% on 2L NC\n- RR: 22/min, shallow\n- Breath sounds: **diffuse expiratory wheeze** bilaterally, prolonged expiratory phase\n- Accessory muscle use: mild\n\n## Peak Flow\n- Current: 220 L/min (65% of personal best)\n- Post-bronchodilator: 290 L/min (85% of personal best) — **significant response**',
+          assessment: 'Moderate COPD exacerbation with meaningful bronchodilator response. O2 requirement met on low-flow nasal cannula.',
+          plan: '1. Albuterol/ipratropium nebulization q4h and PRN\n2. Supplemental O2 via nasal cannula, titrate to SpO2 ≥ 92%\n3. Incentive spirometry 10x/hour while awake\n4. Reassess in 4 hours\n5. Notify MD if SpO2 < 90% or RR > 28',
+          diagnoses: [{ code: 'J44.1', description: 'COPD with acute exacerbation', type: 'primary' }],
+        }
+      },
+      // ── Pharmacist ─────────────────────────────────────────────────────────
+      {
+        id: '6', patientId: 'pt1', encounterId: 'enc1', noteType: 'consultation',
+        title: 'Pharmacy Medication Reconciliation', status: 'signed',
+        author: 'PharmD Angela Chen', authorId: 'pharm1',
+        authorRole: 'pharmacist', authorSpecialty: 'Clinical Pharmacy',
+        createdAt: new Date(now - 5 * day), updatedAt: new Date(now - 5 * day),
+        signedAt: new Date(now - 5 * day), signedBy: 'PharmD Angela Chen',
+        content: {
+          chiefComplaint: 'Medication reconciliation and therapy review on admission',
+          subjective: 'Patient reports taking all medications as prescribed. Denies over-the-counter NSAID use. No herbal supplements reported. Patient unable to recall exact doses — pharmacy records reviewed.',
+          objective: '## Medication Reconciliation\n| Medication | Home Dose | Admission Order | Reconciled |\n|---|---|---|---|\n| Lisinopril | 10 mg daily | 10 mg daily | Yes |\n| HCTZ | 25 mg daily | 25 mg daily | Yes |\n| Metformin | 1000 mg BID | 1000 mg BID | Yes |\n| Atorvastatin | 40 mg nightly | 40 mg nightly | Yes |\n| Aspirin | 81 mg daily | 81 mg daily | Yes |\n\n## Drug Interactions\nNo clinically significant interactions identified with current admission medications.',
+          assessment: '**No discrepancies** found on reconciliation. Renal function adequate for continued metformin (eGFR: 68 mL/min). Statin dose appropriate given cardiovascular risk profile.',
+          plan: '1. Continue all home medications as reconciled\n2. Hold metformin if contrast procedure ordered (48-hour hold)\n3. Monitor electrolytes given concurrent ACE inhibitor and diuretic\n4. Patient counseled on medication purpose and adherence\n5. Follow-up reconciliation at discharge',
+        }
+      },
+      // ── Physical Therapist ─────────────────────────────────────────────────
+      {
+        id: '7', patientId: 'pt1', encounterId: 'enc1', noteType: 'consultation',
+        title: 'Physical Therapy Evaluation', status: 'signed',
+        author: 'PT Derek Nakamura', authorId: 'pt1',
+        authorRole: 'physical-therapist', authorSpecialty: 'Acute Care PT',
+        createdAt: new Date(now - 6 * day), updatedAt: new Date(now - 6 * day),
+        signedAt: new Date(now - 6 * day), signedBy: 'PT Derek Nakamura',
+        content: {
+          chiefComplaint: 'PT evaluation — physician referral for mobility assessment and fall prevention',
+          subjective: 'Patient reports progressive difficulty ambulating over the past month. Fear of falling after a near-miss at home 2 weeks ago. Lives alone in a two-story house. Denies lower extremity weakness but acknowledges balance feels "off."',
+          objective: '## Functional Assessment\n- **Transfers**: Bed-to-sit — independent; Sit-to-stand — requires bilateral UE support, mildly labored\n- **Ambulation**: Ambulatory with straight cane x 50 ft on level surface; gait antalgic, reduced right stance phase\n- **Balance**: Berg Balance Scale — **42/56** (moderate fall risk)\n- **Timed Up and Go**: **14.2 seconds** (>12 sec = increased fall risk)\n\n## Musculoskeletal\n- Hip flexor strength 4/5 bilaterally\n- Ankle dorsiflexion AROM: R 10°, L 15° (mildly limited right)\n- No lower extremity edema',
+          assessment: 'Moderate functional mobility impairment with elevated fall risk (Berg 42/56, TUG 14.2s). Contributing factors: antalgic gait, reduced ankle ROM, and deconditioning.',
+          plan: '1. PT daily x 5 days during admission\n2. Therapeutic exercises: hip strengthening, ankle ROM, balance training\n3. Gait training with appropriate assistive device\n4. Home safety assessment referral at discharge\n5. Discharge recommendations: outpatient PT 2x/week x 6 weeks',
+        }
+      },
+      // ── Social Worker ──────────────────────────────────────────────────────
+      {
+        id: '8', patientId: 'pt1', encounterId: 'enc1', noteType: 'consultation',
+        title: 'Social Work Assessment', status: 'signed',
+        author: 'MSW Danielle Brooks', authorId: 'sw1',
+        authorRole: 'social-worker', authorSpecialty: 'Medical Social Work',
+        createdAt: new Date(now - 7 * day), updatedAt: new Date(now - 7 * day),
+        signedAt: new Date(now - 7 * day), signedBy: 'MSW Danielle Brooks',
+        content: {
+          chiefComplaint: 'Social work consultation — discharge planning and psychosocial assessment',
+          subjective: 'Patient is a 68-year-old retired teacher living alone in a two-story home. Widowed 2 years ago. Reports feeling "isolated" since retirement, but denies depression or hopelessness. Daughter lives 45 minutes away and is primary support. Patient expresses concern about managing independently post-discharge.',
+          objective: '## Psychosocial Screening\n- **PHQ-2**: Score 1 (minimal depressive symptoms)\n- **Social support**: Limited; daughter available on weekends\n- **Financial**: Medicare primary, Medigap supplemental. Denies financial hardship.\n- **Housing**: Two-story home, bedroom upstairs — **barrier to safe discharge given current mobility status**\n\n## Safety Assessment\nNo evidence of abuse, neglect, or domestic violence. Patient has advance directive on file.',
+          assessment: 'Psychosocial needs identified: (1) limited daily support network, (2) housing safety concern given upstairs bedroom, (3) mild social isolation.',
+          plan: '1. Contact patient\'s daughter regarding discharge planning conference\n2. Initiate referral to **Area Agency on Aging** for in-home support assessment\n3. Evaluate temporary ground-floor sleeping arrangement options\n4. Provide community resource list (meal delivery, transportation, senior center)\n5. Re-assess prior to discharge for additional needs',
+        }
+      },
+      // ── Dietitian ──────────────────────────────────────────────────────────
+      {
+        id: '9', patientId: 'pt1', encounterId: 'enc1', noteType: 'consultation',
+        title: 'Nutrition Assessment', status: 'signed',
+        author: 'RD Maria Santos', authorId: 'rd1',
+        authorRole: 'dietitian', authorSpecialty: 'Clinical Nutrition',
+        createdAt: new Date(now - 8 * day), updatedAt: new Date(now - 8 * day),
+        signedAt: new Date(now - 8 * day), signedBy: 'RD Maria Santos',
+        content: {
+          chiefComplaint: 'Registered Dietitian consultation — nutrition support for diabetes and hypertension',
+          subjective: 'Patient reports attempting to follow a diabetic diet but finds it difficult to meal-plan. Eats 2 main meals per day, skips breakfast regularly. High sodium intake suspected (eats canned soups and processed foods frequently). No food allergies. No difficulty swallowing.',
+          objective: '## Anthropometrics\n- Height: 5\'7" (170 cm)\n- Weight: 188 lbs (85.3 kg)\n- BMI: **29.4** (overweight)\n- Usual body weight: 195 lbs — unintentional weight loss of 7 lbs over 3 months (3.6%)\n\n## Nutritional Risk\n- **MUST Score**: 1 (medium risk)\n- Estimated needs: 1,800–2,000 kcal/day; 68–75 g protein/day\n- Estimated sodium intake: ~3,500 mg/day (goal: <2,300 mg)',
+          assessment: 'Medium nutritional risk. Suboptimal dietary pattern contributing to suboptimal glycemic and blood pressure control. Weight loss over 3 months warrants monitoring.',
+          plan: '1. Medical Nutrition Therapy: **consistent carbohydrate diet** 45g CHO per meal\n2. Sodium restriction: < 2,300 mg/day — review low-sodium food choices\n3. Increase meal frequency: encourage 3 balanced meals + 1–2 snacks\n4. Provide printed DASH/Diabetic diet handout in patient\'s preferred language\n5. Outpatient MNT referral: 3 sessions over 6 weeks\n6. Reassess weight at next follow-up',
+          diagnoses: [
+            { code: 'E11.9', description: 'Type 2 diabetes mellitus without complications', type: 'secondary' },
+            { code: 'Z68.29', description: 'BMI 29.0-29.9, adult (overweight)', type: 'secondary' },
+          ],
+        }
+      },
+      // ── Fellow ─────────────────────────────────────────────────────────────
+      {
+        id: '10', patientId: 'pt1', encounterId: 'enc1', noteType: 'h_and_p',
+        title: 'Cardiology Fellow H&P', status: 'pending-signature',
+        author: 'Dr. Priya Anand', authorId: 'fellow1',
+        authorRole: 'fellow', authorSpecialty: 'Cardiology',
+        createdAt: new Date(now - 9 * day), updatedAt: new Date(now - 9 * day),
+        cosignRequired: true, cosignedBy: 'Dr. Robert Hale',
+        content: {
+          chiefComplaint: 'Cardiology consultation — atypical chest pain evaluation',
+          subjective: 'Patient is a 68-year-old male with PMH of HTN and T2DM presenting with 2 weeks of intermittent left-sided chest discomfort, non-radiating, occurring at rest and with exertion. Episodes last 5–10 minutes and resolve spontaneously. No diaphoresis, syncope, or palpitations. Denies pleuritic component.',
+          objective: '## Vital Signs\n- BP: 138/84 mmHg (left arm) | 140/86 mmHg (right arm) — symmetric\n- HR: 76 bpm, regular\n- SpO2: 97% RA\n\n## Cardiac Exam\n- Regular rate and rhythm\n- S1, S2 normal; **S4 gallop present**\n- No murmurs, rubs, or clicks\n- No JVD; extremities without edema\n\n## Relevant Labs/Studies\n- ECG: normal sinus rhythm, no ST changes, LVH criteria met\n- Troponin x2: negative\n- BNP: 48 pg/mL',
+          assessment: '**Atypical chest pain** in a high-risk patient (HTN, DM, age, male sex). S4 gallop and LVH on ECG raise concern for hypertensive heart disease. Acute ACS unlikely given negative biomarkers.\n\n**Differential Diagnosis:**\n1. Hypertensive heart disease with angina equivalent\n2. Musculoskeletal chest pain\n3. GERD',
+          plan: '1. Stress echocardiogram scheduled for tomorrow AM\n2. Continue current antihypertensives; optimize BP control\n3. Add aspirin 81 mg daily (discussed with attending)\n4. Holter monitor x 48h to evaluate for arrhythmia\n5. Follow-up in Cardiology clinic in 2 weeks with stress test results\n6. **Attending co-signature required before finalization**',
+          diagnoses: [
+            { code: 'R07.9', description: 'Chest pain, unspecified', type: 'primary' },
             { code: 'I10', description: 'Essential hypertension', type: 'secondary' },
           ],
         }
@@ -2261,6 +2586,32 @@ export class ClinicalNotesComponent implements OnInit, OnDestroy {
 
   toggleMarkdownHelp(): void {
     this.showMarkdownHelp.set(!this.showMarkdownHelp());
+  }
+
+  // Role filter event handlers (p-select onChange/onClear do not mutate ngModel synchronously
+  // in all PrimeNG versions, so we keep selectedRole signal in sync manually)
+  onRoleFilterChange(event: { value: string }): void {
+    this.selectedRole.set((event.value as ClinicalRole) ?? 'all');
+  }
+
+  onRoleFilterClear(): void {
+    this.selectedRoleFilter = '';
+    this.selectedRole.set('all');
+  }
+
+  // Role color helper – returns the correct light/dark variant depending on theme
+  getRoleColor(role: ClinicalRole, prop: 'bg' | 'text' | 'border'): string {
+    const palette = ROLE_COLORS[role];
+    if (!palette) return '';
+    if (this.themeService.isDarkMode()) {
+      const darkProp = ('dark' + prop.charAt(0).toUpperCase() + prop.slice(1)) as 'darkBg' | 'darkText' | 'darkBorder';
+      return palette[darkProp];
+    }
+    return palette[prop];
+  }
+
+  getRoleLabel(role: ClinicalRole): string {
+    return ROLE_LABELS[role] ?? role;
   }
 
   // Helper methods

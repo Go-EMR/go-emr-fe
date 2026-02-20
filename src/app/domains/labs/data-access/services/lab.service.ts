@@ -9,13 +9,16 @@ import {
   LabResult,
   LabOrderStatus,
   LabPriority,
-  LabCategory
+  LabCategory,
+  TEST_EXPIRATION_DEFAULTS,
+  CustomLabPanel
 } from '../models/lab.model';
 import {
   MOCK_LAB_ORDERS,
   MOCK_LAB_TESTS,
   MOCK_LAB_PANELS,
-  MOCK_LAB_FACILITIES
+  MOCK_LAB_FACILITIES,
+  MOCK_CUSTOM_PANELS
 } from './mock-data/labs.mock';
 
 const USE_MOCK = true;
@@ -59,6 +62,8 @@ export interface PatientLabHistory {
 export class LabService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = '/api/labs';
+
+  private mockCustomPanels: CustomLabPanel[] = [...MOCK_CUSTOM_PANELS];
 
   // ============ Lab Orders ============
 
@@ -249,6 +254,157 @@ export class LabService {
     return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/orders/${orderId}/send-to-portal`, {});
   }
 
+  // ============ Custom Lab Panels ============
+
+  getMyPanels(): Observable<CustomLabPanel[]> {
+    if (USE_MOCK) {
+      return of(this.mockCustomPanels.filter(p => p.createdBy === 'USR-001')).pipe(delay(API_DELAY));
+    }
+    return this.http.get<CustomLabPanel[]>('/api/labs/panels/mine');
+  }
+
+  getSharedPanels(): Observable<CustomLabPanel[]> {
+    if (USE_MOCK) {
+      return of(this.mockCustomPanels.filter(p => p.isPublished)).pipe(delay(API_DELAY));
+    }
+    return this.http.get<CustomLabPanel[]>('/api/labs/panels/shared');
+  }
+
+  createCustomPanel(panel: Partial<CustomLabPanel>): Observable<CustomLabPanel> {
+    if (USE_MOCK) {
+      const code = panel.code || `CUSTOM-${Date.now()}`;
+      const newPanel: CustomLabPanel = {
+        id: `CPANEL-${Date.now()}`,
+        code,
+        panelCode: code,
+        name: panel.name || 'New Panel',
+        panelName: panel.name || 'New Panel',
+        description: panel.description || '',
+        category: panel.category || 'chemistry',
+        tests: panel.tests || [],
+        loincCode: '',
+        price: 0,
+        fastingRequired: panel.tests?.some(t => t.fastingRequired) ?? false,
+        fastingHours: panel.tests?.find(t => t.fastingRequired)?.fastingHours,
+        specimenType: panel.tests?.[0]?.specimenType ?? 'blood',
+        isCommon: false,
+        createdBy: 'USR-001',
+        createdByName: 'Dr. Sarah Chen',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isShared: false,
+        isPublished: false,
+        subscriberCount: 0,
+        useCount: 0,
+        version: 1,
+        tags: panel.tags || [],
+        specialty: panel.specialty || '',
+      };
+      this.mockCustomPanels.push(newPanel);
+      return of(newPanel).pipe(delay(API_DELAY));
+    }
+    return this.http.post<CustomLabPanel>('/api/labs/panels', panel);
+  }
+
+  updateCustomPanel(panelId: string, updates: Partial<CustomLabPanel>): Observable<CustomLabPanel> {
+    if (USE_MOCK) {
+      const idx = this.mockCustomPanels.findIndex(p => p.id === panelId);
+      if (idx >= 0) {
+        this.mockCustomPanels[idx] = {
+          ...this.mockCustomPanels[idx],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+          version: this.mockCustomPanels[idx].version + 1,
+        };
+        return of(this.mockCustomPanels[idx]).pipe(delay(API_DELAY));
+      }
+    }
+    return this.http.patch<CustomLabPanel>(`/api/labs/panels/${panelId}`, updates);
+  }
+
+  publishPanel(panelId: string): Observable<CustomLabPanel> {
+    if (USE_MOCK) {
+      const idx = this.mockCustomPanels.findIndex(p => p.id === panelId);
+      if (idx >= 0) {
+        this.mockCustomPanels[idx] = {
+          ...this.mockCustomPanels[idx],
+          isPublished: true,
+          isShared: true,
+          updatedAt: new Date().toISOString(),
+        };
+        return of(this.mockCustomPanels[idx]).pipe(delay(API_DELAY));
+      }
+    }
+    return this.http.patch<CustomLabPanel>(`/api/labs/panels/${panelId}/publish`, {});
+  }
+
+  unpublishPanel(panelId: string): Observable<CustomLabPanel> {
+    if (USE_MOCK) {
+      const idx = this.mockCustomPanels.findIndex(p => p.id === panelId);
+      if (idx >= 0) {
+        this.mockCustomPanels[idx] = {
+          ...this.mockCustomPanels[idx],
+          isPublished: false,
+          isShared: false,
+          updatedAt: new Date().toISOString(),
+        };
+        return of(this.mockCustomPanels[idx]).pipe(delay(API_DELAY));
+      }
+    }
+    return this.http.patch<CustomLabPanel>(`/api/labs/panels/${panelId}/unpublish`, {});
+  }
+
+  clonePanel(panelId: string): Observable<CustomLabPanel> {
+    if (USE_MOCK) {
+      const source = this.mockCustomPanels.find(p => p.id === panelId);
+      if (source) {
+        const cloneCode = `CLONE-${source.code}`;
+        const clone: CustomLabPanel = {
+          ...source,
+          id: `CPANEL-${Date.now()}`,
+          code: cloneCode,
+          panelCode: cloneCode,
+          name: `${source.name} (Copy)`,
+          panelName: `${source.name} (Copy)`,
+          createdBy: 'USR-001',
+          createdByName: 'Dr. Sarah Chen',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isShared: false,
+          isPublished: false,
+          subscriberCount: 0,
+          useCount: 0,
+          version: 1,
+        };
+        this.mockCustomPanels.push(clone);
+        return of(clone).pipe(delay(API_DELAY));
+      }
+    }
+    return this.http.post<CustomLabPanel>(`/api/labs/panels/${panelId}/clone`, {});
+  }
+
+  deleteCustomPanel(panelId: string): Observable<void> {
+    if (USE_MOCK) {
+      this.mockCustomPanels = this.mockCustomPanels.filter(p => p.id !== panelId);
+      return of(void 0).pipe(delay(API_DELAY));
+    }
+    return this.http.delete<void>(`/api/labs/panels/${panelId}`);
+  }
+
+  // ============ Expiration Utilities ============
+
+  /**
+   * Calculates the expiration date for a lab result based on the panel/test code.
+   * Falls back to the DEFAULT duration when the code is not recognised.
+   * Returns an ISO date string (YYYY-MM-DD).
+   */
+  calculateExpiration(orderDate: string, testCode: string): string {
+    const months = TEST_EXPIRATION_DEFAULTS[testCode] ?? TEST_EXPIRATION_DEFAULTS['DEFAULT'];
+    const date = new Date(orderDate);
+    date.setMonth(date.getMonth() + months);
+    return date.toISOString().split('T')[0];
+  }
+
   // ============ Patient Search ============
 
   searchPatients(query: string): Observable<{ id: string; name: string; mrn: string; dob: string }[]> {
@@ -366,6 +522,12 @@ export class LabService {
 
   private mockCreateLabOrder(orderData: Partial<LabOrder>): Observable<LabOrder> {
     const orderId = `LAB-${Date.now()}`;
+    const orderedDate = new Date().toISOString();
+
+    // Auto-calculate expiration from the panel code when not explicitly provided
+    const testCode = orderData.panelCode ?? orderData.tests?.[0]?.testCode ?? 'DEFAULT';
+    const expirationDate = orderData.expirationDate ?? this.calculateExpiration(orderedDate, testCode);
+
     const newOrder: LabOrder = {
       id: orderId,
       orderId,
@@ -391,8 +553,9 @@ export class LabService {
       clinicalNotes: orderData.clinicalNotes,
       fastingRequired: orderData.fastingRequired ?? false,
       fastingHours: orderData.fastingHours,
-      orderedDate: new Date().toISOString(),
+      orderedDate,
       scheduledDate: orderData.scheduledDate,
+      expirationDate,
       patientInstructions: orderData.patientInstructions,
       labInstructions: orderData.labInstructions,
       createdAt: new Date().toISOString(),

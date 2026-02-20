@@ -44,7 +44,8 @@ export interface LabOrder {
   collectionDate?: string;
   receivedDate?: string;
   reportedDate?: string;
-  
+  expirationDate?: string;
+
   // Special instructions
   patientInstructions?: string;
   labInstructions?: string;
@@ -161,7 +162,32 @@ export interface LabPanel {
   isCommon: boolean;
 }
 
-export type LabOrderType = 
+export interface CustomLabPanel extends LabPanel {
+  // Creator info
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+
+  // Sharing
+  isShared: boolean;
+  isPublished: boolean;
+  sharedWith?: string[]; // user IDs
+  subscriberCount?: number;
+
+  // Usage tracking
+  useCount: number;
+  lastUsedAt?: string;
+
+  // Versioning
+  version: number;
+
+  // Tags for discoverability
+  tags?: string[];
+  specialty?: string;
+}
+
+export type LabOrderType =
   | 'lab'
   | 'microbiology'
   | 'pathology'
@@ -328,6 +354,40 @@ export const STATUS_LABELS: Record<LabOrderStatus, string> = {
   'final': 'Final',
   'corrected': 'Corrected',
   'cancelled': 'Cancelled',
+};
+
+// Test expiration defaults in months, keyed by panel/test code
+export const TEST_EXPIRATION_DEFAULTS: Record<string, number> = {
+  // Chemistry panels
+  'BMP': 12,
+  'CMP': 12,
+  // Hematology
+  'CBC': 12,
+  // Lipids
+  'LIPID': 12,
+  // Thyroid
+  'TSH': 12,
+  // Diabetes
+  'HBA1C': 6,
+  // Liver
+  'LFT': 12,
+  // Renal
+  'RFT': 12,
+  // Coagulation
+  'PT/INR': 1,
+  // Tumor markers
+  'PSA': 12,
+  // Vitamins
+  'VITD': 12,
+  'B12': 12,
+  // Iron
+  'IRON': 12,
+  // Inflammatory
+  'CRP': 6,
+  // Urinalysis
+  'UA': 12,
+  // Default
+  'DEFAULT': 12,
 };
 
 // Interpretation colors

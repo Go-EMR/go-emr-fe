@@ -19,6 +19,12 @@ interface StatusConfig {
   icon: string;
 }
 
+interface ExpirationStatus {
+  label: string;
+  severity: 'success' | 'warning' | 'danger';
+  daysRemaining: number;
+}
+
 @Component({
   selector: 'app-lab-list',
   standalone: true,
@@ -180,6 +186,7 @@ interface StatusConfig {
               <div class="col-status">Status</div>
               <div class="col-priority">Priority</div>
               <div class="col-date">Ordered</div>
+              <div class="col-expiration">Expires</div>
               <div class="col-results">Results</div>
               <div class="col-actions">Actions</div>
             </div>
@@ -220,6 +227,22 @@ interface StatusConfig {
                 <div class="col-date">
                   <span class="date-primary">{{ formatDate(order.orderedDate) }}</span>
                   <span class="date-secondary">{{ formatTime(order.orderedDate) }}</span>
+                </div>
+
+                <div class="col-expiration">
+                  @if (order.expirationDate) {
+                    @let expStatus = getExpirationStatus(order);
+                    <span class="expiration-badge" [class]="'expiration-' + expStatus.severity">
+                      <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                      </svg>
+                      {{ expStatus.label }}
+                    </span>
+                    <span class="expiration-date">{{ formatShortDate(order.expirationDate) }}</span>
+                  } @else {
+                    <span class="expiration-none">—</span>
+                  }
                 </div>
 
                 <div class="col-results">
@@ -587,7 +610,7 @@ interface StatusConfig {
 
     .table-header {
       display: grid;
-      grid-template-columns: 1.5fr 2fr 1fr 0.8fr 1fr 1fr 0.8fr;
+      grid-template-columns: 1.5fr 2fr 1fr 0.8fr 1fr 1fr 1fr 0.8fr;
       gap: 1rem;
       padding: 0.75rem 1rem;
       background: #f8fafc;
@@ -601,7 +624,7 @@ interface StatusConfig {
 
     .order-row {
       display: grid;
-      grid-template-columns: 1.5fr 2fr 1fr 0.8fr 1fr 1fr 0.8fr;
+      grid-template-columns: 1.5fr 2fr 1fr 0.8fr 1fr 1fr 1fr 0.8fr;
       gap: 1rem;
       padding: 1rem;
       border-bottom: 1px solid #e2e8f0;
@@ -806,6 +829,184 @@ interface StatusConfig {
 
     .results-badge.none {
       color: #94a3b8;
+    }
+
+    /* Expiration Column */
+    .col-expiration {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .expiration-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      width: fit-content;
+    }
+
+    .expiration-icon {
+      width: 0.8rem;
+      height: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .expiration-badge.expiration-success {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .expiration-badge.expiration-warning {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .expiration-badge.expiration-danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .expiration-date {
+      font-size: 0.7rem;
+      color: #94a3b8;
+    }
+
+    .expiration-none {
+      color: #94a3b8;
+      font-size: 0.875rem;
+    }
+
+    /* Dark mode overrides */
+    :host-context(.dark) .table-header {
+      background: #1e293b;
+      border-bottom-color: #334155;
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .order-row {
+      border-bottom-color: #334155;
+    }
+
+    :host-context(.dark) .order-row:hover {
+      background: #1e293b;
+    }
+
+    :host-context(.dark) .order-row.has-critical {
+      background: #450a0a;
+    }
+
+    :host-context(.dark) .order-row.has-critical:hover {
+      background: #7f1d1d;
+    }
+
+    :host-context(.dark) .order-row.has-abnormal {
+      background: #422006;
+    }
+
+    :host-context(.dark) .order-row.has-abnormal:hover {
+      background: #78350f;
+    }
+
+    :host-context(.dark) .orders-list {
+      background: #0f172a;
+      border-color: #334155;
+    }
+
+    :host-context(.dark) .stat-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    :host-context(.dark) .stat-value {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .stat-label {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .header-content h1 {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .subtitle {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .tabs {
+      border-bottom-color: #334155;
+    }
+
+    :host-context(.dark) .tab {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .tab:hover {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .tab.active {
+      color: #60a5fa;
+      border-bottom-color: #60a5fa;
+    }
+
+    :host-context(.dark) .search-box input {
+      background: #1e293b;
+      border-color: #334155;
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .filter-select {
+      background-color: #1e293b;
+      border-color: #334155;
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .patient-name {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .date-primary {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .test-chip {
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    :host-context(.dark) .expiration-badge.expiration-success {
+      background: #14532d;
+      color: #86efac;
+    }
+
+    :host-context(.dark) .expiration-badge.expiration-warning {
+      background: #78350f;
+      color: #fcd34d;
+    }
+
+    :host-context(.dark) .expiration-badge.expiration-danger {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    :host-context(.dark) .pagination {
+      border-top-color: #334155;
+    }
+
+    :host-context(.dark) .pagination .btn {
+      background: #1e293b;
+      border-color: #334155;
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .btn-icon:hover {
+      background: #334155;
+      color: #f1f5f9;
     }
 
     .col-actions {
@@ -1110,6 +1311,39 @@ export class LabListComponent implements OnInit {
       },
       error: (err) => console.error('Failed to print results:', err)
     });
+  }
+
+  /**
+   * Returns an expiration status object for a lab order.
+   * Green "Valid"     - more than 90 days (3 months) remaining
+   * Amber "Expiring"  - between 1 and 90 days remaining
+   * Red   "Expired"   - 0 or negative days remaining
+   * Returns null when no expirationDate is set.
+   */
+  getExpirationStatus(order: LabOrder): ExpirationStatus {
+    if (!order.expirationDate) {
+      return { label: 'Unknown', severity: 'warning', daysRemaining: 0 };
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const expiry = new Date(order.expirationDate);
+    expiry.setHours(0, 0, 0, 0);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysRemaining = Math.floor((expiry.getTime() - now.getTime()) / msPerDay);
+
+    if (daysRemaining > 90) {
+      return { label: 'Valid', severity: 'success', daysRemaining };
+    } else if (daysRemaining >= 1) {
+      return { label: 'Expiring', severity: 'warning', daysRemaining };
+    } else {
+      return { label: 'Expired', severity: 'danger', daysRemaining };
+    }
+  }
+
+  formatShortDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   showOrderMenu(order: LabOrder, event: MouseEvent): void {

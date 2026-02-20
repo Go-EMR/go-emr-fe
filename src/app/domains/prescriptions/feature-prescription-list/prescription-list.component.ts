@@ -3,7 +3,14 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PrescriptionService } from '../data-access/services/prescription.service';
-import { Prescription, PrescriptionStatus } from '../data-access/models/prescription.model';
+import { Prescription, PrescriptionStatus, MedicationType } from '../data-access/models/prescription.model';
+
+type MedTypeFilter = 'all' | 'rx' | 'otc';
+
+interface DuplicateWarning {
+  sharedWord: string;
+  medications: string[];
+}
 
 @Component({
   selector: 'app-prescription-list',
@@ -69,13 +76,64 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
         </div>
       </div>
 
+      <!-- Medication Type Tab Bar -->
+      <div class="med-type-tabs">
+        <button
+          class="med-type-tab"
+          [class.active]="selectedMedType() === 'all'"
+          (click)="setMedType('all')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          All Medications
+          <span class="tab-count">{{ prescriptions().length }}</span>
+        </button>
+        <button
+          class="med-type-tab"
+          [class.active]="selectedMedType() === 'rx'"
+          (click)="setMedType('rx')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          Rx Only
+          <span class="tab-count">{{ rxCount() }}</span>
+        </button>
+        <button
+          class="med-type-tab"
+          [class.active]="selectedMedType() === 'otc'"
+          (click)="setMedType('otc')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+          OTC &amp; Supplements
+          <span class="tab-count">{{ otcCount() }}</span>
+        </button>
+      </div>
+
+      <!-- Duplicate Warnings Banner -->
+      @if (duplicateWarnings().length > 0) {
+        <div class="duplicate-warnings-banner" role="alert">
+          <div class="warning-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="warning-content">
+            <p class="warning-title">Possible Duplicate Medications Detected</p>
+            @for (warn of duplicateWarnings(); track warn.sharedWord) {
+              <p class="warning-detail">
+                Medications sharing "{{ warn.sharedWord }}": {{ warn.medications.join(', ') }}
+              </p>
+            }
+          </div>
+          <button class="warning-dismiss" (click)="dismissDuplicateWarnings()" aria-label="Dismiss warnings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      }
+
       <!-- Filters -->
       <div class="filters-section">
         <div class="search-box">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input 
-            type="text" 
-            placeholder="Search by patient, medication, or diagnosis..." 
+          <input
+            type="text"
+            placeholder="Search by patient, medication, or diagnosis..."
             [(ngModel)]="searchQuery"
             (ngModelChange)="onSearchChange()"
           />
@@ -133,7 +191,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
               </div>
             }
           </div>
-        } @else if (prescriptions().length === 0) {
+        } @else if (filteredByType().length === 0) {
           <div class="empty-state">
             <div class="empty-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
@@ -142,6 +200,8 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
             <p>
               @if (searchQuery() || statusFilter() || controlledFilter() || timeFilter()) {
                 No prescriptions match your search criteria. Try adjusting your filters.
+              } @else if (selectedMedType() !== 'all') {
+                No {{ selectedMedType() === 'rx' ? 'Rx' : 'OTC or supplement' }} medications on record.
               } @else {
                 Get started by creating a new prescription.
               }
@@ -154,8 +214,12 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
           </div>
         } @else {
           <div class="prescriptions-list">
-            @for (rx of prescriptions(); track rx.id) {
-              <div class="prescription-card" [class.controlled]="rx.medication.isControlled">
+            @for (rx of filteredByType(); track rx.id) {
+              <div
+                class="prescription-card"
+                [class.controlled]="rx.medication.isControlled"
+                [class.otc-card]="isOtcType(rx.medication.medicationType)"
+              >
                 <div class="card-header">
                   <div class="patient-info">
                     <div class="patient-avatar">
@@ -171,6 +235,27 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
                     </div>
                   </div>
                   <div class="card-badges">
+                    <!-- Medication Type Badge -->
+                    @if (rx.medication.medicationType) {
+                      <span class="med-type-badge" [class]="'med-type-' + rx.medication.medicationType">
+                        {{ getMedTypeLabel(rx.medication.medicationType) }}
+                      </span>
+                    }
+                    <!-- Verification Status Badge -->
+                    @if (rx.medication.verificationStatus) {
+                      <span class="verification-badge" [class]="'verification-' + rx.medication.verificationStatus">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          @if (rx.medication.verificationStatus === 'verified') {
+                            <polyline points="20 6 9 17 4 12"/>
+                          } @else if (rx.medication.verificationStatus === 'patient-reported') {
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                          } @else {
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                          }
+                        </svg>
+                        {{ getVerificationLabel(rx.medication.verificationStatus) }}
+                      </span>
+                    }
                     <span class="status-badge" [class]="rx.status">
                       {{ rx.status | titlecase }}
                     </span>
@@ -316,8 +401,8 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
           <!-- Pagination -->
           @if (totalPages() > 1) {
             <div class="pagination">
-              <button 
-                class="btn btn-sm btn-secondary" 
+              <button
+                class="btn btn-sm btn-secondary"
                 [disabled]="currentPage() === 0"
                 (click)="goToPage(currentPage() - 1)"
               >
@@ -327,8 +412,8 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
                 Page {{ currentPage() + 1 }} of {{ totalPages() }}
                 ({{ totalCount() }} total)
               </span>
-              <button 
-                class="btn btn-sm btn-secondary" 
+              <button
+                class="btn btn-sm btn-secondary"
                 [disabled]="currentPage() >= totalPages() - 1"
                 (click)="goToPage(currentPage() + 1)"
               >
@@ -347,6 +432,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       margin: 0 auto;
     }
 
+    /* =====================
+       Page Header
+    ===================== */
     .page-header {
       display: flex;
       justify-content: space-between;
@@ -372,7 +460,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       gap: 12px;
     }
 
-    /* Stats */
+    /* =====================
+       Stats
+    ===================== */
     .stats-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -399,25 +489,10 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       justify-content: center;
     }
 
-    .stat-icon.active {
-      background: #dcfce7;
-      color: #16a34a;
-    }
-
-    .stat-icon.pending {
-      background: #fef3c7;
-      color: #d97706;
-    }
-
-    .stat-icon.refill {
-      background: #dbeafe;
-      color: #2563eb;
-    }
-
-    .stat-icon.controlled {
-      background: #fce7f3;
-      color: #db2777;
-    }
+    .stat-icon.active { background: #dcfce7; color: #16a34a; }
+    .stat-icon.pending { background: #fef3c7; color: #d97706; }
+    .stat-icon.refill { background: #dbeafe; color: #2563eb; }
+    .stat-icon.controlled { background: #fce7f3; color: #db2777; }
 
     .stat-content {
       display: flex;
@@ -435,7 +510,123 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       color: #6b7280;
     }
 
-    /* Filters */
+    /* =====================
+       Medication Type Tab Bar
+    ===================== */
+    .med-type-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      background: #f3f4f6;
+      border-radius: 12px;
+      padding: 4px;
+    }
+
+    .med-type-tab {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      transition: all 0.15s ease;
+    }
+
+    .med-type-tab:hover {
+      color: #374151;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .med-type-tab.active {
+      background: white;
+      color: #4f46e5;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .med-type-tab.active .tab-count {
+      background: #e0e7ff;
+      color: #4f46e5;
+    }
+
+    /* =====================
+       Duplicate Warnings Banner
+    ===================== */
+    .duplicate-warnings-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
+    .warning-icon {
+      flex-shrink: 0;
+      color: #d97706;
+      margin-top: 1px;
+    }
+
+    .warning-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .warning-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #92400e;
+      margin: 0 0 4px 0;
+    }
+
+    .warning-detail {
+      font-size: 13px;
+      color: #b45309;
+      margin: 2px 0 0 0;
+    }
+
+    .warning-dismiss {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: #d97706;
+      display: flex;
+      align-items: center;
+      border-radius: 4px;
+      transition: background 0.1s;
+    }
+
+    .warning-dismiss:hover {
+      background: #fde68a;
+    }
+
+    /* =====================
+       Filters
+    ===================== */
     .filters-section {
       display: flex;
       gap: 16px;
@@ -455,10 +646,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       padding: 0 12px;
     }
 
-    .search-box svg {
-      color: #9ca3af;
-      flex-shrink: 0;
-    }
+    .search-box svg { color: #9ca3af; flex-shrink: 0; }
 
     .search-box input {
       flex: 1;
@@ -467,6 +655,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       font-size: 14px;
       outline: none;
       background: transparent;
+      color: #111827;
     }
 
     .clear-btn {
@@ -480,9 +669,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       justify-content: center;
     }
 
-    .clear-btn:hover {
-      color: #6b7280;
-    }
+    .clear-btn:hover { color: #6b7280; }
 
     .filter-group {
       display: flex;
@@ -504,7 +691,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       background-size: 20px;
     }
 
-    /* Prescription Cards */
+    /* =====================
+       Prescription Cards
+    ===================== */
     .prescriptions-container {
       background: white;
       border-radius: 12px;
@@ -520,20 +709,27 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       padding: 20px;
       border-bottom: 1px solid #f3f4f6;
       transition: background 0.15s;
+      border-left: 3px solid transparent;
     }
 
-    .prescription-card:hover {
-      background: #f9fafb;
-    }
-
-    .prescription-card:last-child {
-      border-bottom: none;
-    }
+    .prescription-card:hover { background: #f9fafb; }
+    .prescription-card:last-child { border-bottom: none; }
 
     .prescription-card.controlled {
-      border-left: 3px solid #db2777;
+      border-left-color: #db2777;
     }
 
+    .prescription-card.otc-card {
+      border-left-color: #0d9488;
+    }
+
+    .prescription-card.controlled.otc-card {
+      border-left-color: #db2777;
+    }
+
+    /* =====================
+       Card Header & Badges
+    ===================== */
     .card-header {
       display: flex;
       justify-content: space-between;
@@ -558,6 +754,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       justify-content: center;
       font-weight: 600;
       font-size: 14px;
+      flex-shrink: 0;
     }
 
     .patient-details {
@@ -571,9 +768,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       text-decoration: none;
     }
 
-    .patient-name:hover {
-      color: #4f46e5;
-    }
+    .patient-name:hover { color: #4f46e5; }
 
     .patient-meta {
       font-size: 13px;
@@ -582,9 +777,80 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
 
     .card-badges {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
     }
 
+    /* =====================
+       Medication Type Badges
+    ===================== */
+    .med-type-badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .med-type-rx {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .med-type-otc {
+      background: #ccfbf1;
+      color: #0f766e;
+    }
+
+    .med-type-supplement {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .med-type-herbal {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .med-type-vitamin {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    /* =====================
+       Verification Status Badges
+    ===================== */
+    .verification-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .verification-verified {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .verification-patient-reported {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .verification-unverified {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    /* =====================
+       Status Badges
+    ===================== */
     .status-badge {
       padding: 4px 10px;
       border-radius: 9999px;
@@ -592,30 +858,11 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       font-weight: 500;
     }
 
-    .status-badge.active {
-      background: #dcfce7;
-      color: #16a34a;
-    }
-
-    .status-badge.draft {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-
-    .status-badge.on-hold {
-      background: #fef3c7;
-      color: #d97706;
-    }
-
-    .status-badge.completed {
-      background: #dbeafe;
-      color: #2563eb;
-    }
-
-    .status-badge.cancelled, .status-badge.stopped {
-      background: #fee2e2;
-      color: #dc2626;
-    }
+    .status-badge.active { background: #dcfce7; color: #16a34a; }
+    .status-badge.draft { background: #f3f4f6; color: #6b7280; }
+    .status-badge.on-hold { background: #fef3c7; color: #d97706; }
+    .status-badge.completed { background: #dbeafe; color: #2563eb; }
+    .status-badge.cancelled, .status-badge.stopped { background: #fee2e2; color: #dc2626; }
 
     .controlled-badge {
       display: flex;
@@ -638,19 +885,13 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       color: #c2410c;
     }
 
-    .pa-badge.approved {
-      background: #dcfce7;
-      color: #16a34a;
-    }
+    .pa-badge.approved { background: #dcfce7; color: #16a34a; }
+    .pa-badge.denied { background: #fee2e2; color: #dc2626; }
 
-    .pa-badge.denied {
-      background: #fee2e2;
-      color: #dc2626;
-    }
-
-    .medication-info {
-      margin-bottom: 12px;
-    }
+    /* =====================
+       Medication Info
+    ===================== */
+    .medication-info { margin-bottom: 12px; }
 
     .medication-name {
       display: flex;
@@ -659,9 +900,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       margin-bottom: 4px;
     }
 
-    .medication-name svg {
-      color: #6366f1;
-    }
+    .medication-name svg { color: #6366f1; }
 
     .medication-name .name {
       font-weight: 600;
@@ -683,6 +922,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       margin-left: 26px;
     }
 
+    /* =====================
+       Card Details
+    ===================== */
     .card-details {
       background: #f9fafb;
       border-radius: 8px;
@@ -715,26 +957,16 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       font-weight: 500;
     }
 
-    .detail-value.low-refills {
-      color: #dc2626;
-    }
+    .detail-value.low-refills { color: #dc2626; }
 
-    .erx-status {
-      text-transform: capitalize;
-    }
+    .erx-status { text-transform: capitalize; }
+    .erx-status.sent { color: #2563eb; }
+    .erx-status.filled { color: #16a34a; }
+    .erx-status.error { color: #dc2626; }
 
-    .erx-status.sent {
-      color: #2563eb;
-    }
-
-    .erx-status.filled {
-      color: #16a34a;
-    }
-
-    .erx-status.error {
-      color: #dc2626;
-    }
-
+    /* =====================
+       Indication
+    ===================== */
     .indication {
       font-size: 14px;
       color: #6b7280;
@@ -751,6 +983,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       font-size: 12px;
     }
 
+    /* =====================
+       Card Footer
+    ===================== */
     .card-footer {
       display: flex;
       justify-content: space-between;
@@ -778,7 +1013,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       align-items: center;
     }
 
-    /* Buttons */
+    /* =====================
+       Buttons
+    ===================== */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -793,14 +1030,8 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       text-decoration: none;
     }
 
-    .btn-primary {
-      background: #4f46e5;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #4338ca;
-    }
+    .btn-primary { background: #4f46e5; color: white; }
+    .btn-primary:hover { background: #4338ca; }
 
     .btn-secondary {
       background: white;
@@ -808,9 +1039,7 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       border: 1px solid #e5e7eb;
     }
 
-    .btn-secondary:hover {
-      background: #f9fafb;
-    }
+    .btn-secondary:hover { background: #f9fafb; }
 
     .btn-sm {
       padding: 6px 12px;
@@ -824,19 +1053,17 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       color: #6b7280;
     }
 
-    .btn-icon:hover {
-      background: #f3f4f6;
-    }
+    .btn-icon:hover { background: #f3f4f6; }
 
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    /* Dropdown */
-    .dropdown {
-      position: relative;
-    }
+    /* =====================
+       Dropdown
+    ===================== */
+    .dropdown { position: relative; }
 
     .dropdown-menu {
       position: absolute;
@@ -867,17 +1094,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       text-decoration: none;
     }
 
-    .dropdown-item:hover {
-      background: #f3f4f6;
-    }
-
-    .dropdown-item.text-warning {
-      color: #d97706;
-    }
-
-    .dropdown-item.text-danger {
-      color: #dc2626;
-    }
+    .dropdown-item:hover { background: #f3f4f6; }
+    .dropdown-item.text-warning { color: #d97706; }
+    .dropdown-item.text-danger { color: #dc2626; }
 
     .dropdown-divider {
       height: 1px;
@@ -885,7 +1104,9 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       margin: 4px 0;
     }
 
-    /* Empty State */
+    /* =====================
+       Empty State
+    ===================== */
     .empty-state {
       padding: 64px 24px;
       text-align: center;
@@ -918,10 +1139,10 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       margin-right: auto;
     }
 
-    /* Loading State */
-    .loading-state {
-      padding: 16px;
-    }
+    /* =====================
+       Loading / Skeleton
+    ===================== */
+    .loading-state { padding: 16px; }
 
     .skeleton-card {
       padding: 20px;
@@ -948,41 +1169,21 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       border-radius: 50%;
     }
 
-    .skeleton-info {
-      flex: 1;
-    }
-
-    .skeleton-title {
-      height: 16px;
-      width: 200px;
-      margin-bottom: 8px;
-    }
-
-    .skeleton-subtitle {
-      height: 12px;
-      width: 150px;
-    }
-
-    .skeleton-body {
-      margin-left: 52px;
-    }
-
-    .skeleton-line {
-      height: 14px;
-      margin-bottom: 8px;
-      width: 100%;
-    }
-
-    .skeleton-line.short {
-      width: 60%;
-    }
+    .skeleton-info { flex: 1; }
+    .skeleton-title { height: 16px; width: 200px; margin-bottom: 8px; }
+    .skeleton-subtitle { height: 12px; width: 150px; }
+    .skeleton-body { margin-left: 52px; }
+    .skeleton-line { height: 14px; margin-bottom: 8px; width: 100%; }
+    .skeleton-line.short { width: 60%; }
 
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
 
-    /* Pagination */
+    /* =====================
+       Pagination
+    ===================== */
     .pagination {
       display: flex;
       justify-content: center;
@@ -997,69 +1198,222 @@ import { Prescription, PrescriptionStatus } from '../data-access/models/prescrip
       color: #6b7280;
     }
 
-    /* Responsive */
+    /* =====================
+       Dark Mode
+    ===================== */
+    :host-context(.dark) .header-content h1 { color: #f9fafb; }
+    :host-context(.dark) .subtitle { color: #9ca3af; }
+
+    :host-context(.dark) .stat-card {
+      background: #1f2937;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    :host-context(.dark) .stat-value { color: #f9fafb; }
+    :host-context(.dark) .stat-label { color: #9ca3af; }
+
+    :host-context(.dark) .stat-icon.active { background: #064e3b; color: #34d399; }
+    :host-context(.dark) .stat-icon.pending { background: #78350f; color: #fbbf24; }
+    :host-context(.dark) .stat-icon.refill { background: #1e3a5f; color: #60a5fa; }
+    :host-context(.dark) .stat-icon.controlled { background: #831843; color: #f472b6; }
+
+    :host-context(.dark) .med-type-tabs { background: #374151; }
+
+    :host-context(.dark) .med-type-tab { color: #9ca3af; }
+    :host-context(.dark) .med-type-tab:hover { color: #e5e7eb; background: rgba(255,255,255,0.06); }
+    :host-context(.dark) .med-type-tab.active {
+      background: #1f2937;
+      color: #818cf8;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    :host-context(.dark) .tab-count { background: #4b5563; color: #d1d5db; }
+    :host-context(.dark) .med-type-tab.active .tab-count { background: #312e81; color: #818cf8; }
+
+    :host-context(.dark) .duplicate-warnings-banner {
+      background: #431407;
+      border-color: #92400e;
+    }
+
+    :host-context(.dark) .warning-title { color: #fde68a; }
+    :host-context(.dark) .warning-detail { color: #fbbf24; }
+    :host-context(.dark) .warning-icon { color: #fbbf24; }
+    :host-context(.dark) .warning-dismiss { color: #fbbf24; }
+    :host-context(.dark) .warning-dismiss:hover { background: #78350f; }
+
+    :host-context(.dark) .search-box {
+      background: #1f2937;
+      border-color: #374151;
+    }
+
+    :host-context(.dark) .search-box input {
+      color: #f9fafb;
+    }
+
+    :host-context(.dark) .search-box svg { color: #6b7280; }
+
+    :host-context(.dark) .filter-group select {
+      background-color: #1f2937;
+      border-color: #374151;
+      color: #e5e7eb;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    }
+
+    :host-context(.dark) .prescriptions-container {
+      background: #1f2937;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    :host-context(.dark) .prescription-card {
+      border-bottom-color: #374151;
+    }
+
+    :host-context(.dark) .prescription-card:hover { background: #111827; }
+
+    :host-context(.dark) .patient-name { color: #f9fafb; }
+    :host-context(.dark) .patient-name:hover { color: #818cf8; }
+    :host-context(.dark) .patient-meta { color: #9ca3af; }
+
+    :host-context(.dark) .med-type-rx { background: #2e1065; color: #c4b5fd; }
+    :host-context(.dark) .med-type-otc { background: #042f2e; color: #2dd4bf; }
+    :host-context(.dark) .med-type-supplement { background: #451a03; color: #fb923c; }
+    :host-context(.dark) .med-type-herbal { background: #052e16; color: #4ade80; }
+    :host-context(.dark) .med-type-vitamin { background: #1e3a5f; color: #60a5fa; }
+
+    :host-context(.dark) .verification-verified { background: #052e16; color: #4ade80; }
+    :host-context(.dark) .verification-patient-reported { background: #1e3a5f; color: #60a5fa; }
+    :host-context(.dark) .verification-unverified { background: #451a03; color: #fb923c; }
+
+    :host-context(.dark) .status-badge.active { background: #052e16; color: #4ade80; }
+    :host-context(.dark) .status-badge.draft { background: #374151; color: #9ca3af; }
+    :host-context(.dark) .status-badge.on-hold { background: #451a03; color: #fb923c; }
+    :host-context(.dark) .status-badge.completed { background: #1e3a5f; color: #60a5fa; }
+    :host-context(.dark) .status-badge.cancelled,
+    :host-context(.dark) .status-badge.stopped { background: #450a0a; color: #f87171; }
+
+    :host-context(.dark) .controlled-badge { background: #500724; color: #f472b6; }
+    :host-context(.dark) .pa-badge { background: #431407; color: #fb923c; }
+    :host-context(.dark) .pa-badge.approved { background: #052e16; color: #4ade80; }
+    :host-context(.dark) .pa-badge.denied { background: #450a0a; color: #f87171; }
+
+    :host-context(.dark) .medication-name svg { color: #818cf8; }
+    :host-context(.dark) .medication-name .name { color: #f9fafb; }
+    :host-context(.dark) .medication-name .form { background: #374151; color: #9ca3af; }
+
+    :host-context(.dark) .dosage-info { color: #d1d5db; }
+
+    :host-context(.dark) .card-details { background: #111827; }
+    :host-context(.dark) .detail-label { color: #6b7280; }
+    :host-context(.dark) .detail-value { color: #e5e7eb; }
+
+    :host-context(.dark) .indication { color: #9ca3af; }
+    :host-context(.dark) .indication-label { color: #d1d5db; }
+    :host-context(.dark) .icd-code { color: #6b7280; }
+
+    :host-context(.dark) .card-footer { border-top-color: #374151; }
+    :host-context(.dark) .footer-info { color: #9ca3af; }
+
+    :host-context(.dark) .btn-primary { background: #4f46e5; }
+    :host-context(.dark) .btn-primary:hover { background: #4338ca; }
+
+    :host-context(.dark) .btn-secondary {
+      background: #374151;
+      color: #e5e7eb;
+      border-color: #4b5563;
+    }
+
+    :host-context(.dark) .btn-secondary:hover { background: #4b5563; }
+    :host-context(.dark) .btn-icon { color: #9ca3af; }
+    :host-context(.dark) .btn-icon:hover { background: #374151; }
+
+    :host-context(.dark) .dropdown-menu {
+      background: #1f2937;
+      border-color: #374151;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
+    }
+
+    :host-context(.dark) .dropdown-item { color: #e5e7eb; }
+    :host-context(.dark) .dropdown-item:hover { background: #374151; }
+    :host-context(.dark) .dropdown-divider { background: #374151; }
+
+    :host-context(.dark) .empty-icon { background: #374151; color: #6b7280; }
+    :host-context(.dark) .empty-state h3 { color: #f9fafb; }
+    :host-context(.dark) .empty-state p { color: #9ca3af; }
+
+    :host-context(.dark) .skeleton {
+      background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+      background-size: 200% 100%;
+    }
+
+    :host-context(.dark) .skeleton-card { border-bottom-color: #374151; }
+
+    :host-context(.dark) .pagination { border-top-color: #374151; }
+    :host-context(.dark) .page-info { color: #9ca3af; }
+
+    /* =====================
+       Responsive
+    ===================== */
     @media (max-width: 1024px) {
-      .stats-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
     }
 
     @media (max-width: 768px) {
+      .prescription-list { padding: 16px; }
+
       .page-header {
         flex-direction: column;
         gap: 16px;
       }
 
-      .header-actions {
-        width: 100%;
-      }
+      .header-actions { width: 100%; }
 
-      .stats-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
 
-      .filters-section {
-        flex-direction: column;
-      }
+      .med-type-tabs { flex-direction: column; }
 
-      .search-box {
-        min-width: 100%;
-      }
+      .filters-section { flex-direction: column; }
+      .search-box { min-width: 100%; }
+      .filter-group { flex-wrap: wrap; }
 
-      .filter-group {
-        flex-wrap: wrap;
-      }
+      .card-header { flex-direction: column; gap: 10px; }
+      .card-badges { justify-content: flex-start; }
 
-      .detail-row {
-        gap: 16px;
-      }
+      .detail-row { gap: 16px; }
 
-      .footer-info {
-        flex-wrap: wrap;
-        gap: 8px;
-      }
+      .footer-info { flex-wrap: wrap; gap: 8px; }
     }
   `]
 })
 export class PrescriptionListComponent implements OnInit {
   private prescriptionService = inject(PrescriptionService);
 
+  // Core data signals
   prescriptions = signal<Prescription[]>([]);
   loading = signal(true);
   totalCount = signal(0);
   currentPage = signal(0);
   pageSize = signal(20);
 
+  // Filter signals
   searchQuery = signal('');
   statusFilter = signal<string>('');
   controlledFilter = signal<string>('');
   timeFilter = signal<string>('');
   openMenuId = signal<string | null>(null);
 
+  // Medication type filter
+  selectedMedType = signal<MedTypeFilter>('all');
+
+  // Whether the duplicate warning banner has been manually dismissed
+  private warningsDismissed = signal(false);
+
+  // =====================
+  // Computed Signals
+  // =====================
+
   totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
   stats = computed(() => {
-    // These would typically come from a separate API call
     const all = this.prescriptions();
     return {
       active: all.filter(p => p.status === 'active').length,
@@ -1069,16 +1423,93 @@ export class PrescriptionListComponent implements OnInit {
     };
   });
 
+  /** Prescriptions filtered by the active medication-type tab */
+  filteredByType = computed(() => {
+    const all = this.prescriptions();
+    const filter = this.selectedMedType();
+
+    if (filter === 'rx') {
+      return all.filter(rx => !rx.medication.medicationType || rx.medication.medicationType === 'rx');
+    }
+    if (filter === 'otc') {
+      const otcTypes: MedicationType[] = ['otc', 'supplement', 'herbal', 'vitamin'];
+      return all.filter(rx => rx.medication.medicationType && otcTypes.includes(rx.medication.medicationType));
+    }
+    return all;
+  });
+
+  /** Count of Rx prescriptions for the tab badge */
+  rxCount = computed(() =>
+    this.prescriptions().filter(rx =>
+      !rx.medication.medicationType || rx.medication.medicationType === 'rx'
+    ).length
+  );
+
+  /** Count of OTC/supplement prescriptions for the tab badge */
+  otcCount = computed(() => {
+    const otcTypes: MedicationType[] = ['otc', 'supplement', 'herbal', 'vitamin'];
+    return this.prescriptions().filter(rx =>
+      rx.medication.medicationType && otcTypes.includes(rx.medication.medicationType)
+    ).length;
+  });
+
+  /**
+   * Detects potential duplicate medications by finding pairs of prescription
+   * medications whose names share a common word of 4 or more characters.
+   * Uses the currently type-filtered list to keep warnings contextually relevant.
+   */
+  duplicateWarnings = computed((): DuplicateWarning[] => {
+    if (this.warningsDismissed()) return [];
+
+    const rxList = this.filteredByType();
+    if (rxList.length < 2) return [];
+
+    const warnings: DuplicateWarning[] = [];
+    const reported = new Set<string>();
+
+    const tokenize = (name: string): string[] =>
+      name
+        .toLowerCase()
+        .split(/[\s\-\/+,()]+/)
+        .filter(w => w.length >= 4);
+
+    for (let i = 0; i < rxList.length; i++) {
+      for (let j = i + 1; j < rxList.length; j++) {
+        const aTokens = new Set(tokenize(rxList[i].medication.name));
+        const bTokens = tokenize(rxList[j].medication.name);
+
+        for (const token of bTokens) {
+          if (aTokens.has(token) && !reported.has(token)) {
+            reported.add(token);
+            warnings.push({
+              sharedWord: token,
+              medications: [rxList[i].medication.name, rxList[j].medication.name],
+            });
+          }
+        }
+      }
+    }
+
+    return warnings;
+  });
+
+  // =====================
+  // Lifecycle
+  // =====================
+
   ngOnInit() {
     this.loadPrescriptions();
 
-    // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.dropdown')) {
         this.openMenuId.set(null);
       }
     });
   }
+
+  // =====================
+  // Data Loading
+  // =====================
 
   loadPrescriptions() {
     this.loading.set(true);
@@ -1088,15 +1519,9 @@ export class PrescriptionListComponent implements OnInit {
       limit: this.pageSize(),
     };
 
-    if (this.searchQuery()) {
-      params.search = this.searchQuery();
-    }
-    if (this.statusFilter()) {
-      params.status = [this.statusFilter()];
-    }
-    if (this.controlledFilter()) {
-      params.isControlled = this.controlledFilter() === 'controlled';
-    }
+    if (this.searchQuery()) params.search = this.searchQuery();
+    if (this.statusFilter()) params.status = [this.statusFilter()];
+    if (this.controlledFilter()) params.isControlled = this.controlledFilter() === 'controlled';
     if (this.timeFilter()) {
       const now = new Date();
       switch (this.timeFilter()) {
@@ -1120,12 +1545,18 @@ export class PrescriptionListComponent implements OnInit {
         this.prescriptions.set(result.data);
         this.totalCount.set(result.total);
         this.loading.set(false);
+        // Reset warning dismissal when data reloads
+        this.warningsDismissed.set(false);
       },
       error: () => {
         this.loading.set(false);
       }
     });
   }
+
+  // =====================
+  // Filter Handlers
+  // =====================
 
   onSearchChange() {
     this.currentPage.set(0);
@@ -1151,10 +1582,23 @@ export class PrescriptionListComponent implements OnInit {
     this.loadPrescriptions();
   }
 
+  setMedType(type: MedTypeFilter) {
+    this.selectedMedType.set(type);
+    this.warningsDismissed.set(false);
+  }
+
+  dismissDuplicateWarnings() {
+    this.warningsDismissed.set(true);
+  }
+
   goToPage(page: number) {
     this.currentPage.set(page);
     this.loadPrescriptions();
   }
+
+  // =====================
+  // Display Helpers
+  // =====================
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -1172,6 +1616,35 @@ export class PrescriptionListComponent implements OnInit {
     };
     return statusMap[status] || status;
   }
+
+  getMedTypeLabel(type: MedicationType): string {
+    const labels: Record<MedicationType, string> = {
+      'rx': 'Rx',
+      'otc': 'OTC',
+      'supplement': 'Supplement',
+      'herbal': 'Herbal',
+      'vitamin': 'Vitamin',
+    };
+    return labels[type] ?? type;
+  }
+
+  getVerificationLabel(status: string): string {
+    const labels: Record<string, string> = {
+      'verified': 'Verified',
+      'patient-reported': 'Patient Reported',
+      'unverified': 'Unverified',
+    };
+    return labels[status] || status;
+  }
+
+  isOtcType(type?: MedicationType): boolean {
+    if (!type) return false;
+    return ['otc', 'supplement', 'herbal', 'vitamin'].includes(type);
+  }
+
+  // =====================
+  // Actions
+  // =====================
 
   toggleMenu(id: string) {
     this.openMenuId.set(this.openMenuId() === id ? null : id);
@@ -1192,7 +1665,6 @@ export class PrescriptionListComponent implements OnInit {
   renewPrescription(rx: Prescription) {
     this.prescriptionService.renewPrescription({ prescriptionId: rx.id }).subscribe({
       next: (newRx) => {
-        // Navigate to edit the new prescription
         window.location.href = `/prescriptions/${newRx.id}/edit`;
       }
     });
@@ -1200,7 +1672,6 @@ export class PrescriptionListComponent implements OnInit {
   }
 
   printPrescription(rx: Prescription) {
-    // Would open print dialog
     console.log('Print prescription:', rx.id);
     this.openMenuId.set(null);
   }
@@ -1223,7 +1694,6 @@ export class PrescriptionListComponent implements OnInit {
   }
 
   exportPrescriptions() {
-    // Would export to CSV/PDF
     console.log('Export prescriptions');
   }
 }

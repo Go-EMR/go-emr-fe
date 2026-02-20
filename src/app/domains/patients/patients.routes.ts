@@ -71,6 +71,30 @@ export const PATIENT_ROUTES: Routes = [
             loadChildren: () =>
               import('../billing/billing.routes').then((m) => m.BILLING_ROUTES),
             data: { breadcrumb: 'Billing' }
+          },
+          {
+            path: 'internal-notes',
+            loadComponent: () =>
+              import('./feature-internal-notes/internal-notes.component').then(
+                (m) => m.InternalNotesComponent
+              ),
+            data: { breadcrumb: 'Internal Notes', permission: 'patients:read' }
+          },
+          {
+            path: 'external-data',
+            loadComponent: () =>
+              import('./feature-external-data/external-data.component').then(
+                (m) => m.ExternalDataComponent
+              ),
+            data: { breadcrumb: 'External Data', permission: 'patients:read' }
+          },
+          {
+            path: 'timeline',
+            loadComponent: () =>
+              import('./feature-patient-timeline/patient-timeline.component').then(
+                (m) => m.PatientTimelineComponent
+              ),
+            data: { breadcrumb: 'Timeline', permission: 'patients:read' }
           }
         ]
       }

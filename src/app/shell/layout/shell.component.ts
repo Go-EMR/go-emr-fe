@@ -24,6 +24,7 @@ import { MenuItem } from 'primeng/api';
 import { AuthService } from '../../core/auth/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { GlobalSearchComponent } from '../feature-global-search/global-search.component';
 
 interface NavItem {
   label: string;
@@ -56,6 +57,7 @@ interface NavItem {
     IconFieldModule,
     InputIconModule,
     OverlayPanelModule,
+    GlobalSearchComponent,
   ],
   animations: [
     trigger('fadeIn', [
@@ -316,18 +318,17 @@ interface NavItem {
               />
             }
             
-            <!-- Search -->
-            <div class="search-wrapper">
-              <p-iconfield>
-                <p-inputicon styleClass="pi pi-search" />
-                <input 
-                  pInputText 
-                  type="text" 
-                  placeholder="Search patients, appointments..."
-                  class="search-input"
-                />
-              </p-iconfield>
-            </div>
+            <!-- Search trigger -->
+            <button
+              class="search-trigger"
+              (click)="globalSearch.open()"
+              aria-label="Open global search (Ctrl+K)"
+              pTooltip="Search (Ctrl+K)"
+              tooltipPosition="bottom">
+              <i class="pi pi-search search-trigger-icon"></i>
+              <span class="search-trigger-text">Search patients, conditions, meds...</span>
+              <kbd class="search-trigger-kbd">Ctrl K</kbd>
+            </button>
           </div>
           
           <div class="toolbar-right">
@@ -425,6 +426,9 @@ interface NavItem {
         </div>
       </p-overlayPanel>
       
+      <!-- Global Semantic Search overlay -->
+      <emr-global-search #globalSearch />
+
       <!-- Notifications Panel -->
       <p-overlayPanel #notificationPanel styleClass="notification-panel">
         <div class="notification-header">
@@ -740,13 +744,69 @@ interface NavItem {
       gap: 0.5rem;
     }
     
-    .search-wrapper {
+    /* Search trigger button (replaces old passive input) */
+    .search-trigger {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       max-width: 400px;
       flex: 1;
+      padding: 0.5rem 0.875rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      color: #94a3b8;
+      font-size: 0.875rem;
     }
-    
-    .search-input {
-      width: 100%;
+
+    .search-trigger:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #64748b;
+    }
+
+    .dark .search-trigger {
+      background: #334155;
+      border-color: #475569;
+      color: #64748b;
+    }
+
+    .dark .search-trigger:hover {
+      background: #475569;
+      border-color: #64748b;
+      color: #94a3b8;
+    }
+
+    .search-trigger-icon {
+      font-size: 0.9375rem;
+      flex-shrink: 0;
+    }
+
+    .search-trigger-text {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .search-trigger-kbd {
+      flex-shrink: 0;
+      font-family: inherit;
+      font-size: 0.6875rem;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.25rem;
+      padding: 0.0625rem 0.375rem;
+      color: #94a3b8;
+    }
+
+    .dark .search-trigger-kbd {
+      background: #1e293b;
+      border-color: #334155;
+      color: #475569;
     }
     
     /* Page Content */
@@ -977,6 +1037,7 @@ interface NavItem {
 })
 export class ShellComponent implements OnInit {
   @ViewChild('notificationPanel') notificationPanel!: OverlayPanel;
+  @ViewChild('globalSearch') globalSearch!: GlobalSearchComponent;
   
   private readonly authService = inject(AuthService);
   readonly themeService = inject(ThemeService);
@@ -1086,6 +1147,7 @@ export class ShellComponent implements OnInit {
         { label: 'Financial', icon: 'pi-dollar', route: '/reports/financial' },
         { label: 'Operational', icon: 'pi-cog', route: '/reports/operational' },
         { label: 'Custom', icon: 'pi-sliders-h', route: '/reports/custom' },
+        { label: 'Rounding Sheets', icon: 'pi-clipboard', route: '/reports/rounding-sheets' },
       ]
     },
     { 

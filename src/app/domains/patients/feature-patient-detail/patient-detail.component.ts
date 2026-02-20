@@ -21,6 +21,7 @@ import { Table, TableModule } from 'primeng/table';
 import { MenuItem } from 'primeng/api';
 
 import { PatientService } from '../data-access/services/patient.service';
+import { ExternalDataService } from '../data-access/services/external-data.service';
 import { Patient } from '../data-access/models/patient.model';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -1182,6 +1183,73 @@ interface RecentActivity {
       color: #94a3b8;
     }
 
+    /* Internal Notes Tab */
+    :host ::ng-deep .internal-notes-tab .p-tabmenu-item-link {
+      color: #dc2626 !important;
+    }
+
+    :host ::ng-deep .internal-notes-tab .p-tabmenu-item-link i {
+      color: #dc2626;
+    }
+
+    :host ::ng-deep .internal-notes-tab.p-tabmenu-item-active .p-tabmenu-item-link {
+      background: #dc2626 !important;
+      color: white !important;
+    }
+
+    :host ::ng-deep .internal-notes-tab.p-tabmenu-item-active .p-tabmenu-item-link i {
+      color: white;
+    }
+
+    :host ::ng-deep .internal-notes-badge {
+      background: #dc2626 !important;
+      color: white !important;
+      font-size: 0.6rem !important;
+      padding: 0.125rem 0.35rem !important;
+      border-radius: 9999px !important;
+    }
+
+    :host ::ng-deep .internal-notes-tab.p-tabmenu-item-active .internal-notes-badge {
+      background: white !important;
+      color: #dc2626 !important;
+    }
+
+    /* Timeline Tab */
+    :host ::ng-deep .timeline-tab .p-tabmenu-item-link {
+      color: #7c3aed !important;
+    }
+
+    :host ::ng-deep .timeline-tab.p-tabmenu-item-active .p-tabmenu-item-link {
+      background: #7c3aed !important;
+      color: white !important;
+      border: none;
+    }
+
+    /* External Data Tab */
+    :host ::ng-deep .external-data-tab .p-tabmenu-item-link {
+      color: #0ea5e9 !important;
+    }
+
+    :host ::ng-deep .external-data-tab.p-tabmenu-item-active .p-tabmenu-item-link {
+      background: #0ea5e9 !important;
+      color: white !important;
+      border: none;
+    }
+
+    :host ::ng-deep .external-data-badge {
+      background: #dc2626 !important;
+      color: white !important;
+      font-size: 0.6rem !important;
+      padding: 0.125rem 0.35rem !important;
+      border-radius: 9999px !important;
+      font-weight: 700 !important;
+    }
+
+    :host ::ng-deep .external-data-tab.p-tabmenu-item-active .external-data-badge {
+      background: white !important;
+      color: #0ea5e9 !important;
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
       .overview-content {
@@ -1231,12 +1299,20 @@ interface RecentActivity {
 export class PatientDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly patientService = inject(PatientService);
+  private readonly externalDataService = inject(ExternalDataService);
   readonly themeService = inject(ThemeService);
   private readonly destroy$ = new Subject<void>();
 
   // Signals
   patient = signal<Patient | null>(null);
   loading = signal(true);
+  externalUnreviewed = signal<number>(0);
+
+  // Computed badge label: show count when > 0, otherwise undefined (hides badge)
+  externalUnreviewedBadge = computed(() => {
+    const count = this.externalUnreviewed();
+    return count > 0 ? String(count) : undefined;
+  });
 
   // Menu items
   newMenuItems: MenuItem[] = [
@@ -1258,12 +1334,28 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
   // Tab items - use routerLink for routed tabs, command for inline tabs
   tabItems: MenuItem[] = [
     { label: 'Overview', icon: 'pi pi-home', command: () => this.setActiveTab('overview') },
+    { label: 'Timeline', icon: 'pi pi-clock', routerLink: ['timeline'], styleClass: 'timeline-tab' },
     { label: 'Encounters', icon: 'pi pi-file-edit', routerLink: ['encounters'] },
     { label: 'Problems', icon: 'pi pi-list', command: () => this.setActiveTab('problems') },
     { label: 'Medications', icon: 'pi pi-box', command: () => this.setActiveTab('medications') },
     { label: 'Allergies', icon: 'pi pi-exclamation-triangle', command: () => this.setActiveTab('allergies') },
     { label: 'Labs', icon: 'pi pi-chart-bar', routerLink: ['labs'] },
     { label: 'Documents', icon: 'pi pi-folder', command: () => this.setActiveTab('documents') },
+    {
+      label: 'External Data',
+      icon: 'pi pi-globe',
+      routerLink: ['external-data'],
+      styleClass: 'external-data-tab',
+      badgeStyleClass: 'external-data-badge',
+    },
+    {
+      label: 'Internal Notes',
+      icon: 'pi pi-lock',
+      routerLink: ['internal-notes'],
+      styleClass: 'internal-notes-tab',
+      badge: 'Staff',
+      badgeStyleClass: 'internal-notes-badge',
+    },
   ];
 
   activeTab = this.tabItems[0];
@@ -1274,6 +1366,15 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
     const tabItem = this.tabItems.find(t => t.label?.toLowerCase() === tab);
     if (tabItem) {
       this.activeTab = tabItem;
+    }
+  }
+
+  private updateExternalDataBadge(count: number): void {
+    const externalTab = this.tabItems.find(t => t.label === 'External Data');
+    if (externalTab) {
+      externalTab.badge = count > 0 ? String(count) : undefined;
+      // Force PrimeNG TabMenu to pick up the change
+      this.tabItems = [...this.tabItems];
     }
   }
 
@@ -1332,7 +1433,15 @@ export class PatientDetailComponent implements OnInit, OnDestroy {
     this.route.params.pipe(
       switchMap(params => {
         this.loading.set(true);
-        return this.patientService.getPatient(params['patientId']);
+        const patientId = params['patientId'];
+        // Load unreviewed external data count for badge
+        this.externalDataService.getUnreviewedCount(patientId)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(count => {
+            this.externalUnreviewed.set(count);
+            this.updateExternalDataBadge(count);
+          });
+        return this.patientService.getPatient(patientId);
       }),
       takeUntil(this.destroy$)
     ).subscribe({

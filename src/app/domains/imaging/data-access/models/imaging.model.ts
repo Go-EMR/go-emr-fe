@@ -150,7 +150,8 @@ export interface ImagingOrder {
   scheduledDate?: string;
   performedDate?: string;
   reportedDate?: string;
-  
+  expirationDate?: string;
+
   // Special instructions
   patientInstructions?: string;
   technicianInstructions?: string;
@@ -423,6 +424,20 @@ export const LATERALITY_LABELS: Record<Laterality, string> = {
   'right': 'Right',
   'bilateral': 'Bilateral',
   'not-applicable': 'N/A'
+};
+
+// Imaging expiration defaults in months, keyed by modality
+export const IMAGING_EXPIRATION_DEFAULTS: Record<string, number> = {
+  'xray': 12,
+  'ct': 12,
+  'mri': 12,
+  'ultrasound': 12,
+  'mammography': 24,
+  'fluoroscopy': 12,
+  'nuclear': 12,
+  'pet': 6,
+  'dexa': 24,
+  'DEFAULT': 12,
 };
 
 export const SEVERITY_COLORS: Record<FindingSeverity, string> = {

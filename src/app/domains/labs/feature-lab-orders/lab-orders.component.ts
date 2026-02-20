@@ -2,6 +2,8 @@ import { Component, inject, signal, computed, OnInit, OnDestroy, input, output }
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
+import { LabService } from '../data-access/services/lab.service';
+import { CustomLabPanel as ServiceCustomLabPanel } from '../data-access/models/lab.model';
 
 // PrimeNG
 import { CardModule } from 'primeng/card';
@@ -163,11 +165,11 @@ interface DiagnosisCode {
           <p class="subtitle">Order laboratory tests and view results</p>
         </div>
         <div class="header-actions">
-          <p-button 
-            label="Order Set Library"
+          <p-button
+            label="Panel Library"
             icon="pi pi-book"
             [outlined]="true"
-            (onClick)="showOrderSetsDialog.set(true)"
+            (onClick)="openPanelLibrary()"
           />
           <p-button 
             label="New Lab Order"
@@ -782,32 +784,437 @@ interface DiagnosisCode {
         </ng-template>
       </p-dialog>
 
-      <!-- Order Sets Dialog -->
-      <p-dialog 
-        header="Order Set Library"
+      <!-- Panel Library Dialog -->
+      <p-dialog
+        header="Panel Library"
         [(visible)]="showOrderSetsDialog"
         [modal]="true"
-        [style]="{ width: '600px' }"
+        [style]="{ width: '760px', maxHeight: '90vh' }"
+        styleClass="panel-library-dialog"
+        [draggable]="false"
       >
-        <div class="order-sets-list">
-          @for (orderSet of orderSets; track orderSet.id) {
-            <div class="order-set-item" (click)="applyOrderSet(orderSet)" pRipple>
-              <div class="set-info">
-                <span class="set-name">{{ orderSet.name }}</span>
-                <span class="set-desc">{{ orderSet.description }}</span>
-                <div class="set-tests">
-                  @for (testId of orderSet.tests.slice(0, 3); track testId) {
-                    <span class="set-test-chip">{{ getTestName(testId) }}</span>
-                  }
-                  @if (orderSet.tests.length > 3) {
-                    <span class="more">+{{ orderSet.tests.length - 3 }} more</span>
-                  }
+        <!-- Search + Create header -->
+        <div class="pl-toolbar">
+          <span class="p-input-icon-left pl-search-wrap">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              [ngModel]="panelLibrarySearch()"
+              (ngModelChange)="panelLibrarySearch.set($event)"
+              placeholder="Search panels by name, tag, or specialty..."
+              class="pl-search-input"
+            />
+          </span>
+          <p-button
+            label="Create Panel"
+            icon="pi pi-plus"
+            size="small"
+            (onClick)="openCreatePanelDialog()"
+          />
+        </div>
+
+        <!-- Sub-tabs -->
+        <div class="pl-tabs">
+          <button
+            class="pl-tab"
+            [class.active]="panelLibraryTab() === 'order-sets'"
+            (click)="panelLibraryTab.set('order-sets')"
+          >
+            <i class="pi pi-list"></i>
+            Order Sets
+            <span class="pl-tab-count">{{ orderSets.length }}</span>
+          </button>
+          <button
+            class="pl-tab"
+            [class.active]="panelLibraryTab() === 'my-panels'"
+            (click)="panelLibraryTab.set('my-panels')"
+          >
+            <i class="pi pi-user"></i>
+            My Panels
+            <span class="pl-tab-count">{{ filteredMyPanels().length }}</span>
+          </button>
+          <button
+            class="pl-tab"
+            [class.active]="panelLibraryTab() === 'shared'"
+            (click)="panelLibraryTab.set('shared')"
+          >
+            <i class="pi pi-share-alt"></i>
+            Shared Library
+            <span class="pl-tab-count">{{ filteredSharedPanels().length }}</span>
+          </button>
+        </div>
+
+        <!-- Order Sets Tab -->
+        @if (panelLibraryTab() === 'order-sets') {
+          <div class="pl-content">
+            @for (orderSet of orderSets; track orderSet.id) {
+              <div class="pl-card" pRipple>
+                <div class="pl-card-body">
+                  <div class="pl-card-header">
+                    <span class="pl-card-name">{{ orderSet.name }}</span>
+                    <p-button
+                      label="Use"
+                      icon="pi pi-plus"
+                      size="small"
+                      (onClick)="applyOrderSet(orderSet)"
+                    />
+                  </div>
+                  <p class="pl-card-desc">{{ orderSet.description }}</p>
+                  <div class="pl-card-tests">
+                    @for (testId of orderSet.tests.slice(0, 4); track testId) {
+                      <span class="pl-test-chip">{{ getTestName(testId) }}</span>
+                    }
+                    @if (orderSet.tests.length > 4) {
+                      <span class="pl-more">+{{ orderSet.tests.length - 4 }} more</span>
+                    }
+                  </div>
                 </div>
               </div>
-              <p-button icon="pi pi-plus" [rounded]="true" [text]="true" />
+            }
+          </div>
+        }
+
+        <!-- My Panels Tab -->
+        @if (panelLibraryTab() === 'my-panels') {
+          <div class="pl-content">
+            @if (filteredMyPanels().length === 0) {
+              <div class="pl-empty">
+                <i class="pi pi-inbox"></i>
+                <p>No custom panels yet.</p>
+                <p class="pl-empty-sub">Create a panel from your selected tests or build one from scratch.</p>
+                <p-button
+                  label="Create Your First Panel"
+                  icon="pi pi-plus"
+                  size="small"
+                  [outlined]="true"
+                  (onClick)="openCreatePanelDialog()"
+                />
+              </div>
+            }
+            @for (panel of filteredMyPanels(); track panel.id) {
+              <div class="pl-card">
+                <div class="pl-card-body">
+                  <div class="pl-card-header">
+                    <div class="pl-card-title-group">
+                      <span class="pl-card-name">{{ panel.name }}</span>
+                      @if (panel.isPublished) {
+                        <span class="pl-badge pl-badge-published">
+                          <i class="pi pi-globe"></i> Published
+                        </span>
+                      } @else {
+                        <span class="pl-badge pl-badge-private">
+                          <i class="pi pi-lock"></i> Private
+                        </span>
+                      }
+                    </div>
+                    <div class="pl-card-actions">
+                      <p-button
+                        label="Use"
+                        icon="pi pi-plus"
+                        size="small"
+                        (onClick)="selectCustomPanel(panel)"
+                      />
+                      @if (!panel.isPublished) {
+                        <p-button
+                          icon="pi pi-globe"
+                          size="small"
+                          [outlined]="true"
+                          severity="secondary"
+                          pTooltip="Publish to Shared Library"
+                          [loading]="publishingPanelId() === panel.id"
+                          (onClick)="publishPanel(panel)"
+                        />
+                      } @else {
+                        <p-button
+                          icon="pi pi-lock"
+                          size="small"
+                          [outlined]="true"
+                          severity="secondary"
+                          pTooltip="Unpublish"
+                          [loading]="publishingPanelId() === panel.id"
+                          (onClick)="unpublishPanel(panel)"
+                        />
+                      }
+                      <p-button
+                        icon="pi pi-trash"
+                        size="small"
+                        [text]="true"
+                        severity="danger"
+                        pTooltip="Delete"
+                        [loading]="deletingPanelId() === panel.id"
+                        (onClick)="deletePanel(panel)"
+                      />
+                    </div>
+                  </div>
+
+                  @if (panel.description) {
+                    <p class="pl-card-desc">{{ panel.description }}</p>
+                  }
+
+                  <div class="pl-card-tests">
+                    @for (test of panel.tests.slice(0, 5); track test.id) {
+                      <span class="pl-test-chip">{{ test.name }}</span>
+                    }
+                    @if (panel.tests.length > 5) {
+                      <span class="pl-more">+{{ panel.tests.length - 5 }} more</span>
+                    }
+                  </div>
+
+                  <div class="pl-card-meta">
+                    <div class="pl-meta-left">
+                      @if (panel.tags && panel.tags.length > 0) {
+                        <div class="pl-tags">
+                          @for (tag of panel.tags; track tag) {
+                            <span class="pl-tag">{{ tag }}</span>
+                          }
+                        </div>
+                      }
+                      @if (panel.specialty) {
+                        <span class="pl-specialty">{{ panel.specialty }}</span>
+                      }
+                    </div>
+                    <div class="pl-meta-right">
+                      <span class="pl-stat">
+                        <i class="pi pi-history"></i>
+                        Used {{ formatUseCount(panel.useCount) }}x
+                      </span>
+                      <span class="pl-stat">
+                        <i class="pi pi-clock"></i>
+                        {{ panelLastUsed(panel.lastUsedAt) }}
+                      </span>
+                      @if (panel.isPublished && panel.subscriberCount) {
+                        <span class="pl-stat">
+                          <i class="pi pi-users"></i>
+                          {{ panel.subscriberCount }} subscribers
+                        </span>
+                      }
+                      <span class="pl-stat pl-version">v{{ panel.version }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Shared Library Tab -->
+        @if (panelLibraryTab() === 'shared') {
+          <div class="pl-content">
+            @if (filteredSharedPanels().length === 0) {
+              <div class="pl-empty">
+                <i class="pi pi-share-alt"></i>
+                <p>No shared panels found.</p>
+                <p class="pl-empty-sub">Publish one of your panels to contribute to the shared library.</p>
+              </div>
+            }
+            @for (panel of filteredSharedPanels(); track panel.id) {
+              <div class="pl-card pl-card-shared">
+                <div class="pl-card-body">
+                  <div class="pl-card-header">
+                    <div class="pl-card-title-group">
+                      <span class="pl-card-name">{{ panel.name }}</span>
+                      <span class="pl-badge pl-badge-published">
+                        <i class="pi pi-globe"></i> Shared
+                      </span>
+                    </div>
+                    <div class="pl-card-actions">
+                      <p-button
+                        label="Use"
+                        icon="pi pi-plus"
+                        size="small"
+                        (onClick)="selectCustomPanel(panel)"
+                      />
+                      <p-button
+                        label="Clone"
+                        icon="pi pi-copy"
+                        size="small"
+                        [outlined]="true"
+                        severity="secondary"
+                        pTooltip="Clone to My Panels"
+                        [loading]="cloningPanelId() === panel.id"
+                        (onClick)="clonePanel(panel)"
+                      />
+                    </div>
+                  </div>
+
+                  @if (panel.description) {
+                    <p class="pl-card-desc">{{ panel.description }}</p>
+                  }
+
+                  <div class="pl-card-tests">
+                    @for (test of panel.tests.slice(0, 5); track test.id) {
+                      <span class="pl-test-chip">{{ test.name }}</span>
+                    }
+                    @if (panel.tests.length > 5) {
+                      <span class="pl-more">+{{ panel.tests.length - 5 }} more</span>
+                    }
+                  </div>
+
+                  <div class="pl-card-meta">
+                    <div class="pl-meta-left">
+                      <span class="pl-author">
+                        <i class="pi pi-user"></i>
+                        {{ panel.createdByName }}
+                      </span>
+                      @if (panel.specialty) {
+                        <span class="pl-specialty">{{ panel.specialty }}</span>
+                      }
+                      @if (panel.tags && panel.tags.length > 0) {
+                        <div class="pl-tags">
+                          @for (tag of panel.tags; track tag) {
+                            <span class="pl-tag">{{ tag }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <div class="pl-meta-right">
+                      <span class="pl-stat pl-stat-highlight">
+                        <i class="pi pi-users"></i>
+                        {{ panel.subscriberCount }} subscribers
+                      </span>
+                      <span class="pl-stat">
+                        <i class="pi pi-history"></i>
+                        {{ formatUseCount(panel.useCount) }} uses
+                      </span>
+                      <span class="pl-stat">
+                        <i class="pi pi-clock"></i>
+                        {{ panelLastUsed(panel.lastUsedAt) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </p-dialog>
+
+      <!-- Create Panel Dialog -->
+      <p-dialog
+        header="Create Custom Panel"
+        [(visible)]="showCreatePanelDialog"
+        [modal]="true"
+        [style]="{ width: '640px' }"
+        styleClass="create-panel-dialog"
+        [draggable]="false"
+      >
+        <div class="cp-form">
+          <!-- Panel name -->
+          <div class="cp-field">
+            <label class="cp-label" for="cpName">Panel Name <span class="required">*</span></label>
+            <input
+              id="cpName"
+              pInputText
+              [(ngModel)]="newPanelName"
+              placeholder="e.g. My Diabetes Follow-up"
+              class="w-full"
+            />
+          </div>
+
+          <!-- Description -->
+          <div class="cp-field">
+            <label class="cp-label" for="cpDesc">Description</label>
+            <textarea
+              id="cpDesc"
+              pInputTextarea
+              [(ngModel)]="newPanelDescription"
+              rows="2"
+              placeholder="Brief description of when to use this panel..."
+              class="w-full"
+            ></textarea>
+          </div>
+
+          <!-- Specialty + Tags row -->
+          <div class="cp-row">
+            <div class="cp-field">
+              <label class="cp-label">Specialty</label>
+              <p-select
+                [(ngModel)]="newPanelSpecialty"
+                [options]="specialtyOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Select specialty"
+                styleClass="w-full"
+              />
             </div>
-          }
+            <div class="cp-field">
+              <label class="cp-label">Tags</label>
+              <input
+                pInputText
+                [(ngModel)]="newPanelTags"
+                placeholder="e.g. diabetes, lipids, annual"
+                class="w-full"
+              />
+              <small class="cp-hint">Comma-separated for discoverability</small>
+            </div>
+          </div>
+
+          <!-- Test selection -->
+          <div class="cp-field">
+            <label class="cp-label">
+              Tests in Panel <span class="required">*</span>
+              <span class="cp-test-count">({{ newPanelTests().length }} selected)</span>
+            </label>
+
+            <!-- Selected tests chips -->
+            @if (newPanelTests().length > 0) {
+              <div class="cp-selected-tests">
+                @for (test of newPanelTests(); track test.id) {
+                  <div class="cp-selected-test-chip">
+                    <span>{{ test.name }}</span>
+                    <button class="cp-chip-remove" (click)="removeNewPanelTest(test)">
+                      <i class="pi pi-times"></i>
+                    </button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="cp-no-tests">No tests selected. Choose from the list below.</p>
+            }
+
+            <!-- Available tests to add -->
+            <div class="cp-available-tests">
+              <p class="cp-available-label">Add tests:</p>
+              <div class="cp-tests-grid">
+                @for (test of labTests; track test.id) {
+                  <div
+                    class="cp-test-row"
+                    [class.cp-test-added]="isTestInNewPanel(test)"
+                    (click)="addTestToNewPanel(test)"
+                  >
+                    <p-checkbox
+                      [binary]="true"
+                      [ngModel]="isTestInNewPanel(test)"
+                      (click)="$event.stopPropagation()"
+                      (onChange)="isTestInNewPanel(test) ? removeNewPanelTest(test) : addTestToNewPanel(test)"
+                    />
+                    <span class="cp-test-name">{{ test.name }}</span>
+                    <span class="cp-test-code">{{ test.code }}</span>
+                    @if (test.requiresFasting) {
+                      <span class="cp-fasting-badge">Fasting</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
         </div>
+
+        <ng-template pTemplate="footer">
+          <p-button
+            label="Cancel"
+            [text]="true"
+            severity="secondary"
+            (onClick)="showCreatePanelDialog.set(false)"
+          />
+          <p-button
+            label="Save Panel"
+            icon="pi pi-check"
+            [loading]="creatingPanel()"
+            [disabled]="!newPanelName.trim() || newPanelTests().length === 0"
+            (onClick)="createPanel()"
+          />
+        </ng-template>
       </p-dialog>
     </div>
   `,
@@ -1421,64 +1828,429 @@ interface DiagnosisCode {
       font-weight: 500;
     }
 
-    /* Order Sets Dialog */
-    .order-sets-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .order-set-item {
+    /* ============ Panel Library Dialog ============ */
+    .pl-toolbar {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 1rem;
-      background: #f8fafc;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background 0.2s;
+      gap: 0.75rem;
+      padding: 0 0 1rem;
     }
 
-    .order-set-item:hover {
-      background: #f3e8ff;
-    }
-
-    .set-info {
+    .pl-search-wrap {
       flex: 1;
     }
 
-    .set-name {
-      display: block;
-      font-weight: 600;
-      color: #1e293b;
+    .pl-search-input {
+      width: 100%;
     }
 
-    .set-desc {
-      font-size: 0.75rem;
+    .pl-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 1rem;
+    }
+
+    .pl-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+
+    .pl-tab:hover {
+      color: #7c3aed;
+      background: #faf5ff;
+    }
+
+    .pl-tab.active {
+      color: #7c3aed;
+      border-bottom-color: #7c3aed;
+    }
+
+    .pl-tab-count {
+      background: #e5e7eb;
+      color: #64748b;
+      border-radius: 20px;
+      padding: 0.0625rem 0.5rem;
+      font-size: 0.6875rem;
+    }
+
+    .pl-tab.active .pl-tab-count {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .pl-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .pl-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 3rem 1rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    .pl-empty i {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pl-empty p {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 500;
       color: #64748b;
     }
 
-    .set-tests {
+    .pl-empty-sub {
+      font-size: 0.8125rem !important;
+      color: #94a3b8 !important;
+      font-weight: 400 !important;
+    }
+
+    /* Panel card */
+    .pl-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .pl-card:hover {
+      border-color: #c4b5fd;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+    }
+
+    .pl-card-shared {
+      border-left: 3px solid #8b5cf6;
+    }
+
+    .pl-card-body {
+      padding: 0.875rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .pl-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .pl-card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .pl-card-name {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 0.9375rem;
+    }
+
+    .pl-card-actions {
+      display: flex;
+      gap: 0.25rem;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .pl-card-desc {
+      margin: 0;
+      font-size: 0.8125rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    .pl-card-tests {
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
-      margin-top: 0.5rem;
     }
 
-    .set-test-chip {
-      padding: 0.125rem 0.375rem;
+    .pl-test-chip {
+      padding: 0.125rem 0.5rem;
       background: #ede9fe;
       border-radius: 4px;
       font-size: 0.6875rem;
       color: #6d28d9;
     }
 
-    .set-tests .more {
+    .pl-more {
+      font-size: 0.6875rem;
+      color: #94a3b8;
+      align-self: center;
+    }
+
+    /* Badges */
+    .pl-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 20px;
+      font-size: 0.6875rem;
+      font-weight: 500;
+    }
+
+    .pl-badge-published {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .pl-badge-private {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    /* Card metadata row */
+    .pl-card-meta {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .pl-meta-left,
+    .pl-meta-right {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+    }
+
+    .pl-author {
+      font-size: 0.75rem;
+      color: #374151;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .pl-specialty {
+      font-size: 0.6875rem;
+      padding: 0.0625rem 0.5rem;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 4px;
+    }
+
+    .pl-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .pl-tag {
+      font-size: 0.6875rem;
+      padding: 0.0625rem 0.375rem;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 4px;
+    }
+
+    .pl-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
       font-size: 0.6875rem;
       color: #94a3b8;
     }
 
-    /* Dark Mode */
+    .pl-stat-highlight {
+      color: #7c3aed;
+    }
+
+    .pl-version {
+      background: #f1f5f9;
+      padding: 0.0625rem 0.375rem;
+      border-radius: 3px;
+      font-size: 0.625rem;
+      color: #64748b;
+    }
+
+    /* ============ Create Panel Dialog ============ */
+    .cp-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .cp-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      flex: 1;
+    }
+
+    .cp-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .cp-label {
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: #374151;
+    }
+
+    .required {
+      color: #ef4444;
+    }
+
+    .cp-test-count {
+      font-weight: 400;
+      color: #64748b;
+      font-size: 0.8125rem;
+      margin-left: 0.25rem;
+    }
+
+    .cp-hint {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .cp-selected-tests {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+      padding: 0.625rem;
+      background: #f3e8ff;
+      border-radius: 8px;
+      border: 1px solid #c4b5fd;
+      min-height: 2.5rem;
+    }
+
+    .cp-selected-test-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      background: #ede9fe;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: #6d28d9;
+      font-weight: 500;
+    }
+
+    .cp-chip-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      color: #a78bfa;
+      transition: color 0.2s;
+    }
+
+    .cp-chip-remove:hover {
+      color: #7c3aed;
+    }
+
+    .cp-chip-remove i {
+      font-size: 0.625rem;
+    }
+
+    .cp-no-tests {
+      font-size: 0.8125rem;
+      color: #94a3b8;
+      font-style: italic;
+      margin: 0;
+      padding: 0.5rem 0;
+    }
+
+    .cp-available-tests {
+      margin-top: 0.25rem;
+    }
+
+    .cp-available-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-weight: 500;
+      margin: 0 0 0.375rem;
+    }
+
+    .cp-tests-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.25rem;
+    }
+
+    .cp-test-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .cp-test-row:hover {
+      background: #faf5ff;
+    }
+
+    .cp-test-row.cp-test-added {
+      background: #f3e8ff;
+    }
+
+    .cp-test-name {
+      flex: 1;
+      font-size: 0.8125rem;
+      color: #1e293b;
+    }
+
+    .cp-test-code {
+      font-size: 0.6875rem;
+      color: #64748b;
+    }
+
+    .cp-fasting-badge {
+      font-size: 0.625rem;
+      padding: 0.0625rem 0.375rem;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 4px;
+    }
+
+    /* ============ Dark Mode ============ */
     .lab-orders.dark {
       background: #0f172a;
     }
@@ -1488,9 +2260,253 @@ interface DiagnosisCode {
       border-color: #334155;
     }
 
+    .dark .orders-header h1 {
+      color: #f1f5f9;
+    }
+
+    .dark .subtitle {
+      color: #94a3b8;
+    }
+
+    .dark .card-header {
+      border-color: #334155;
+    }
+
+    .dark .card-header h3 {
+      color: #f1f5f9;
+    }
+
+    .dark .panel-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark .panel-card:hover {
+      border-color: #7c3aed;
+      background: #2d1b5e;
+    }
+
+    .dark .panel-card.selected {
+      border-color: #8b5cf6;
+      background: #2d1b5e;
+    }
+
+    .dark .panel-name {
+      color: #f1f5f9;
+    }
+
+    .dark .panel-desc {
+      color: #94a3b8;
+    }
+
+    .dark .test-item {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark .test-item:hover {
+      background: #2d1b5e;
+      border-color: #7c3aed;
+    }
+
+    .dark .test-item.selected {
+      background: #2d1b5e;
+      border-color: #8b5cf6;
+    }
+
+    .dark .test-name {
+      color: #f1f5f9;
+    }
+
+    .dark .test-code,
+    .dark .specimen,
+    .dark .tat {
+      color: #64748b;
+    }
+
+    .dark .selected-item {
+      background: #2d1b5e;
+    }
+
+    .dark .option-field label {
+      color: #cbd5e1;
+    }
+
+    .dark .panels-section h4,
+    .dark .tests-section h4,
+    .dark .selected-tests h4,
+    .dark .specimen-summary h4 {
+      color: #cbd5e1;
+    }
+
+    /* Panel library dark mode */
+    .dark .pl-tabs {
+      border-color: #334155;
+    }
+
+    .dark .pl-tab {
+      color: #94a3b8;
+    }
+
+    .dark .pl-tab:hover {
+      color: #a78bfa;
+      background: #1e293b;
+    }
+
+    .dark .pl-tab.active {
+      color: #a78bfa;
+      border-bottom-color: #a78bfa;
+    }
+
+    .dark .pl-tab-count {
+      background: #334155;
+      color: #94a3b8;
+    }
+
+    .dark .pl-tab.active .pl-tab-count {
+      background: #2d1b5e;
+      color: #a78bfa;
+    }
+
+    .dark .pl-card {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .dark .pl-card:hover {
+      border-color: #7c3aed;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+    }
+
+    .dark .pl-card-shared {
+      border-left-color: #7c3aed;
+    }
+
+    .dark .pl-card-name {
+      color: #f1f5f9;
+    }
+
+    .dark .pl-card-desc {
+      color: #94a3b8;
+    }
+
+    .dark .pl-test-chip {
+      background: #2d1b5e;
+      color: #a78bfa;
+    }
+
+    .dark .pl-badge-published {
+      background: #14532d;
+      color: #86efac;
+    }
+
+    .dark .pl-badge-private {
+      background: #1e293b;
+      color: #64748b;
+    }
+
+    .dark .pl-card-meta {
+      border-top-color: #334155;
+    }
+
+    .dark .pl-author {
+      color: #cbd5e1;
+    }
+
+    .dark .pl-specialty {
+      background: #422006;
+      color: #fde68a;
+    }
+
+    .dark .pl-tag {
+      background: #1e293b;
+      color: #94a3b8;
+    }
+
+    .dark .pl-stat {
+      color: #64748b;
+    }
+
+    .dark .pl-stat-highlight {
+      color: #a78bfa;
+    }
+
+    .dark .pl-version {
+      background: #334155;
+      color: #94a3b8;
+    }
+
+    .dark .pl-empty {
+      color: #64748b;
+    }
+
+    .dark .pl-empty p {
+      color: #94a3b8;
+    }
+
+    /* Create panel dialog dark mode */
+    .dark .cp-label {
+      color: #cbd5e1;
+    }
+
+    .dark .cp-selected-tests {
+      background: #2d1b5e;
+      border-color: #5b21b6;
+    }
+
+    .dark .cp-selected-test-chip {
+      background: #3b1f7a;
+      color: #c4b5fd;
+    }
+
+    .dark .cp-chip-remove {
+      color: #7c3aed;
+    }
+
+    .dark .cp-chip-remove:hover {
+      color: #a78bfa;
+    }
+
+    .dark .cp-tests-grid {
+      border-color: #334155;
+    }
+
+    .dark .cp-test-row:hover {
+      background: #1e293b;
+    }
+
+    .dark .cp-test-row.cp-test-added {
+      background: #2d1b5e;
+    }
+
+    .dark .cp-test-name {
+      color: #f1f5f9;
+    }
+
+    .dark .cp-test-code {
+      color: #64748b;
+    }
+
+    .dark .cp-fasting-badge {
+      background: #422006;
+      color: #fde68a;
+    }
+
+    .dark .cp-available-label {
+      color: #94a3b8;
+    }
+
+    .dark .cp-hint {
+      color: #64748b;
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
       .new-order-content {
+        grid-template-columns: 1fr;
+      }
+
+      .cp-row {
         grid-template-columns: 1fr;
       }
     }
@@ -1500,6 +2516,7 @@ export class LabOrdersComponent implements OnInit, OnDestroy {
   readonly themeService = inject(ThemeService);
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly labService = inject(LabService);
   private readonly destroy$ = new Subject<void>();
 
   // Inputs
@@ -1523,6 +2540,48 @@ export class LabOrdersComponent implements OnInit, OnDestroy {
   showOrderDetailDialog = signal(false);
   showOrderSetsDialog = signal(false);
   selectedOrder = signal<LabOrder | null>(null);
+
+  // Custom panel library signals
+  myPanels = signal<ServiceCustomLabPanel[]>([]);
+  sharedPanels = signal<ServiceCustomLabPanel[]>([]);
+  panelLibraryTab = signal<'order-sets' | 'my-panels' | 'shared'>('order-sets');
+  panelLibrarySearch = signal('');
+  showCreatePanelDialog = signal(false);
+  creatingPanel = signal(false);
+  publishingPanelId = signal<string | null>(null);
+  cloningPanelId = signal<string | null>(null);
+  deletingPanelId = signal<string | null>(null);
+
+  // Create panel form state
+  newPanelName = '';
+  newPanelDescription = '';
+  newPanelTags = '';
+  newPanelSpecialty = '';
+  newPanelTests = signal<LabTest[]>([]);
+
+  // Computed filtered panel lists
+  filteredMyPanels = computed(() => {
+    const search = this.panelLibrarySearch().toLowerCase().trim();
+    if (!search) return this.myPanels();
+    return this.myPanels().filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.description?.toLowerCase().includes(search) ||
+      p.tags?.some(t => t.toLowerCase().includes(search)) ||
+      p.specialty?.toLowerCase().includes(search)
+    );
+  });
+
+  filteredSharedPanels = computed(() => {
+    const search = this.panelLibrarySearch().toLowerCase().trim();
+    if (!search) return this.sharedPanels();
+    return this.sharedPanels().filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.description?.toLowerCase().includes(search) ||
+      p.tags?.some(t => t.toLowerCase().includes(search)) ||
+      p.specialty?.toLowerCase().includes(search) ||
+      p.createdByName.toLowerCase().includes(search)
+    );
+  });
 
   // Form state
   testSearch = '';
@@ -1549,6 +2608,23 @@ export class LabOrdersComponent implements OnInit, OnDestroy {
     { label: 'In-Office Draw', value: 'in-office' },
     { label: 'Send to Lab', value: 'lab-draw' },
     { label: 'Patient Collected', value: 'patient-collected' },
+  ];
+
+  specialtyOptions = [
+    { label: 'Internal Medicine', value: 'Internal Medicine' },
+    { label: 'Family Medicine', value: 'Family Medicine' },
+    { label: 'Cardiology', value: 'Cardiology' },
+    { label: 'Endocrinology', value: 'Endocrinology' },
+    { label: 'Nephrology', value: 'Nephrology' },
+    { label: 'Gastroenterology', value: 'Gastroenterology' },
+    { label: 'Pulmonology', value: 'Pulmonology' },
+    { label: 'Neurology', value: 'Neurology' },
+    { label: 'Surgery', value: 'Surgery' },
+    { label: 'Oncology', value: 'Oncology' },
+    { label: 'Obstetrics & Gynecology', value: 'Obstetrics & Gynecology' },
+    { label: 'Pediatrics', value: 'Pediatrics' },
+    { label: 'Emergency Medicine', value: 'Emergency Medicine' },
+    { label: 'Other', value: 'Other' },
   ];
 
   // Mock data
@@ -1625,6 +2701,7 @@ export class LabOrdersComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadMockOrders();
+    this.loadPanelLibrary();
   }
 
   ngOnDestroy(): void {
@@ -1864,6 +2941,251 @@ export class LabOrdersComponent implements OnInit, OnDestroy {
 
   getTestName(testId: string): string {
     return this.labTests.find(t => t.id === testId)?.name || testId;
+  }
+
+  // ============ Panel Library ============
+
+  private loadPanelLibrary(): void {
+    this.labService.getMyPanels()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(panels => this.myPanels.set(panels));
+
+    this.labService.getSharedPanels()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(panels => this.sharedPanels.set(panels));
+  }
+
+  openPanelLibrary(): void {
+    this.panelLibrarySearch.set('');
+    this.showOrderSetsDialog.set(true);
+  }
+
+  selectCustomPanel(panel: ServiceCustomLabPanel): void {
+    // Map service LabTest to local LabTest shape
+    const existingIds = new Set(this.selectedTests().map(t => t.id));
+    const newTests: LabTest[] = panel.tests
+      .filter(st => !existingIds.has(st.id))
+      .map(st => ({
+        id: st.id,
+        code: st.code,
+        name: st.name,
+        category: st.category,
+        specimen: st.specimenType,
+        container: '',
+        volume: '3 mL',
+        turnaroundTime: st.turnaroundTime || '24 hours',
+        cptCode: st.cptCode || '',
+        requiresFasting: st.fastingRequired,
+      }));
+    this.selectedTests.update(ts => [...ts, ...newTests]);
+    this.updateFastingRequirement();
+    this.showOrderSetsDialog.set(false);
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Panel Applied',
+      detail: `"${panel.name}" added ${newTests.length} test(s) to your order`,
+    });
+  }
+
+  openCreatePanelDialog(): void {
+    this.newPanelName = '';
+    this.newPanelDescription = '';
+    this.newPanelTags = '';
+    this.newPanelSpecialty = '';
+    // Pre-populate with currently selected tests if any
+    const currentTests = this.selectedTests();
+    if (currentTests.length > 0) {
+      this.newPanelTests.set([...currentTests]);
+    } else {
+      this.newPanelTests.set([]);
+    }
+    this.showCreatePanelDialog.set(true);
+  }
+
+  removeNewPanelTest(test: LabTest): void {
+    this.newPanelTests.update(ts => ts.filter(t => t.id !== test.id));
+  }
+
+  addTestToNewPanel(test: LabTest): void {
+    if (!this.newPanelTests().some(t => t.id === test.id)) {
+      this.newPanelTests.update(ts => [...ts, test]);
+    }
+  }
+
+  isTestInNewPanel(test: LabTest): boolean {
+    return this.newPanelTests().some(t => t.id === test.id);
+  }
+
+  createPanel(): void {
+    if (!this.newPanelName.trim()) {
+      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Panel name is required' });
+      return;
+    }
+    if (this.newPanelTests().length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Validation', detail: 'Select at least one test' });
+      return;
+    }
+
+    this.creatingPanel.set(true);
+
+    // Map local LabTest back to service model shape (partial)
+    const tags = this.newPanelTags
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    // Build a partial CustomLabPanel compatible with the service
+    const panelPayload: Partial<ServiceCustomLabPanel> = {
+      name: this.newPanelName.trim(),
+      description: this.newPanelDescription.trim(),
+      tags,
+      specialty: this.newPanelSpecialty,
+      // Tests need to match the service LabTest model; map from local shape
+      tests: this.newPanelTests().map(t => ({
+        id: t.id,
+        code: t.code,
+        testCode: t.code,
+        name: t.name,
+        testName: t.name,
+        category: t.category.toLowerCase() as any,
+        specimenType: (t.specimen?.toLowerCase() || 'blood') as any,
+        fastingRequired: t.requiresFasting || false,
+        fastingHours: t.requiresFasting ? 8 : undefined,
+        turnaroundTime: t.turnaroundTime,
+        cptCode: t.cptCode,
+      })),
+    };
+
+    this.labService.createCustomPanel(panelPayload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (panel) => {
+          this.myPanels.update(panels => [...panels, panel]);
+          this.creatingPanel.set(false);
+          this.showCreatePanelDialog.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Panel Created',
+            detail: `"${panel.name}" has been saved to My Panels`,
+          });
+        },
+        error: () => {
+          this.creatingPanel.set(false);
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create panel' });
+        },
+      });
+  }
+
+  publishPanel(panel: ServiceCustomLabPanel): void {
+    this.publishingPanelId.set(panel.id);
+    this.labService.publishPanel(panel.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.myPanels.update(panels => panels.map(p => p.id === updated.id ? updated : p));
+          this.publishingPanelId.set(null);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Published',
+            detail: `"${updated.name}" is now visible in the Shared Library`,
+          });
+        },
+        error: () => {
+          this.publishingPanelId.set(null);
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to publish panel' });
+        },
+      });
+  }
+
+  unpublishPanel(panel: ServiceCustomLabPanel): void {
+    this.publishingPanelId.set(panel.id);
+    this.labService.unpublishPanel(panel.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.myPanels.update(panels => panels.map(p => p.id === updated.id ? updated : p));
+          // Remove from shared list since it's now unpublished
+          this.sharedPanels.update(panels => panels.filter(p => p.id !== updated.id));
+          this.publishingPanelId.set(null);
+          this.messageService.add({
+            severity: 'info',
+            summary: 'Unpublished',
+            detail: `"${updated.name}" has been removed from the Shared Library`,
+          });
+        },
+        error: () => {
+          this.publishingPanelId.set(null);
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to unpublish panel' });
+        },
+      });
+  }
+
+  clonePanel(panel: ServiceCustomLabPanel): void {
+    this.cloningPanelId.set(panel.id);
+    this.labService.clonePanel(panel.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (clone) => {
+          this.myPanels.update(panels => [...panels, clone]);
+          this.cloningPanelId.set(null);
+          this.panelLibraryTab.set('my-panels');
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Cloned',
+            detail: `"${clone.name}" added to My Panels`,
+          });
+        },
+        error: () => {
+          this.cloningPanelId.set(null);
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to clone panel' });
+        },
+      });
+  }
+
+  deletePanel(panel: ServiceCustomLabPanel): void {
+    this.confirmationService.confirm({
+      message: `Delete panel "${panel.name}"? This cannot be undone.`,
+      header: 'Delete Panel',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.deletingPanelId.set(panel.id);
+        this.labService.deleteCustomPanel(panel.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: () => {
+              this.myPanels.update(panels => panels.filter(p => p.id !== panel.id));
+              this.deletingPanelId.set(null);
+              this.messageService.add({
+                severity: 'warn',
+                summary: 'Deleted',
+                detail: `"${panel.name}" has been deleted`,
+              });
+            },
+            error: () => {
+              this.deletingPanelId.set(null);
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete panel' });
+            },
+          });
+      },
+    });
+  }
+
+  formatUseCount(count: number): string {
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+    return count.toString();
+  }
+
+  panelLastUsed(dateStr?: string): string {
+    if (!dateStr) return 'Never';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 30) return `${diffDays}d ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+    return `${Math.floor(diffDays / 365)}y ago`;
   }
 
   getOrderTimeline(order: LabOrder): any[] {
